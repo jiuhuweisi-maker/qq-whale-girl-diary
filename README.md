@@ -25,7 +25,9 @@
 | 现画兜底 | 百炼 qwen-image-2.1-pro，仅限群友原话明确说"画"才用 |
 | CS 叫魂 | cron 每 2~4 天随机时刻 @全体 喊打 CS（8 条文案轮换，40% 配图） |
 | 记忆 | 值班交接日志 QQ-DUTY-LOG.md + 每 2 天的桌面侧巡检换班 |
-| 人设 | AGENTS.md"群友修炼手册"：口语、短、会抬杠、记仇、callback 旧梗 |
+| CS 真爱 | 人设焊死：群里 @全体 喊打 CS 她永远最积极，秒回抢报名聊枪法 |
+| 网感自学 | cron 每 2~4 天扒微博/百度热榜→冲浪小抄 MEME_NOTES.md，聊天自然用梗、不硬塞、不复读 |
+| 人设 | AGENTS.md"群友修炼手册"：口语、短、会抬杠、记仇、callback 旧梗、潜水文化 |
 
 ## 架构
 
@@ -41,9 +43,10 @@
 │   ├── AGENTS.md              人设与规矩（每轮生效，改完不用重启）
 │   ├── QQ-DUTY-LOG.md         值班交接日志（记忆载体）
 │   └── stickers/memecub/      表情库 + INDEX.tsv 台账 + .used.json 轮换账
-└── /opt/qq-cs/                cron 杂务（CS 叫魂 / 自动进货 / pick_hint）
+└── /opt/qq-cs/                cron 杂务（CS 叫魂 / 自动进货 / 网感自学 / pick_hint）
     ├── cs.py          crontab: 7 * * * *
     ├── auto_memes.py  crontab: 23 * * * *
+    ├── learn_memes.py crontab: 39 */6 * * *   扒热搜炼成冲浪小抄
     └── pick_hint.py   被 agent 调用：3 张"久未露面"候选图
 ```
 
@@ -67,6 +70,8 @@
 7. **表情库**：跑 `scripts/auto_memes.py`（--demo 首次建台账），cron 挂上。
 8. **CS**：`scripts/cs.py` 改群号，cron 挂上，`--force` 打一发验证 @全体
    （前提：先把 bot 设为群管理员，否则 @全体 无效）。
+9. **网感**：`scripts/learn_memes.py` cron 挂上（0 token 扒热搜写小抄），
+   人设里配"懂才用、不硬塞、不复读、不提爬虫"四条使用纪律。
 
 ## 踩坑名场面（每条都是血泪）
 
@@ -90,6 +95,9 @@
   （png/webp/gif 都有可能），下载要先解析 og 标签。
 - **上下文膨胀**：会话跑到 167K tok 后每条 QQ 消息都驮着历史跑。
   对策：交接日志保记忆 + 定时巡检 + 到阈值换班开新会话。
+- **本地直推 GitHub 连不上**：网络到 github.com 被 reset。
+  对策：`git bundle create` → scp 到阿里云 → 服务器上 clone bundle →
+  带 token 的 URL 一次性 push（推完 shred 掉 token，服务器不留档）。
 
 ## "像群友而不是客服"心法
 
@@ -101,12 +109,16 @@
 6. **进货别吆喝**：新表情冷藏几天，某天聊天自然甩出来，惊喜感 +1。
 7. **不接的话就别让 token 进线**：群消息过滤做在桥层（不 @ 不进会话），
    比"进了会话再装死"省钱一个数量级。
+8. **给一条真爱爱好**：CS 这种"她自己的兴趣"让对话有重心——喊打游戏时的
+   积极劲儿，比任何话术模板都活。
+9. **让她上网自学**：热搜小抄自动更新 + "懂才用不硬塞"的纪律，
+   梗的保质期跟着滚动，一周后她还"活在网里"。
 
 ## 目录
 
 ```
-templates/  AGENTS.md 群友修炼手册 v4 · QQ-DUTY-LOG 样例
-scripts/    cs.py 自动进货 pick_hint.py（NapCat API 占位符版）
+templates/  AGENTS.md 群友修炼手册 · QQ-DUTY-LOG 样例
+scripts/    cs.py · auto_memes.py · learn_memes.py · pick_hint.py（占位符版）
 docs/       bridge-patches.md dsh-qq-bridge 十连补丁全记录
 ```
 
