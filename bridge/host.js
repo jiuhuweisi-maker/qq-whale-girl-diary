@@ -932,8 +932,9 @@ export function apply(ctx) {
           const 热 = 热聊.get(群发言者)
           if (!(热 && Date.now() < 热)) continue        // 不在热聊窗口且没 @ → 装死
           if (段们G.some((x) => x && x.type === 'at' && String((x.data && x.data.qq) || x.qq || '') !== 'all' && Number((x.data && x.data.qq) || 0) !== Number(条.self_id))) continue  // 在叫别人 → 不接茬
+          热聊.set(群发言者, Date.now() + (群发言者 === Number(配置.私聊QQ) ? 600000 : 180000)) // patch25滑窗：收到即续期
         } else {
-          热聊.set(群发言者, Date.now() + 180000)       // 被 @：陪聊窗口 3 分钟
+          热聊.set(群发言者, Date.now() + (群发言者 === Number(配置.私聊QQ) ? 600000 : 180000)) // 被@：常人3分钟，主人10分钟
           if (热聊.size > 40) { const k = 热聊.keys().next().value; 热聊.delete(k) }
         }
         if ((条.time || 0) < 上次群时间) continue
@@ -1111,6 +1112,7 @@ export function apply(ctx) {
     } catch (error) {}
     if (禁言中()) return 回(res, { ok: true, 说: '禁言中，这下先挡了' })
     记账(`戳一戳通知：${名}(${uid}) ${gid ? '在群里' : '私聊'}戳了她`)
+    if (gid) 热聊.set(uid, Date.now() + (uid === Number(配置.私聊QQ) ? 600000 : 180000)) // patch25：戳当被叫，开陪聊窗
     if (!禁言中()) setTimeout(() => {
       void 发一个(配置.NapCat, gid ? 'group_poke' : 'friend_poke', gid ? { group_id: gid, user_id: uid } : { user_id: uid })
         .then((r) => 记账(`自动回戳 ${名}(${uid}) ${gid ? '群' : '私'}：${r.ok ? '✓' : '✗'}`))
