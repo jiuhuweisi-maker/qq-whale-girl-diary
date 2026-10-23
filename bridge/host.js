@@ -963,38 +963,66 @@ export function apply(ctx) {
   const 禁言中 = () => 无限禁言 || Date.now() < 禁言到
 
   function 解析主人指令(文) {
-    const t = String(文 || '').trim().replace(/^[/／>＞「」『』【】\[\]()（）“”‘’'"]+/, '').replace(/[。！!？~～、，,「」『』【】\[\]()（）“”‘’'"\s]+$/, '').replace(/^[/／>＞「」『』【】\[\]()（）]+|[。！!？~～、，,\s]+$/g, '').trim()
-    if (!t) return null
-    if (/^(查余额|余额|balance)$/i.test(t)) return { cmd: '余额' }
-    if (/^(状态|status)$/i.test(t)) return { cmd: '状态' }
-    if (/^(帮助|指令|help)$/i.test(t)) return { cmd: '帮助' }
-    if (/^冷却$/.test(t)) return { cmd: '冷却' }
-    if (/^开口$/.test(t)) return { cmd: '开口' }
-    let m = t.match(/^闭嘴[  ]*(\d{1,4})?$/)
+    const 原始 = String(文 || '').trim()
+    if (!原始) return null
+    const 强令 = /^[/／>＞]/.test(原始)
+    const t = 原始.replace(/^[/／>＞]+/, '').trim()
+    const 净 = t.replace(/[^0-9A-Za-z\u4e00-\u9fff]+/g, '')
+    const 剥 = t.replace(/^[/／>＞「」『』【】\[\]()（）“”‘’'""]+/, '').replace(/[。！!？~～、，,「」『』【】\[\]()（）“”‘’'""]+$/, '').replace(/^[/／>＞「」『』【】\[\]()（）]+|[。！!？~～、，,\s]+$/g, '').trim()
+    if (!剥) return null
+    if (/^(查余额|余额|balance)$/i.test(剥)) return { cmd: '余额' }
+    if (/^(状态|status)$/i.test(剥)) return { cmd: '状态' }
+    if (/^(帮助|指令|help)$/i.test(剥)) return { cmd: '帮助' }
+    if (/^冷却$/.test(剥)) return { cmd: '冷却' }
+    if (/^开口$/.test(剥)) return { cmd: '开口' }
+    let m = 剥.match(/^闭嘴[  ]*(\d{1,4})?$/)
     if (m) return { cmd: '闭嘴', arg: m[1] || '' }
-    m = t.match(/^日志[  ]*(\d{1,2})?$/)
+    m = 剥.match(/^日志[  ]*(\d{1,2})?$/)
     if (m) return { cmd: '日志', arg: m[1] || '' }
-    m = t.match(/^(去群里说|替我说|群里发)[  ]+([\s\S]+)$/)
+    m = 剥.match(/^(去群里说|替我说|群里发)[  ]+([\s\S]+)$/)
     if (m && m[2].trim()) return { cmd: '群里说', arg: m[2].trim() }
-    m = t.match(/^禁言[  ]+(\S+?)(?:[  ]+(\d{1,4}))?$/)
+    m = 剥.match(/^禁言[  ]+(\S+?)(?:[  ]+(\d{1,4}))?$/)
     if (m && m[1]) return { cmd: '管', act: 'ban', who: m[1], min: Number(m[2] || 10) }
-    m = t.match(/^(?:解禁|放人)[  ]+(\S+)$/)
+    m = 剥.match(/^(?:解禁|放人)[  ]+(\S+)$/)
     if (m) return { cmd: '管', act: 'unban', who: m[1] }
-    m = t.match(/^踢[  ]+(\S+)$/)
+    m = 剥.match(/^踢[  ]+(\S+)$/)
     if (m) return { cmd: '管', act: 'kick', who: m[1] }
-    return null
-  }
-
-  function 读DEEPSEEK密钥() {
-    const 址们 = [(process.env.HOME || '/root') + '/.dsh/.credentials.yaml', '/root/.dsh/.credentials.yaml']
-    for (const 址 of 址们) {
-      try {
-        const y = readFileSync(址, 'utf-8')
-        const m = y.match(/DEEPSEEK_API_KEY:\s*(sk-[A-Za-z0-9._-]+)/)
-        if (m) return m[1]
-      } catch (error) {}
+    // —— 自然语言兜底：精确口令没中才走这，保守防误伤 ——
+    if (净.length > 30 && !强令 && !/(去群里说|替我说|群里发|通知群)/.test(净)) return null
+    const 候选 = []
+    const 打分 = (令, 分) => 候选.push({ 令, 分 })
+    const 分钟 = (() => {
+      const a2 = t.match(/(\d{1,4})\s*分钟/); if (a2) return Number(a2[1])
+      const b2 = t.match(/(\d{1,3})\s*(?:个)?(?:小时|h)/i); if (b2) return Number(b2[1]) * 60
+      if (/半\s*(?:个)?小时/.test(t)) return 30
+      const 数 = { 一: 1, 两: 2, 俩: 2, 三: 3, 五: 5, 十: 10, 十五: 15, 二十: 20, 三十: 30 }
+      const c2 = t.match(/(十五|二十|三十|一|两|俩|三|五|十)\s*分钟/); if (c2) return 数[c2[1]] || 10
+      return 0
+    })()
+    if (/余额|额度|balance|钱(?:还)?(?:剩|够|多少)|(?:还有|还剩)多少(?:钱|块)/i.test(净) && (净.length <= 10 || /查|看|还有|剩|多少|够|报|差/.test(净) || 强令)) 打分({ cmd: '余额' }, 3)
+    if (/^(?:你的?|现在|目前)?(?:状态|运行情况|健康)/.test(净) && 净.length <= 14) 打分({ cmd: '状态' }, 3)
+    if (/(状态|运行|活着|在线|挂没挂).{0,3}(怎样|如何|咋样|情况|吗)/.test(净)) 打分({ cmd: '状态' }, 3)
+    if (/^(?:帮助|有什么(?:功能|指令)|指令(?:表|列表)?|都会(?:啥|什么)|能干(?:啥|什么)|你能干)/.test(净)) 打分({ cmd: '帮助' }, 3)
+    if (/(闭嘴|安静|别说话|不要说话|先别说|消停|停嘴)/.test(净) && 净.length <= 16) 打分({ cmd: '闭嘴', arg: String(分钟 || 30) }, 3)
+    if (/^(?:开口|解除静音|恢复说话|可以(?:继续)?说(?:话)?了?|继续说)/.test(净)) 打分({ cmd: '开口' }, 3)
+    if (/^(?:翻?日志|看看日志)/.test(净)) { 打分({ cmd: '日志', arg: (t.match(/(\d{1,2})/) || [])[1] || '' }, 3) }
+    if (/^(?:重置|清空)?冷却/.test(净) && 净.length <= 8) 打分({ cmd: '冷却' }, 3)
+    m = t.match(/(?:去群里说|替我说|群里发|跟?群里(?:说|发)(?:一句|一声)?|通知群(?:里)?|帮我发(?:到|去|进)?群(?:里)?)[\s:：，,]*(.+)$/s)
+    if (m && m[1].trim()) 打分({ cmd: '群里说', arg: m[1].trim() }, 3)
+    const 目标 = (() => {
+      const q = t.match(/\d{5,12}/); if (q) return q[0]
+      const r = t.replace(/别禁了?|不用禁了?|禁言|解禁|取消禁言|踢出群?|踢掉|移出群|请出|赶出|分钟|小时|半|\d|[一二两俩三五十]+|一下|谁|谁谁|这个人?|家伙|她|他|们|把|给|来|去|立刻|马上|先|再|别|不用|继续|恢复|解除|吧|了|呗|啊|呀|哦|嗯|嘛|哈|在|一下儿|十|分|钟|时|小|多|少|点/g, '').trim()
+      return r || ''
+    })()
+    if (/解禁|取消禁言|(?:别|不用|解除)(?:禁|关禁闭|再禁)|放人/.test(净)) 打分({ cmd: '管', act: 'unban', who: 目标 }, 3)
+    if (/禁言/.test(净)) 打分({ cmd: '管', act: 'ban', who: 目标, min: 分钟 || 10 }, 3)
+    if (/(踢出|踢了|踢掉|^踢|移出群|请出|赶出)/.test(净) && 目标) 打分({ cmd: '管', act: 'kick', who: 目标 }, 3)
+    if (!候选.length) return null
+    候选.sort((a2, b2) => b2.分 - a2.分)
+    if (候选.length > 1 && 候选[0].分 === 候选[1].分 && 候选[0].令.cmd !== 候选[1].令.cmd) {
+      return { cmd: '冲突', 说: '这条想当指令但拿不准是「' + 候选.map((c) => c.令.cmd).join('/') + '」——说明确点，或开头加个 / 我就当铁了心' }
     }
-    return ''
+    return 候选[0].令
   }
 
   async function 执行主人指令(配置, 令, 原文) {
@@ -1006,8 +1034,10 @@ export function apply(ctx) {
     }
     记账(`主人指令：${String(原文).slice(0, 40)}`)
     try {
+      if (令.cmd === '冲突') return 答(令.说)
+      if (令.cmd === '管' && !令.who) return 答('管谁？名字或QQ号给一个')
       if (令.cmd === '帮助') {
-        return 答('指令表：查余额｜状态｜日志N｜闭嘴(或 闭嘴30=静音30分钟)｜开口｜冷却｜去群里说 文本｜禁言 昵称或QQ 分钟｜解禁 昵称｜踢 昵称（管理类需她是管理）。零token')
+        return 答('指令表：查余额｜状态｜日志N｜闭嘴(或 闭嘴30=静音30分钟)｜开口｜冷却｜去群里说 文本｜禁言 昵称或QQ 分钟｜解禁 昵称｜踢 昵称（管理类需她是管理）。自然点说也行：帮我查下余额/安静半小时/把某某禁言5分钟都认；拿不准开头加 /。零token')
       }
       if (令.cmd === '余额') {
         const 钥 = 读DEEPSEEK密钥()
@@ -1094,6 +1124,13 @@ export function apply(ctx) {
     if (!令) return 回(res, { ok: false, 说: '不是指令' })
     void 执行主人指令(读配置(), 令, 文)
     回(res, { ok: true, 说: '指令执行中，回执看主人私聊' })
+  })
+  路线(`${路由前缀}/parse-test`, async (req, res) => {
+    const 来 = await 读体(req)
+    const 文 = typeof 来.text === 'string' ? 来.text : ''
+    let 令 = null
+    try { 令 = 解析主人指令(文) } catch (e) { 令 = { cmd: '解析炸了', 说: String((e && e.message) || e) } }
+    回(res, { ok: true, 令 })
   })
 
   路线(`${路由前缀}/receive`, async (req, res) => {
