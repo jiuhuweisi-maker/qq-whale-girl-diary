@@ -368,6 +368,8 @@ export function apply(ctx) {
     return ''
   }
 
+  // patch22 节奏账本：她在群里连发纯文字的段数（发过图就清零）
+  let 连纯文 = 0
   /** 把一句正文发到该发的地方（私聊 / 群）；按空行拆段，一段一条连发。⭐ 末尾再加上图片。 */
   async function 发到QQ(配置, 原文字, 图们, 路由) {
     const 出 = []
@@ -452,6 +454,10 @@ export function apply(ctx) {
         出.push(await 发一个(配置.NapCat, 'send_group_msg', { group_id: Number(配置.群号), message: (路.艾特 ? [{ type: 'at', data: { qq: String(路.艾特) } }] : []).concat([一段图(x)]) }))
         await new Promise((r) => setTimeout(r, 发段延迟))
       }
+    }
+    if (路.来路 === 'group') {
+      if (图数据.length) 连纯文 = 0
+      else if (段们.length) 连纯文 = Math.min(连纯文 + 段们.length, 12)
     }
     return 出
   }
@@ -754,6 +760,8 @@ export function apply(ctx) {
     if (来路 && 来路 !== 'none') { 最后来路 = 来路; 来路时刻 = Date.now() }
     // 私聊轮询自己会清 艾特我人，这里不清，免得 /receive 测试误伤
     const 配置 = 读配置()
+    // ⭐ patch22 三句一图：连纯文字够 3 段就在这轮挂提醒（桥计数，不经大脑，别点破）
+    if (来路 === 'group' && 连纯文 >= 3) 文字 = String(文字 || '') + '\n（桥的提醒：你在群里已连发 ' + 连纯文 + ' 条纯文字了——本轮挑张对味的表情包甩出去，给气氛浇点油）'
     if (!配置.目标会话) return { ok: false, 说: '还没选「目标会话」' }
     if (!配置.总开关) return { ok: false, 说: '总开关关着，先打开' }
     const agent = 找agent(配置.目标会话)
@@ -1032,6 +1040,13 @@ export function apply(ctx) {
       try { return await 答('❌ 执行出错：' + String((error && error.message) || error).slice(0, 80)) } catch (e2) {}
     }
   }
+
+  // patch22 调试：查看/设置连文字计数（token 已把门）
+  路线(`${路由前缀}/streak`, async (req, res) => {
+    const 来 = await 读体(req)
+    if (来.set !== undefined) 连纯文 = Math.max(0, Math.min(Number(来.set) || 0, 12))
+    回(res, { ok: true, 连纯文 })
+  })
 
   // 调试入口：节点侧模拟主人指令（走与 QQ 私聊同一执行器）
   路线(`${路由前缀}/master-cmd`, async (req, res) => {
