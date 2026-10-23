@@ -17,17 +17,24 @@
 | QQ 收发 | NapCat（Docker）+ dsh-qq-bridge 插件（OneBot HTTP） |
 | 大脑 | DeepSeek Harness（`dsh web --port 3080`，systemd 托管） |
 | 群规 | 被 @ 或 @全体才回（群友含主人一视同仁）；**@回来的也带上** |
-| 续聊 | 谁 @ 了她，5 分钟内他不用 @ 也接着聊（"热聊窗"） |
+| 续聊 | 谁 @ 了她，3 分钟内他不用 @ 也接着聊（"热聊窗"） |
 | 分流 | 私聊/群聊各回各家，90 秒窗口判来路；网页控制台里聊的不外泄到 QQ |
 | 表情包 | memecub 正版鲸鱼娘图库 30+ 张，情绪挑图，轮换曝光 |
 | 自动进货 | cron 每 2~4 天随机时刻从 memecub 抓 1~3 张新图入台账（0 token） |
 | 冷藏机制 | 新图入库不吆喝，冷藏几天后在聊天里自然冒出来 |
 | 现画兜底 | 百炼 qwen-image-2.1-pro，仅限群友原话明确说"画"才用 |
-| CS 叫魂 | cron 每 2~4 天随机时刻 @全体 喊打 CS（8 条文案轮换，40% 配图） |
+| CS 叫魂 | cron 每 2~4 天随机时刻（晚间黄金档 20-23 点）@全体 喊打 CS（8 条文案轮换，40% 配图） |
 | 记忆 | 值班交接日志 QQ-DUTY-LOG.md + 每 2 天的桌面侧巡检换班 |
 | CS 真爱 | 人设焊死：群里 @全体 喊打 CS 她永远最积极，秒回抢报名聊枪法 |
 | 网感自学 | cron 每 2~4 天扒微博/百度热榜→冲浪小抄 MEME_NOTES.md，聊天自然用梗、不硬塞、不复读 |
-| 人设 | AGENTS.md"群友修炼手册"：口语、短、会抬杠、记仇、callback 旧梗、潜水文化 |
+| 人设 | AGENTS.md"群友修炼手册"：口语、短、会抬杠、记仇、callback 旧梗、潜水文化、句尾不带句号 |
+| 精准路由 | 每轮回复自带来路：谁触发回谁的通道、@回@她的人——多人连发零串台 |
+| 合并缓冲 | 有人连珠炮时等 5~7 秒静默窗合并成一条多行消息，她整体回应不机关枪 |
+| 主动冒泡 | cron 白天随机 1~2 次注入"冒泡提示"，她随口一句+表情包刷存在感（深夜自动略过） |
+| 画图两段式 | 明说"画"→秒回"稍等"→桥自动开画图轮→@人交图"久等了"（实测 44 秒交稿） |
+| 略过权+收尾权 | 无关消息输出"略过"=桥层真沉默；对方说"睡了/别回了"→告别+关陪聊窗，再@才理 |
+| 小黄脸识别 | QQ 自带 [微笑] 等 face 段翻译成文字给她，按梗味接（[微笑]=敷衍阴间） |
+| 引用回复 | 桥自动带 reply 段+失败降级（⚠️ NapCat 4.18.41 静默吞引用段，灰条暂不生效，详见 docs） |
 
 ## 架构
 
@@ -43,10 +50,12 @@
 │   ├── AGENTS.md              人设与规矩（每轮生效，改完不用重启）
 │   ├── QQ-DUTY-LOG.md         值班交接日志（记忆载体）
 │   └── stickers/memecub/      表情库 + INDEX.tsv 台账 + .used.json 轮换账
-└── /opt/qq-cs/                cron 杂务（CS 叫魂 / 自动进货 / 网感自学 / pick_hint）
-    ├── cs.py          crontab: 7 * * * *
-    ├── auto_memes.py  crontab: 23 * * * *
-    ├── learn_memes.py crontab: 39 */6 * * *   扒热搜炼成冲浪小抄
+└── /opt/qq-cs/                cron 杂务
+    ├── cs.py          crontab: 7 20-23 * * *    CS 叫魂（只走晚间黄金档）
+    ├── auto_memes.py  crontab: 23 * * * *       表情包进货检查
+    ├── learn_memes.py crontab: 39 */6 * * *     扒热搜炼成冲浪小抄
+    ├── proactive.py   crontab: 17 10-21 * * *   主动冒泡（调桥 /nudge 路由）
+    ├── draw.py        被 agent 调用：生图（画图两段式的执行端）
     └── pick_hint.py   被 agent 调用：3 张"久未露面"候选图
 ```
 
@@ -72,6 +81,14 @@
    （前提：先把 bot 设为群管理员，否则 @全体 无效）。
 9. **网感**：`scripts/learn_memes.py` cron 挂上（0 token 扒热搜写小抄），
    人设里配"懂才用、不硬塞、不复读、不提爬虫"四条使用纪律。
+10. **画图**：`scripts/draw.py` 放 `/opt/qq-cs/`，key 用 secrets.env 里的
+    `DASHSCOPE_API_KEY`（maas 镜像的 images/generations 也认它）。
+    人设配合"画图两段式流程"（先回稍等→桥注入画图轮→交图@人）。
+11. **主动冒泡**：`scripts/proactive.py` cron 挂上（10-21 点每小时检查，
+    内部 state 文件控每天 1~2 次节奏），调桥的 `/nudge` 路由注入群通道提示。
+12. **遥控器**：`scripts/whale.ps1`（Windows 本机）：status / say / log / pull /
+    push / wake。⚠️ dsh 每次 restart 后必须 `wake`（建隧道+开 GUI 标签唤醒会话），
+    patch12 保证昏迷期 10 分钟内消息不丢。
 
 ## 踩坑名场面（每条都是血泪）
 
@@ -98,6 +115,17 @@
 - **本地直推 GitHub 连不上**：网络到 github.com 被 reset。
   对策：`git bundle create` → scp 到阿里云 → 服务器上 clone bundle →
   带 token 的 URL 一次性 push（推完 shred 掉 token，服务器不留档）。
+- **restart 后会话昏迷，要 GUI 连上才醒**：web 会话必须有 websocket 连接才复活，
+  没有无头 resume。对策：SSH 隧道 + 浏览器开新 token URL（whale.ps1 wake 一键），
+  patch12 的"昏迷期不丢消息"兜底 10 分钟。
+- **QQ 小黄脸对 bot 默认不可见**：桥的片段转换只收 text/image，face 段直接丢——
+  别人发 [微笑] 她全程瞎。patch15 加 id→名字翻译表才让她看见小黄脸。
+- **生图 size 格式**：maas 镜像要 `1024x1024`（字母 x），写 `1024*1024` 报
+  InvalidParameter。好在报错文案直白，一眼定位。
+- **服务器 python 是 3.6**：`capture_output` 这类 3.7+ 语法直接 TypeError，
+  运维脚本按石器时代写（stdout=PIPE）。
+- **NapCat 假成功**：发送 reply 引用段返回 retcode 0，实际静默吞掉不渲染。
+  教训：别信 retcode，用 `get_msg` 反查已发消息的结构验证。
 
 ## "像群友而不是客服"心法
 
@@ -113,13 +141,24 @@
    积极劲儿，比任何话术模板都活。
 9. **让她上网自学**：热搜小抄自动更新 + "懂才用不硬塞"的纪律，
    梗的保质期跟着滚动，一周后她还"活在网里"。
+10. **机关枪是最像机器人的行为**：合并缓冲让她等人把话说完再整体回应——
+    "等对方说完"是活人第一礼仪。
+11. **句尾句号是播音腔**：真人聊天不打"。"。人设里一条禁令就能治好语气。
+12. **表情包要回表情包**：别人甩图你文字锐评"见过了"，气氛当场死掉；
+    甩一张回去才是表情包界的礼仪。
+13. **看人下菜碟**：认真聊的用力暖，猎奇问题回怼调侃卖萌拒绝——
+    一视同仁的礼貌是客服，有爱憎才是群友。
+14. **主动存在感要有边界**：白天随机冒泡可以，深夜自动闭嘴；
+    冒泡内容她自己定（时段问好/锐评/新梗），系统只负责戳她一下。
 
 ## 目录
 
 ```
-templates/  AGENTS.md 群友修炼手册 · QQ-DUTY-LOG 样例
-scripts/    cs.py · auto_memes.py · learn_memes.py · pick_hint.py（占位符版）
-docs/       bridge-patches.md dsh-qq-bridge 十连补丁全记录
+bridge/     host.js 打完十六连补丁的成品 · patches/ 逐补丁重放脚本（patch.py~patch16.py）
+config/     onebot11_example.json NapCat OneBot 配置样例
+templates/  AGENTS.md 群友修炼手册 v8 · QQ-DUTY-LOG 样例
+scripts/    cs · auto_memes · learn_memes · pick_hint · draw · proactive · whale.ps1（占位符版）
+docs/       bridge-patches.md 补丁全记录 · QQ-DUTY-LOG-live.md 实况值班日志（脱敏）· MEME_NOTES-snapshot.md 冲浪小抄样例
 ```
 
 ## 感谢

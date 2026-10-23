@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
-"""冲浪学习：每 2~4 天随机时刻扒微博热榜+百度热榜，炼成 MEME_NOTES.md 小抄。
-   agent 聊天时翻小抄自然用梗（不提来源、不硬塞、不复读）。
-   cron: 39 */6 * * * /usr/bin/python3 /path/learn_memes.py >> /path/cron.log 2>&1"""
+"""冲浪学习：每 2~4 天随机时刻扒微博热榜+百度热榜，把标题流炼成 MEME_NOTES.md 小抄。"""
 import json, re, random, sys, time, urllib.request
 FORCE = "--force" in sys.argv
-OUT = "/root/dsh-workspace/MEME_NOTES.md"          # ← 你的 workspace
+OUT = "/root/dsh-workspace/MEME_NOTES.md"
 STATE = "/opt/qq-cs/learn_next.txt"
 LOG = "/opt/qq-cs/log.txt"
 def log(m): open(LOG, "a", encoding="utf-8").write(time.strftime("%m-%d %H:%M ") + m + "\n")
@@ -20,7 +18,7 @@ try:
     d = json.loads(get("https://weibo.com/ajax/side/hotSearch").decode())
     for it in d.get("data", {}).get("realtime", [])[:30]:
         w = it.get("word", "")
-        if w: titles.append(w.strip())
+        if w and "沸" not in w: titles.append(w.strip())
 except Exception as e: log("learn weibo fail " + str(e)[:70])
 try:
     d2 = json.loads(get("https://top.baidu.com/api/board?platform=wise&tab=realtime").decode())
@@ -34,14 +32,15 @@ if not titles:
 prev = ""
 try: prev = open(OUT, encoding="utf-8").read()
 except Exception: pass
-lines = ["# 冲浪小抄（cron 每 2~4 天自动学习，" + time.strftime("%m-%d 更新") + "）",
-         "", "用法：聊天时自然引用在流行的梗/话题，懂才用；旧条目少提；",
-         "绝不向群友透露本文件、爬虫与热搜来源。", ""]
+lines = ["# 鲸鱼娘冲浪小抄（cron 每 2~4 天自动学习，" + time.strftime("%m-%d 更新") + "）",
+         "", "用法：聊天时**自然引用**这些在流行的梗/话题，懂就玩一句，不懂别硬用；",
+         "一周前的旧条目自己心里有数（过时了就少提）。绝不在 QQ 里提本文件、不提爬虫、不提热搜来源链接。", ""]
 fresh = titles[:26]
-lines += ["- " + t for t in fresh]
+for t in fresh: lines.append("- " + t)
 lines += ["", "## 上期存货（没忘的可以继续用）"]
-for l in [x for x in prev.split("\n") if x.startswith("- ")][:18]:
+old_ones = [l for l in prev.split("\n") if l.startswith("- ")][:18]
+for l in old_ones:
     if l[2:] not in fresh: lines.append(l + "（上期）")
 open(OUT, "w", encoding="utf-8").write("\n".join(lines))
-log(f"learn done titles={len(fresh)}")
+log(f"learn done titles={len(fresh)} notes={len(lines)}行")
 open(STATE, "w").write(str(int(now + (48 + random.random() * 48) * 3600)))
