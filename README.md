@@ -78,6 +78,11 @@
 本地电脑通过 SSH 隧道（`-L 13080:3080 -L 16099:6099`）访问控制台和 NapCat WebUI。
 防火墙只开 22，别的端口一律不开——要访问就走隧道。
 
+## 换新服务器？
+先看 **[docs/REBUILD.md](docs/REBUILD.md)** —— 速建手册：带走清单、装机顺序（每步带验证命令）、
+已付学费的坑、试运行验收电池；一键脚本 `scripts/bootstrap.sh`。
+表情库本体（431 张 261MB）备份在 GitHub Release **stickers-lib-2026-10**（分卷，cat 还原）。
+
 ## 部署速览（复现清单）
 
 1. **服务器**：SWAS 装 Docker，跑 `mlikiowa/napcat-docker`（restart=unless-stopped），
