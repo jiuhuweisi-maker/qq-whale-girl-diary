@@ -9,7 +9,7 @@
 ## 0. 从旧机器必须带走的清单
 | 资产 | 旧机路径 | 迁移方式 |
 |---|---|---|
-| 表情库 431 张 + INDEX.tsv + .used.json | /root/dsh-workspace/stickers/whale/ | GitHub Release `stickers-lib-2026-10`（分卷）或老服务器存活时 `rsync -a` 直迁 |
+| 表情库 431 张 + INDEX.tsv + .used.json | /root/dsh-workspace/stickers/whale/ | GitHub Release `stickers-lib-2026-10`（分卷）或老服务器存活时 `rsync -a` 直迁；**此后新收的群友图**（gr*.）随每日 live-backup/grabbed/ 自动上云，重建时先解 Release 大库再拉 live-backup 补齐即可 |
 | 值班日志 / 梗小抄 | QQ-DUTY-LOG.md / MEME_NOTES.md | **GitHub `live-backup/` 目录每天 12:40/22:40 由旧机自动脱敏推送**（旧机猝死的兜底，最多落后半天）；旧机还活着且网可达时优先 rsync 实时版 |
 | 人设 AGENTS.md | /root/dsh-workspace/ | 仓库 templates/ 即最新（每次改动都同步过） |
 | DeepSeek 主脑密钥 + 镜像站 key | /root/.dsh/.credentials.yaml | **不在 git**。主人手里要一份，新机器原样填 |

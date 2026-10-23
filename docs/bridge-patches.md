@@ -238,6 +238,15 @@ DSH，**在桥的私聊轮询里就被截胡**（发送者本来就必须是主�
 - group_poke / friend_poke 双路实测 `ok 0`；私聊、群聊同一入口
 - 同轮：patch22 群提醒阈值 3→5（配 AGENTS「五句一图 + 私聊不贴图」新节奏）
 
+### patch24 图闸（防刷屏防重图）
+发到QQ前对每个图段查闸：同文件名 24h 内已贴→拦下记🚫；群聊两张图不足 90s→按下记⏳。模块级 Map 记录（重启清零可接受）。治"LLM照抄记忆里旧图路径+兴奋期每条一贴"。
+
+### patch25 热聊滑窗（治"回戳后不理人"）
+被@开窗：主人 10 分钟/常人 3 分钟；窗内收到即续期（滑窗）；/poke 路由同样开窗（戳=被叫）。
+
+### 配套脚本层（非桥内）
+- grab_sticker.py：群友图收编入库（历史反查发送者→下载→指纹防重→INDEX+gr* 命名→自动进 pick_hint 轮换）
+- live_backup.sh v2：fetch→reset→重生成→commit→push，永不与远端分叉；灵魂 md + 新收图每日两班上云
 ## 已知坑（NapCat 4.18.41）
 - ~~发送 reply 段被静默吞~~ → patch18 已修复（字段名是 id 不是 message_id）。
 - reply 的 `id` 要用 onebot 层公开的 message_id（uniqueMsgId 短映射），
