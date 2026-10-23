@@ -7,14 +7,20 @@ set -e
 : "${QQ_BOT:?缺 QQ_BOT}" "${MASTER_QQ:?缺 MASTER_QQ}" "${GROUP_QQ:?缺 GROUP_QQ}"
 mkdir -p /opt/qq-cs /root/dsh-workspace/stickers
 cp -f scripts/*.py /opt/qq-cs/
-chmod +x /opt/qq-cs/*.py
+cp -f scripts/watchdog.sh scripts/live_backup.sh /opt/qq-cs/ 2>/dev/null || true
+chmod +x /opt/qq-cs/*.py /opt/qq-cs/*.sh 2>/dev/null || true
 # 桥配置（试运行先开 true，验收过再改 false 真发）
 cat > /root/.dsh/qq-bridge-config.json <<EOF
 {
-  "NapCat": {"base": "http://127.0.0.1:3000", "token": "${NAPCAT_TOKEN:-}"},
+  "NapCat": "http://127.0.0.1:3000",
   "群号": "${GROUP_QQ}",
   "私聊QQ": "${MASTER_QQ}",
   "她的QQ": "${QQ_BOT}",
+  "称呼": "鲸鱼娘",
+  "目标会话": "${GROUP_QQ}",
+  "图片根目录": "/root/dsh-workspace/stickers/whale",
+  "收图": true,
+  "收图最多": 2,
   "总开关": true,
   "试运行": true,
   "转群": true,
@@ -32,7 +38,7 @@ for u in whale-ws; do cp -f deploy/$u.service /etc/systemd/system/; done
 systemctl daemon-reload && systemctl enable --now whale-ws
 # cron（去重安装）
 crontab -l 2>/dev/null | grep -v qq-cs > /tmp/ct.new || true
-cat deploy/crontab.example >> /tmp/ct.new
+tr -d '\r' < deploy/crontab.example >> /tmp/ct.new
 crontab /tmp/ct.new
 echo "== 落位完成。下一步：把表情库解到 /root/dsh-workspace/stickers/whale，"
 echo "   credentials.yaml 填主脑 key，然后按 docs/REBUILD.md §1.8 跑试运行验收电池。"
