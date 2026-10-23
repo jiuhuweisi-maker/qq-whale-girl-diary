@@ -28,6 +28,7 @@ const 路由前缀 = '/dsh-qq-bridge'
 const 日志上限 = 60
 
 const 默认配置 = {
+  她的QQ: 0,
   总开关: false, // 关着 = 一句都不发（安全默认）
   试运行: true, // 开着 = 只记账、不真发到 QQ
   目标会话: '', // 盯哪个 DSH 会话（在设置页下拉里选，一般是你平时聊天的那一间）
@@ -77,6 +78,7 @@ function 归一化(原始) {
     试运行: 布(混.试运行, 默认配置.试运行),
     目标会话: 字(混.目标会话),
     私聊QQ: 字(混.私聊QQ),
+    她的QQ: 数(混.她的QQ, 默认配置.她的QQ || 0, 0, 99999999999),
     群号: 字(混.群号),
     转私聊: 布(混.转私聊, 默认配置.转私聊),
     转群: 布(混.转群, 默认配置.转群),
@@ -1009,13 +1011,23 @@ export function apply(ctx) {
     if (/^(?:重置|清空)?冷却/.test(净) && 净.length <= 8) 打分({ cmd: '冷却' }, 3)
     m = t.match(/(?:去群里说|替我说|群里发|跟?群里(?:说|发)(?:一句|一声)?|通知群(?:里)?|帮我发(?:到|去|进)?群(?:里)?)[\s:：，,]*(.+)$/s)
     if (m && m[1].trim()) 打分({ cmd: '群里说', arg: m[1].trim() }, 3)
-    const 目标 = (() => {
-      const q = t.match(/\d{5,12}/); if (q) return q[0]
-      const r = t.replace(/别禁了?|不用禁了?|禁言|解禁|取消禁言|踢出群?|踢掉|移出群|请出|赶出|分钟|小时|半|\d|[一二两俩三五十]+|一下|谁|谁谁|这个人?|家伙|她|他|们|把|给|来|去|立刻|马上|先|再|别|不用|继续|恢复|解除|吧|了|呗|啊|呀|哦|嗯|嘛|哈|在|一下儿|十|分|钟|时|小|多|少|点/g, '').trim()
-      return r || ''
-    })()
+    const 抓目标 = (src) => {
+      const 洗 = (x) => { let y = String(x).replace(/[@＠]/g, ''); for (let q = 0; q < 3; q++) { y = y.replace(/^(?:请|麻烦|帮我|帮忙|立刻|马上|赶紧|快点|去|把|将|在|咱|我|你|他|她)+/, '').replace(/^(?:群里|群内|我们群|这个群|群里|群)+/, '').replace(/^(?:的|叫|是|那位|那个|这个|名叫|叫做)+/, '').replace(/^(?:里|内|们)+/, '') } y = y.replace(/[了哈呀吗吧呗嘛的]+$/, ''); return y.replace(/[^0-9A-Za-z\u4e00-\u9fff@]/g, '').trim() }
+      let k = src.match(/[「『"'"']([^「』"'"']{1,14})[」』"'"']/)
+      if (k) return 洗(k[1])
+      k = src.match(/(?:把|帮|替|给)\s*([^,，。;；!！?？\s]{1,16}?)\s*(?:关禁闭|禁言|禁了|踢出|踢掉|移出|请出|赶出|解禁|别禁了?|不用禁了?|放)/)
+      if (k && 洗(k[1])) return 洗(k[1])
+      k = src.match(/(?:禁言|解禁|别禁了?|不用禁了?|放人|关禁闭|踢出|踢掉|移出群|请出|赶出|踢|静音)(?:一下|下|了)?\s*(?:谁|一下)?\s*([^,，。;；!！?？\s]{1,16}?)(?:吧|呗|哈|呀|吗|嘛)?(?=\s*(?:\d+|[一二两俩三四五六七八九十]+)?\s*(?:分钟|小时|半|钟头)?\s*$|[\s,，。!！?？])/)
+      if (k && 洗(k[1]) && !/^[\d一二两俩三四五六七八九十半]+$/.test(洗(k[1]))) return 洗(k[1])
+      k = src.match(/([0-9A-Za-z\u4e00-\u9fff]{1,14}?)(?:同学|老师)?(?:\s*(?:给我)?(?:去)?(?:关?禁言|禁了|关禁闭|踢出|踢掉|移出群|请出去|解禁))/)
+      if (k && 洗(k[1])) return 洗(k[1])
+      const q = src.match(/\d{5,12}/)
+      if (q) return q[0]
+      return ''
+    }
+    const 目标 = 抓目标(t)
     if (/解禁|取消禁言|(?:别|不用|解除)(?:禁|关禁闭|再禁)|放人/.test(净)) 打分({ cmd: '管', act: 'unban', who: 目标 }, 3)
-    if (/禁言/.test(净)) 打分({ cmd: '管', act: 'ban', who: 目标, min: 分钟 || 10 }, 3)
+    if (/禁言|关禁闭|禁了|关起来/.test(净)) 打分({ cmd: '管', act: 'ban', who: 目标, min: 分钟 || 10 }, 3)
     if (/(踢出|踢了|踢掉|^踢|移出群|请出|赶出)/.test(净) && 目标) 打分({ cmd: '管', act: 'kick', who: 目标 }, 3)
     if (!候选.length) return null
     候选.sort((a2, b2) => b2.分 - a2.分)
@@ -1036,50 +1048,59 @@ export function apply(ctx) {
   async function 执行主人指令(配置, 令, 原文) {
     const 答 = async (文) => {
       const 果 = await 发一个(配置.NapCat, 'send_private_msg', {
-        user_id: Number(配置.私聊QQ), message: [{ type: 'text', data: { text: ('【系统】' + String(文)).slice(0, 500) } }],
+        user_id: Number(配置.私聊QQ), message: [{ type: 'text', data: { text: String(文).slice(0, 500) } }],
       })
       if (!果.ok) 记账('指令回执发不出去：' + JSON.stringify(果.数据).slice(0, 120))
     }
     记账(`主人指令：${String(原文).slice(0, 40)}`)
     try {
       if (令.cmd === '冲突') return 答(令.说)
-      if (令.cmd === '管' && !令.who) return 答('管谁？名字或QQ号给一个')
-      if (令.cmd === '帮助') {
-        return 答('指令表：查余额｜状态｜日志N｜闭嘴(或 闭嘴30=静音30分钟)｜开口｜冷却｜去群里说 文本｜禁言 昵称或QQ 分钟｜解禁 昵称｜踢 昵称（管理类需她是管理）。自然点说也行：帮我查下余额/安静半小时/把某某禁言5分钟都认；拿不准开头加 /。零token')
+            if (令.cmd === '帮助') {
+        return 答('我会的这些，随口说就行：查余额｜状态｜日志N｜闭嘴(可带分钟)｜开口｜冷却｜去群里说…｜禁言 谁 几分钟｜解禁 谁｜踢 谁。前缀加 / = 铁了心发指令；我办完都会回你一声')
       }
       if (令.cmd === '余额') {
         const 钥 = 读DEEPSEEK密钥()
-        if (!钥) return 答('❌ 没找到 DEEPSEEK_API_KEY（.credentials.yaml）')
+        if (!钥) return 答('我翻不到自己的钥匙（credentials 没配 DEEPSEEK_API_KEY），查不了账喵')
         const r = await fetch('https://api.deepseek.com/user/balance', { headers: { Authorization: 'Bearer ' + 钥 } })
-        if (!r.ok) return 答('❌ 余额接口 HTTP ' + r.status)
+        if (!r.ok) return 答('账房不回话（HTTP ' + r.status + '），待会儿再试喵')
         const j = await r.json()
         const b = ((j && j.balance_infos) || [])[0] || {}
-        if (!(j && j.is_available) || !b.currency) return 答('❌ 余额不可用（欠费或免费额度模式）')
-        return 答(`💰 主脑余额 ¥${b.total_balance}（充值 ${b.topped_up_balance} / 赠送 ${b.granted_balance}）`)
+        if (!(j && j.is_available) || !b.currency) return 答('接口说这账户不可用了——多半欠费，快看看喵！')
+        return 答(`摸摸口袋：还剩 ¥${b.total_balance}（你充的 ${b.topped_up_balance}，白送的 ${b.granted_balance}）`) 
       }
       if (令.cmd === '状态') {
         const 最 = 日志.length ? 日志[日志.length - 1] : { 时间: '-', 文本: '-' }
         return 答(`📊 桥已跑 ${(process.uptime() / 60).toFixed(0)} 分钟｜总开关 ${配置.总开关 ? '开' : '关'}｜试运行 ${配置.试运行 ? '是' : '否'}｜发图 ${配置.发图 ? '有' : '无'}\n静音：${禁言中() ? '🔇 开着' : '没'}${无限禁言 ? '（直到开口）' : ''}\n热聊窗 ${热聊.size} 人｜去重队列 ${已转消息.size}\n最后一条：${最.时间} ${String(最.文本).slice(0, 50)}`)
       }
       if (令.cmd === '管') {
-        let uid = Number(令.who) || 0
+        const 群号N = Number(配置.群号)
+        if (!令.who) return 答('要管谁呀？名字或QQ号给我一个喵')
+        let uid = /^\d{5,12}$/.test(String(令.who)) ? Number(令.who) : 0
+        let 名片 = String(令.who)
         if (!uid) {
-          const 员 = await 发一个(配置.NapCat, 'get_group_member_list', { group_id: Number(配置.群号), no_cache: true })
-          const 名0 = (员.数据 && 员.数据.data) || 员.数据 || []
-          const 名 = Array.isArray(名0) ? 名0 : []
-          const 中 = (Array.isArray(名) ? 名 : []).filter((x) => String(x.card || x.nickname || '').indexOf(令.who) !== -1)
-          if (中.length === 1) uid = Number(中[0].user_id)
-          else if (中.length > 1) return 答('「' + 令.who + '」撞名了（' + 中.map((x) => (x.card || x.nickname) + ':' + x.user_id).join('、') + '），报QQ号吧')
-          else return 答('群里找不到「' + 令.who + '」')
+          const 员 = await 发一个(配置.NapCat, 'get_group_member_list', { group_id: 群号N, no_cache: true })
+          const 们 = Array.isArray((员.数据 && 员.数据.data)) ? 员.数据.data : []
+          const key = String(令.who).replace(/[@＠]/g, '').trim()
+          const 中 = 们.filter((x) => String(x.card || '').includes(key) || String(x.nickname || '').includes(key))
+          if (中.length === 1) { uid = Number(中[0].user_id); 名片 = String(中[0].card || 中[0].nickname || key) }
+          else if (中.length > 1) return 答('「' + key + '」对上的有好几个：' + 中.map((x) => (x.card || x.nickname) + '(' + x.user_id + ')').join('、') + '——报全名或号吧')
+          else return 答('群里翻遍了，没找到像「' + key + '」的喵——名字差个字你说清楚点')
         }
-        const 令体 = { group_id: Number(配置.群号), user_id: uid }
-        let r
-        if (令.act === 'ban') { 令体.duration = Math.min(Math.max(令.min, 1), 1440) * 60; r = await 发一个(配置.NapCat, 'set_group_ban', 令体) }
-        else if (令.act === 'unban') { r = await 发一个(配置.NapCat, 'set_group_ban', { ...令体, duration: 0 }) }
-        else { r = await 发一个(配置.NapCat, 'set_group_kick', 令体) }
-        const 动 = 令.act === 'ban' ? ('禁言' + 令.min + '分钟') : 令.act === 'unban' ? '解禁' : '踢出'
-        记账('主人指令→' + 动 + ' ' + (令.who) + '(' + uid + ')：' + (r.ok ? '✓' : '✗ ' + JSON.stringify(r.数据 && r.数据.message || r.数据).slice(0, 40)))
-        return 答(r.ok ? '已' + 动 + '：' + 令.who + '(' + uid + ')' : '没办成（' + 动 + ' ' + 令.who + '）：' + String((r.数据 && (r.数据.message || r.数据.retcode)) || '未知错') + '——她可能没当上管理')
+        if (uid === Number(配置.她的QQ)) return 答('我是管理哎，QQ 不让管理禁管理，这条对我无效喵')
+        const 令体 = { group_id: 群号N, user_id: uid }
+        let r, 成
+        if (令.act === 'ban') { 令体.duration = Math.min(Math.max(Number(令.min) || 10, 1), 1440) * 60; r = await 发一个(配置.NapCat, 'set_group_ban', 令体); 成 = '禁了 ' + 名片 + ' ' + Math.round(令体.duration / 60) + ' 分钟，世界安静了' }
+        else if (令.act === 'unban') { 令体.duration = 0; r = await 发一个(配置.NapCat, 'set_group_ban', 令体); 成 = 名片 + ' 放出来了' }
+        else { r = await 发一个(配置.NapCat, 'set_group_kick', 令体); 成 = '把 ' + 名片 + ' 请出去了……这一脚我替你踹的' }
+        if (!r.ok) {
+          const msg = String((r.数据 && (r.数据.message || r.数据.retcode)) || '未知')
+          记账('主人指令→' + 令.act + ' ' + 令.who + '(' + uid + ') ✗ ' + msg)
+          if (/admin/i.test(msg)) return 答(名片 + ' 跟我一样是管理，管理之间管不了喵——要动他得你亲自上')
+          if (/uid|not in group|member/i.test(msg)) return 答(名片 + ' 好像不在群里，这单我接不住喵')
+          return 答('QQ 回我一句「' + msg + '」，事没办成喵')
+        }
+        记账('主人指令→' + 令.act + ' ' + 令.who + '(' + uid + ') ✓')
+        return 答(成)
       }
       if (令.cmd === '闭嘴') {
         if (令.arg) {
