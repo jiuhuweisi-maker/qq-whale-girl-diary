@@ -21,7 +21,7 @@ if len(mine) < 5:
     print("今天群里没什么话，跳过"); open(STATE, "w").write(today); raise SystemExit
 from collections import Counter
 talk = Counter(str(r["nick"]) for r in mine)
-at_me = [r for r in mine if str(r.get("text", "")).find("鲸戒") >= 0 or str(r.get("text", "")).find("m0NESY") >= 0]
+at_me = [r for r in mine if str(r.get("text", "")).find("鲸戒") >= 0 or str(r.get("text", "")).find("m0NESY") >= 0 or str(r.get("text", "")).find("@" + str(ME)) >= 0]
 longs = sorted(mine, key=lambda r: len(str(r.get("text", ""))), reverse=True)
 picked, seen = [], set()
 for r in longs:
