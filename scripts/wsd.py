@@ -55,6 +55,18 @@ def handle(ev):
         if ev.get("meta_event_type") == "lifecycle":
             log("lifecycle " + str(ev.get("sub_type")))
         return
+    if pt == "message":
+        try:
+            uid = int(ev.get("user_id") or 0)
+            if MASTER and uid == MASTER:
+                h = int(time.strftime("%H"))
+                if 1 <= h <= 3:
+                    with open("/opt/qq-cs/late_flag.txt", "w") as f:
+                        f.write(time.strftime("%Y-%m-%d %H:%M"))
+                    log("熬夜登记 " + time.strftime("%Y-%m-%d %H:%M"))
+        except Exception:
+            pass
+        return
     if pt != "notice":
         return
     if ev.get("notice_type") not in ("notify", "poke"):
