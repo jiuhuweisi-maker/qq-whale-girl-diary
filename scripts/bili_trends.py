@@ -1,44 +1,49 @@
 # -*- coding: utf-8 -*-
-# /opt/qq-cs/bili_trends.py —— 每月1次拉B站热门20条写进梗速查文件
-import json, time, urllib.request
-OUT = "/opt/qq-cs/bili_memes.md"
-UA = "curl/7.29.2"
-def main():
+# 周更梗：每周一09:12 由 cron 跑，通过桥 nudge 派"搜梗任务"给她的大脑，
+# 她自己用 web_search 收集近两周B站热梗并维护 /opt/qq-cs/bili_memes.md。QQ 无感。
+import subprocess, json, re, time, urllib.request
+
+LOG = "/opt/qq-cs/bili_trends.log"
+def log(m):
+    try: open(LOG, "a", encoding="utf-8").write(time.strftime("%m-%d %H:%M") + " " + m + "\n")
+    except Exception: pass
+
+def get_token():
     try:
-        r = urllib.request.urlopen(urllib.request.Request("https://api.bilibili.com/x/web-interface/popular?ps=20", headers={"User-Agent": UA}), timeout=15)
-        d = json.loads(r.read().decode("utf-8", "ignore"))
-        dd = d.get("data") or {}
-        lst = dd.get("list") if isinstance(dd, dict) else dd
-        lst = lst or []
+        out = subprocess.check_output(["journalctl", "-u", "dsh", "--no-pager"], timeout=40).decode("utf-8", "ignore")
+        ms = re.findall(r"token=([A-Za-z0-9_-]+)", out)
+        return ms[-1] if ms else None
     except Exception as e:
-        print("热榜没拉到:", str(e)[:60]); return
-    if not lst:
-        print("热榜空"); return
-    mon = time.strftime("%Y-%m")
-    lines = ["## %s 热门速览" % mon]
-    for v in lst:
-        st = v.get("owner") or {}
-        lines.append("- %s ｜UP:%s｜%s播" % (str(v.get("title", ""))[:50], st.get("name", "?"), "{:,}".format(int((v.get("stat") or {}).get("view") or 0)).replace(",", "")))
-    block = "\n".join(lines) + "\n"
-    old = ""
-    if time.strftime("%d") == "01" and False: pass
-    keep = []
-    if time.strftime("%m") == "01":
-        keep.append("%d-%02d" % (int(time.strftime("%Y")) - 1, 12))  # 一月清掉上年12月前的? 简单:保留原文件全部,一年后自然被裁
-    if __import__("os").path.exists(OUT):
-        t = open(OUT, encoding="utf-8").read()
-        secs = []
-        cur = []
-        for l in t.split("\n"):
-            if l.startswith("## 20"):
-                if cur: secs.append("\n".join(cur).rstrip() + "\n")
-                cur = [l]
-            elif cur: cur.append(l)
-        if cur: secs.append("\n".join(cur).rstrip() + "\n")
-        head = t.split("##")[0]
-        secs = [block] + secs[:2]  # 保最近3个月
-        open(OUT, "w", encoding="utf-8").write(head + "".join(secs))
-    else:
-        open(OUT, "w", encoding="utf-8").write("# B站近月热门标题（自动每月更新，标题即梗源）\n\n" + block)
-    print("热榜已更新 %d 条进 bili_memes.md" % len(lst))
-main()
+        log("取token失败:" + str(e)[:60])
+        return None
+
+TASK = ("〔主人特批·每周搜梗〕不用回QQ，直接做事：用 web_search 查最近两周的B站热梗/名场面"
+        "（关键词像「B站 热梗 本周」「XX 是什么梗 bilibili」「B站 名场面 出圈」），挑3~6条还在流行的，"
+        "更新 /opt/qq-cs/bili_memes.md：新开一节「## 本周新增（MM-DD）」每条写梗+一句用法，"
+        "把明显过气的旧条目删掉或收进「## 归档」，保住文件头那行标题。写完 cat 一遍文件头自查格式。"
+        "注意：这是给自己涨见识的台账，口吻随便你，但用法描述要能直接照着接梗。")
+
+def nudge(tok):
+    req = urllib.request.Request(
+        "http://127.0.0.1:3080/dsh-qq-bridge/nudge?token=" + tok,
+        data=json.dumps({"text": TASK, "channel": "none"}).encode("utf-8"),
+        headers={"content-type": "application/json"}, method="POST")
+    try:
+        return json.loads(urllib.request.urlopen(req, timeout=25).read().decode("utf-8"))
+    except Exception as e:
+        log("nudge失败:" + str(e)[:60])
+        return {"ok": False}
+
+tok = get_token()
+if not tok:
+    log("没token，这周跳")
+    raise SystemExit
+r = nudge(tok)
+if not r.get("ok"):
+    log("首投不成，重启dsh补投一次")
+    subprocess.call(["systemctl", "restart", "dsh"])
+    time.sleep(30)
+    tok = get_token()
+    if tok:
+        r = nudge(tok)
+log("派单结果:" + ("ok" if r.get("ok") else "fail"))
