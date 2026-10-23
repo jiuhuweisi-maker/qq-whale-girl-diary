@@ -21,3 +21,5 @@ else
   echo "$(date '+%F %T') 全场健康" >> /opt/qq-cs/watchdog.log
 fi
 tail -c 1048576 /opt/qq-cs/watchdog.log > /tmp/wd && mv /tmp/wd /opt/qq-cs/watchdog.log 2>/dev/null || true
+python3 /opt/qq-cs/balance_warn.py >/dev/null 2>&1 || true
+TK=$(journalctl -u dsh --no-pager 2>/dev/null | grep -oE "token=[A-Za-z0-9_-]+" | tail -1 | cut -d= -f2); ALIVE=$(curl -s -m 10 -X POST "http://127.0.0.1:3080/dsh-qq-bridge/sess-alive?token=$TK" -H "content-type: application/json" -d "{}"); echo "$(date +%H:%M) $ALIVE" >> /opt/qq-cs/sess_alive.log; echo "$ALIVE" | grep -q '"ok":true' || { systemctl restart dsh; for i in $(seq 1 15); do curl -s -m 3 -o /dev/null http://127.0.0.1:3080/ && break; sleep 4; done; echo "$(date +%H:%M) 会话dead已重启dsh" >> /opt/qq-cs/sess_alive.log; }

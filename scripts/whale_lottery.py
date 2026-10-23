@@ -22,10 +22,18 @@ def ticket_pic():
 
 def main():
     today = time.strftime("%Y-%m-%d")
-    if os.path.exists(LAST) and open(LAST).read().strip() == today and not os.environ.get("LOT_FORCE"):
-        return
-    if not os.environ.get("LOT_FORCE") and not os.environ.get("LOT_DRY") and random.random() > 0.45:
-        return  # 大部分晚上不开，保持稀缺感
+    if not os.environ.get("LOT_FORCE"):
+        last = ""
+        if os.path.exists(LAST):
+            try: last = open(LAST).read().strip()
+            except Exception: last = ""
+        gap = 0
+        if last:
+            try:
+                gap = int((time.mktime(time.strptime(today, "%Y-%m-%d")) - time.mktime(time.strptime(last, "%Y-%m-%d"))) / 86400)
+            except Exception: gap = 99
+        if gap < 2:
+            return  # 两天一开（手动开奖会重置时钟）
     code = random.randint(100, 999)
     pic = ticket_pic()
     txt = "手感来了！甩了张鲸元券，口令「鲸元券 %d」，最先喊到的领一张奖品表情包🐋（两小时有效，别作弊哈）" % code

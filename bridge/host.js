@@ -950,7 +950,7 @@ export function apply(ctx) {
                   券.won = true; 券.赢给 = 赢
                   writeFileSync(券f, JSON.stringify(券))
                   记账('鲸元券' + 券.code + '→' + 赢 + (礼 ? (' 奖品' + 礼) : ' 无图'))
-                  try { const 史 = existsSync('/opt/qq-cs/lottery_history.txt') ? readFileSync('/opt/qq-cs/lottery_history.txt', 'utf8') : ''; writeFileSync('/opt/qq-cs/lottery_history.txt', 史 + new Date().toISOString().slice(5, 16).replace('T', ' ') + '\t' + 券.code + '\t' + 赢 + '\t' + (礼 || '无') + '\n') } catch (error) {}
+                  try { const 史 = existsSync('/opt/qq-cs/lottery_history.txt') ? readFileSync('/opt/qq-cs/lottery_history.txt', 'utf8') : ''; writeFileSync('/opt/qq-cs/lottery_history.txt', 史 + new Date(Date.now() + 8 * 3600000).toISOString().slice(5, 16).replace('T', ' ') + '\t' + 券.code + '\t' + 赢 + '\t' + (礼 || '无') + '\n') } catch (error) {}
                 }
               }
             }
