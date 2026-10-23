@@ -9,4 +9,4 @@
 17,47 * * * * bash /opt/qq-cs/watchdog.sh
 38 22 * * 0 /usr/bin/python3 /opt/qq-cs/weekly_report.py >> /opt/qq-cs/weekly.log 2>&1
 5 20 * * * /usr/bin/python3 /opt/qq-cs/whale_lottery.py >> /opt/qq-cs/lottery.log 2>&1
-12 9 1 * * /usr/bin/python3 /opt/qq-cs/bili_trends.py >> /opt/qq-cs/bili_trends.log 2>&1
+12 9 * * 1 /usr/bin/python3 /opt/qq-cs/bili_trends.py >> /opt/qq-cs/bili_trends.log 2>&1
