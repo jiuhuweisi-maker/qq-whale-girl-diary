@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import json, os, random, time
-DIR = "/root/dsh-workspace/stickers/memecub"
+DIR = "/root/dsh-workspace/stickers/whale"
 ST = os.path.join(DIR, ".used.json")
 idx = {}
 for l in open(os.path.join(DIR, "INDEX.tsv"), encoding="utf-8"):
@@ -16,4 +16,4 @@ cands = files[:3]
 for f in cands: used[f] = now
 json.dump(used, open(ST, "w"))
 for f in cands:
-    print(f + "\t" + idx[f])
+    print(os.path.join(DIR, f) + "\t" + idx[f])

@@ -19,9 +19,9 @@
 | 群规 | 被 @ 或 @全体才回（群友含主人一视同仁）；**@回来的也带上** |
 | 续聊 | 谁 @ 了她，3 分钟内他不用 @ 也接着聊（"热聊窗"） |
 | 分流 | 私聊/群聊各回各家，90 秒窗口判来路；网页控制台里聊的不外泄到 QQ |
-| 表情包 | memecub 正版鲸鱼娘图库 30+ 张，情绪挑图，轮换曝光 |
-| 自动进货 | cron 每 2~4 天随机时刻从 memecub 抓 1~3 张新图入台账（0 token） |
-| 冷藏机制 | 新图入库不吆喝，冷藏几天后在聊天里自然冒出来 |
+| 表情包 | 431 张鲸鱼娘自有图库（主人供货，不再进货），按语境/情绪语义挑图，轮换曝光 |
+| 冷启动打标 | caption.py 用 qwen3-vl-plus 视觉模型给全库自动打语义标题（画面+情绪）→ INDEX.tsv，可断点续跑 |
+| 轮换曝光 | pick_hint 优先挑久未露面的图，聊得越久全库轮得越开 |
 | 现画兜底 | 百炼 qwen-image-2.1-pro，仅限群友原话明确说"画"才用 |
 | CS 叫魂 | cron 每 2~4 天随机时刻（晚间黄金档 20-23 点）@全体 喊打 CS（8 条文案轮换，40% 配图） |
 | 记忆 | 值班交接日志 QQ-DUTY-LOG.md + 每 2 天的桌面侧巡检换班 |
@@ -51,10 +51,10 @@
 ├── /root/dsh-workspace/
 │   ├── AGENTS.md              人设与规矩（每轮生效，改完不用重启）
 │   ├── QQ-DUTY-LOG.md         值班交接日志（记忆载体）
-│   └── stickers/memecub/      表情库 + INDEX.tsv 台账 + .used.json 轮换账
+│   └── stickers/whale/        431 张表情库 + INDEX.tsv 语义索引 + .used.json 轮换账
 └── /opt/qq-cs/                cron 杂务
     ├── cs.py          crontab: 7 20-23 * * *    CS 叫魂（只走晚间黄金档）
-    ├── auto_memes.py  crontab: 23 * * * *       表情包进货检查
+    ├── caption.py     一次性：视觉模型给全库表情包打语义标题
     ├── learn_memes.py crontab: 39 */6 * * *     扒热搜炼成冲浪小抄
     ├── proactive.py   crontab: 17 10-21 * * *   主动冒泡（调桥 /nudge 路由）
     ├── reflect.py     crontab: 33 22 * * *      晚间复盘（/nudge channel=none，只写日志不发QQ）
@@ -79,7 +79,8 @@
    `dsh.service` 加 `EnvironmentFile=`。图像模型 ID 是 `qwen-image-2.1-pro`
    （写 `qwen-image` 会报 Model not exist，坑）。
 6. **人设**：把 `templates/AGENTS.md` 改改扔进 `/root/dsh-workspace/`。
-7. **表情库**：跑 `scripts/auto_memes.py`（--demo 首次建台账），cron 挂上。
+7. **表情库**：图库扔进 `stickers/whale/`，跑 `scripts/caption.py` 用视觉模型
+   自动打标题建 INDEX.tsv（画面+情绪，431 张约 3 分钟），pick_hint.py 指向库目录。
 8. **CS**：`scripts/cs.py` 改群号，cron 挂上，`--force` 打一发验证 @全体
    （前提：先把 bot 设为群管理员，否则 @全体 无效）。
 9. **网感**：`scripts/learn_memes.py` cron 挂上（0 token 扒热搜写小抄），
@@ -137,7 +138,8 @@
 3. **热聊要跟到底**：续聊窗内主动反问、抛旧梗，不行礼式回一句就蒸发。
 4. **记忆最值钱**：callback"你昨天说要戒奶茶"比任何话术都像活人。
 5. **拒绝要幽默**：打工请求一句俏皮话软拒，不解释不举例。
-6. **进货别吆喝**：新表情冷藏几天，某天聊天自然甩出来，惊喜感 +1。
+6. **大库才是表情包 wars 的底气**：431 张全语义打标，什么情绪都有得配；
+   轮换曝光防重复，久未露面的优先上桌。
 7. **不接的话就别让 token 进线**：群消息过滤做在桥层（不 @ 不进会话），
    比"进了会话再装死"省钱一个数量级。
 8. **给一条真爱爱好**：CS 这种"她自己的兴趣"让对话有重心——喊打游戏时的
@@ -160,7 +162,7 @@
 bridge/     host.js 打完十八连补丁的成品 · patches/ 逐补丁重放脚本（patch.py~patch18.py）
 config/     onebot11_example.json NapCat OneBot 配置样例
 templates/  AGENTS.md 群友修炼手册 v8 · QQ-DUTY-LOG 样例
-scripts/    cs · auto_memes · learn_memes · pick_hint · draw · proactive · whale.ps1（占位符版）
+scripts/    cs · learn_memes · pick_hint · draw · proactive · caption · whale.ps1（占位符版；auto_memes 已退役存档）
 docs/       bridge-patches.md 补丁全记录 · QQ-DUTY-LOG-live.md 实况值班日志（脱敏）· MEME_NOTES-snapshot.md 冲浪小抄样例
 ```
 
