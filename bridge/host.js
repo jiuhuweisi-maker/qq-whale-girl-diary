@@ -778,7 +778,8 @@ export function apply(ctx) {
     if (!配置.目标会话) return { ok: false, 说: '还没选「目标会话」' }
     if (!配置.总开关) return { ok: false, 说: '总开关关着，先打开' }
     const agent = 找agent(配置.目标会话)
-    if (!agent) return { ok: false, 说: `目标会话现在没活着（${短id(配置.目标会话)}），先把它打开` }
+    if (!agent) agent = await 救会话()
+    if (!agent) return { ok: false, 说: `目标会话现在没活着（${短id(配置.目标会话)}），自愈也没救回来` }
 
     // ── 收图：限量、限重，失败就跳过，不挡住文字 ──
     const 收下 = []
@@ -924,6 +925,37 @@ export function apply(ctx) {
         if (!条) continue
         const 群发言者 = Number(条.user_id)
         if (群发言者 === Number(条.self_id)) continue
+        // ⭐ patch37 鲸元券兑奖：口令命中→奖品图即发（零token，先到先得）
+        try {
+          const 券f = '/opt/qq-cs/.lottery.json'
+          if (existsSync(券f) && !禁言中()) {
+            const 券 = JSON.parse(readFileSync(券f, 'utf8'))
+            if (券.active && !券.won && Date.now() / 1000 < 券.end) {
+              const 段G = Array.isArray(条.message) ? 条.message : []
+              const 全G = 段G.filter((x) => x.type === 'text').map((x) => (x.data || {}).text || '').join('')
+              if (全G.indexOf('鲸元券') !== -1 && 全G.indexOf(String(券.code)) !== -1) {
+                const 赢 = String((条.sender && (条.sender.card || 条.sender.nickname)) || '群友').slice(0, 16)
+                const 根G = 配置.图片根目录 || '/root/dsh-workspace/stickers/whale'
+                let 礼 = ''
+                try {
+                  const 用 = existsSync(根G + '/.used.json') ? JSON.parse(readFileSync(根G + '/.used.json', 'utf8')) : {}
+                  const 备 = readFileSync(根G + '/INDEX.tsv', 'utf8').split('\n').map((x) => x.split('\t')).filter((x) => x[0] && String(x[1] || '').indexOf('鲸元券') === -1 && existsSync(根G + '/' + x[0])).map((x) => ({ f: x[0], n: Number(用[x[0]] || 0) }))
+                  备.sort((a, b) => a.n - b.n)
+                  if (备.length) 礼 = 备[Math.floor(Math.random() * Math.min(15, 备.length))].f
+                } catch (error) {}
+                const 发段 = [{ type: 'text', data: { text: '鲸元券 ' + 券.code + ' 被 ' + 赢 + ' 抢到了！奖品奉上🐋' } }]
+                if (礼) 发段.unshift(图片段(readFileSync(根G + '/' + 礼).toString('base64')))
+                const r2 = await 发一个(配置.NapCat, 'send_group_msg', { group_id: Number(配置.群号), message: 发段 })
+                if (r2 && r2.ok) {
+                  券.won = true; 券.赢给 = 赢
+                  writeFileSync(券f, JSON.stringify(券))
+                  记账('鲸元券' + 券.code + '→' + 赢 + (礼 ? (' 奖品' + 礼) : ' 无图'))
+                  try { const 史 = existsSync('/opt/qq-cs/lottery_history.txt') ? readFileSync('/opt/qq-cs/lottery_history.txt', 'utf8') : ''; writeFileSync('/opt/qq-cs/lottery_history.txt', 史 + new Date().toISOString().slice(5, 16).replace('T', ' ') + '\t' + 券.code + '\t' + 赢 + '\t' + (礼 || '无') + '\n') } catch (error) {}
+                }
+              }
+            }
+          }
+        } catch (error) {}
         const 段们G = Array.isArray(条.message) ? 条.message : []
         const 被艾特 = 段们G.some((x) => {
           if (!x || x.type !== 'at') return false
@@ -983,6 +1015,8 @@ export function apply(ctx) {
     if (m) return { cmd: '日志', arg: m[1] || '' }
     m = 剥.match(/^(去群里说|替我说|群里发)[  ]+([\s\S]+)$/)
     if (m && m[2].trim()) return { cmd: '群里说', arg: m[2].trim() }
+    m = 剥.match(/^(?:发|开|来|整|甩)[  ]*(?:张|个)?[  ]*(?:鲸元券|抽奖)$/)
+    if (m) return { cmd: '券' }
     m = 剥.match(/^禁言[  ]+(\S+?)(?:[  ]+(\d{1,4}))?$/)
     if (m && m[1]) return { cmd: '管', act: 'ban', who: m[1], min: Number(m[2] || 10) }
     m = 剥.match(/^(?:解禁|放人)[  ]+(\S+)$/)
@@ -1002,6 +1036,7 @@ export function apply(ctx) {
       return 0
     })()
     if (/余额|额度|balance|钱(?:还)?(?:剩|够|多少)|(?:还有|还剩)多少(?:钱|块)/i.test(净) && (净.length <= 10 || /查|看|还有|剩|多少|够|报|差/.test(净) || 强令)) 打分({ cmd: '余额' }, 3)
+    if (/(鲸元券|抽奖)/.test(净) && 净.length <= 12) 打分({ cmd: '券' }, 3)
     if (/^(?:你的?|现在|目前)?(?:状态|运行情况|健康)/.test(净) && 净.length <= 14) 打分({ cmd: '状态' }, 3)
     if (/(状态|运行|活着|在线|挂没挂).{0,3}(怎样|如何|咋样|情况|吗)/.test(净)) 打分({ cmd: '状态' }, 3)
     if (/^(?:帮助|有什么(?:功能|指令)|指令(?:表|列表)?|都会(?:啥|什么)|能干(?:啥|什么)|你能干)/.test(净)) 打分({ cmd: '帮助' }, 3)
@@ -1056,7 +1091,7 @@ export function apply(ctx) {
     try {
       if (令.cmd === '冲突') return 答(令.说)
             if (令.cmd === '帮助') {
-        return 答('我会的这些，随口说就行：查余额｜状态｜日志N｜闭嘴(可带分钟)｜开口｜冷却｜去群里说…｜禁言 谁 几分钟｜解禁 谁｜踢 谁。前缀加 / = 铁了心发指令；我办完都会回你一声')
+        return 答('我会的这些，随口说就行：查余额｜状态｜日志N｜闭嘴(可带分钟)｜开口｜冷却｜去群里说…｜禁言 谁 几分钟｜解禁 谁｜踢 谁｜发张鲸元券。前缀加 / = 铁了心发指令；我办完都会回你一声')
       }
       if (令.cmd === '余额') {
         const 钥 = 读DEEPSEEK密钥()
@@ -1071,6 +1106,23 @@ export function apply(ctx) {
       if (令.cmd === '状态') {
         const 最 = 日志.length ? 日志[日志.length - 1] : { 时间: '-', 文本: '-' }
         return 答(`📊 桥已跑 ${(process.uptime() / 60).toFixed(0)} 分钟｜总开关 ${配置.总开关 ? '开' : '关'}｜试运行 ${配置.试运行 ? '是' : '否'}｜发图 ${配置.发图 ? '有' : '无'}\n静音：${禁言中() ? '🔇 开着' : '没'}${无限禁言 ? '（直到开口）' : ''}\n热聊窗 ${热聊.size} 人｜去重队列 ${已转消息.size}\n最后一条：${最.时间} ${String(最.文本).slice(0, 50)}`)
+      }
+      if (令.cmd === '券') {
+        const 根 = 配置.图片根目录 || '/root/dsh-workspace/stickers/whale'
+        let 券图 = ''
+        try {
+          for (const l of readFileSync(根 + '/INDEX.tsv', 'utf8').split('\n')) { const p = l.split('\t'); if (p[0] && String(p[1] || '').indexOf('鲸元券') !== -1 && existsSync(根 + '/' + p[0])) { 券图 = 根 + '/' + p[0]; break } }
+        } catch (error) {}
+        const code = 100 + Math.floor(Math.random() * 900)
+        const 文 = '手感来了！甩了张鲸元券，口令「鲸元券 ' + code + '」，最先喊到的领一张奖品表情包🐋（两小时有效，别作弊哈）'
+        const 段 = [{ type: 'text', data: { text: 文 } }]
+        if (券图) 段.unshift(图片段(readFileSync(券图).toString('base64')))
+        const r = await 发一个(配置.NapCat, 'send_group_msg', { group_id: Number(配置.群号), message: 段 })
+        if (!r.ok) return 答('群里没发出去（' + ((r.数据 && r.数据.message) || '接口不通') + '）')
+        writeFileSync('/opt/qq-cs/.lottery.json', JSON.stringify({ active: true, code: code, end: Date.now() / 1000 + 7200, won: false }))
+        try { writeFileSync('/opt/qq-cs/.lottery_last.txt', new Date().toLocaleDateString('sv')) } catch (error) {}
+        记账('手动开奖 口令' + code)
+        return 答('开了！口令「鲸元券 ' + code + '」，两小时有效——第一个在群里喊对的，我当场发奖品图')
       }
       if (令.cmd === '管') {
         const 群号N = Number(配置.群号)
@@ -1172,6 +1224,30 @@ export function apply(ctx) {
     let 令 = null
     try { 令 = 解析主人指令(文) } catch (e) { 令 = { cmd: '解析炸了', 说: String((e && e.message) || e) } }
     回(res, { ok: true, 令 })
+  })
+
+    const 救会话 = async () => {
+      const 配置 = 读配置()
+      try {
+        const a2 = ctx.agents && typeof ctx.agents.get === 'function' ? ctx.agents.get(配置.目标会话) : null
+        return a2 ? 'alive' : 'dead'
+      } catch (error) {
+        return 'err:' + String((error && error.message) || error).slice(0, 60)
+      }
+    }
+
+  路线(`${路由前缀}/sess-alive`, async (req, res) => {
+    let 状 = 'alive'
+    try { 状 = await 救会话() } catch (e) { 状 = 'err:' + String((e && e.message) || e).slice(0, 60) }
+    回(res, { ok: 状 === 'alive', 状 })
+  })
+
+  路线(`${路由前缀}/sess-probe`, async (req, res) => {
+    const pick = (sv) => { try { const st = new Set(); let o = sv; while (o && o !== Object.prototype) { for (const k of Object.getOwnPropertyNames(o)) st.add(k); o = Object.getPrototypeOf(o) } return Array.from(st).slice(0, 45) } catch (e) { return 'ERR:' + String(e).slice(0, 60) } }
+    const out = {}
+    try { out.sessions = pick(ctx.get('sessions')) } catch (e) { out.sessions = 'get炸:' + String(e).slice(0, 50) }
+    try { out.agents = pick(ctx.get('agents')) } catch (e) { out.agents = 'get炸:' + String(e).slice(0, 50) }
+    回(res, { ok: true, ...out })
   })
 
   路线(`${路由前缀}/receive`, async (req, res) => {

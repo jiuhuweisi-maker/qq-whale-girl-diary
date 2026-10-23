@@ -1,9 +1,12 @@
-39 */6 * * * python3 /opt/qq-cs/learn_memes.py >> /opt/qq-cs/cron.log 2>&1
+39 */6 * * * /usr/bin/python3 /opt/qq-cs/learn_memes.py >> /opt/qq-cs/cron.log 2>&1
 17 10-21 * * * python3 /opt/qq-cs/proactive.py >> /opt/qq-cs/cron.log 2>&1
-7 20-23 * * * python3 /opt/qq-cs/cs.py night >> /opt/qq-cs/cron.log 2>&1
-33 22 * * * python3 /opt/qq-cs/reflect.py >> /opt/qq-cs/cron.log 2>&1
+7 20-23 * * * /usr/bin/python3 /opt/qq-cs/cs.py >> /opt/qq-cs/cron.log 2>&1
+33 22 * * * /usr/bin/python3 /opt/qq-cs/reflect.py >> /opt/qq-cs/cron.log 2>&1
 29 10-22 * * * python3 /opt/qq-cs/private_bubble.py >> /opt/qq-cs/cron.log 2>&1
+40 12,22 * * * bash /opt/qq-cs/live_backup.sh
 5,35 * * * * python3 /opt/qq-cs/memory_store.py >> /opt/qq-cs/cron.log 2>&1
 35 22 * * * python3 /opt/qq-cs/daily_report.py >> /opt/qq-cs/cron.log 2>&1
 17,47 * * * * bash /opt/qq-cs/watchdog.sh
-40 12,22 * * * bash /opt/qq-cs/live_backup.sh
+38 22 * * 0 /usr/bin/python3 /opt/qq-cs/weekly_report.py >> /opt/qq-cs/weekly.log 2>&1
+5 20 * * * /usr/bin/python3 /opt/qq-cs/whale_lottery.py >> /opt/qq-cs/lottery.log 2>&1
+12 9 1 * * /usr/bin/python3 /opt/qq-cs/bili_trends.py >> /opt/qq-cs/bili_trends.log 2>&1
