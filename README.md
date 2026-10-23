@@ -35,6 +35,9 @@
 | 略过权+收尾权 | 无关消息输出"略过"=桥层真沉默；对方说"睡了/别回了"→告别+关陪聊窗，再@才理 |
 | 小黄脸识别 | QQ 自带 [微笑] 等 face 段翻译成文字给她，按梗味接（[微笑]=敷衍阴间） |
 | 引用回复 | 桥自动带 reply 段，灰色引用条已生效 ✅（坑：NapCat 的 reply 段字段是 `data.id/seq`，发 `message_id` 会被静默吞掉） |
+| 读空气 | 群消息转进会话前，桥先注入"最近八条现场回放"（别人看不到）：她看清上下文再开口——对线不硬凑、死梗不复读、主人真难过时收起毒舌（实战：群里骂街她劝「火气这么大 先喝口水凉凉」） |
+| 戳一戳·戳人 | `python3 poke.py <QQ号>`：好友私戳、群友群戳，自动查名片称呼；人设教会她什么时候该戳 |
+| 戳一戳·被戳 | NapCat wsServer(:3001) → wsd.py 常驻客户端 → 桥 /poke：她实时感知「【某某】戳了戳你」并按情绪回应；私聊只认主人，群聊来者不拒（每号 30 秒冷却） |
 | 系统标签 | v9 人设内核：鲸类萝莉/尾鳍情绪/中文限定/米饭至上/聪明但懒/傲娇但甜/说胖炸毛/潜水电报 |
 | 自主学习 | 每天 22:30 自动开"内部轮"复盘：回顾当天对话，把群友画像/新梗/翻车教训写进值班日志，全程不发 QQ——聊天不白聊 |
 
@@ -44,7 +47,11 @@
 阿里云 SWAS (2C2G, Alibaba Cloud Linux 3)
 ├── docker: napcat            ← 唯一在线的小号设备（本地 NapCat 必须关机！）
 │   ├── WebUI :6099            仅 127.0.0.1
-│   └── OneBot HTTP :3000      仅 127.0.0.1
+│   ├── OneBot HTTP :3000      仅 127.0.0.1（桥轮询/发消息走这里）
+│   └── OneBot WS  :3001       wsServer（事件实时推送，戳一戳靠它）
+│       ⚠ docker-compose 里必须设 ACCOUNT=<她的QQ>，否则容器一重启就要扫码
+├── systemd: whale-ws.service  wsd.py 连 wsServer 收事件，把「戳一戳」转发给桥 /poke
+│                              ⚠ 别用 NapCat 的 httpClient 上报——实测 4.18.41 它一个事件都不推
 ├── systemd: dsh.service       dsh web --port 3080（token 每次重启会变）
 │   └── dsh-qq-bridge 插件     4 秒轮询 NapCat 收消息 → 转进 DSH 会话
 │                              会话轮结束 → 按来路分流发回 QQ
@@ -52,7 +59,9 @@
 │   ├── AGENTS.md              人设与规矩（每轮生效，改完不用重启）
 │   ├── QQ-DUTY-LOG.md         值班交接日志（记忆载体）
 │   └── stickers/whale/        431 张表情库 + INDEX.tsv 语义索引 + .used.json 轮换账
-└── /opt/qq-cs/                cron 杂务
+└── /opt/qq-cs/                cron 杂务 + 戳一戳收发
+    ├── wsd.py         systemd: whale-ws  wsServer 客户端（被戳→转桥 /poke）
+    ├── poke.py        被 agent 调用：戳人（好友私戳/群友群戳，自动查称呼）
     ├── cs.py          crontab: 7 20-23 * * *    CS 叫魂（只走晚间黄金档）
     ├── caption.py     一次性：视觉模型给全库表情包打语义标题
     ├── learn_memes.py crontab: 39 */6 * * *     扒热搜炼成冲浪小抄
@@ -93,6 +102,13 @@
 12. **遥控器**：`scripts/whale.ps1`（Windows 本机）：status / say / log / pull /
     push / wake。⚠️ dsh 每次 restart 后必须 `wake`（建隧道+开 GUI 标签唤醒会话），
     patch12 保证昏迷期 10 分钟内消息不丢。
+13. **读空气**：无需额外部署——patch19 在桥的群消息入口自动拼"现场回放"前缀，
+    人设里配"读空气"守则（不揭回放机制、不复读没 @ 她的话）。
+14. **戳一戳**：`deploy/napcat-compose.example.yml` 加 `ACCOUNT=` 和 3001 端口映射；
+    onebot11 配置加 `websocketServers`（样例见 `config/onebot11_example.json`，
+    **别配 httpClients 上报， NapCat 那版不推事件**）；`scripts/wsd.py` 放
+    `/opt/qq-cs/`（pip 装 `websocket-client==0.59.0`，py3.6 兼容版），
+    `deploy/whale-ws.service` 挂 systemd；`scripts/poke.py` 供她戳人用。
 
 ## 踩坑名场面（每条都是血泪）
 
@@ -130,6 +146,18 @@
   运维脚本按石器时代写（stdout=PIPE）。
 - **NapCat 假成功**：发送 reply 引用段返回 retcode 0，实际静默吞掉不渲染。
   教训：别信 retcode，用 `get_msg` 反查已发消息的结构验证。
+- **NapCat httpClient 上报彻底哑火**：配置正确、日志"已启动"、容器→宿主机 curl 通，
+  但它**一个事件都不推**——开 `reportSelfMsg=true` 连自己发的消息都不推，心跳/lifecycle 全无。
+  换 **wsServer**（NapCat 服务端、客户端连入）后 lifecycle+心跳+群消息+notice 哗哗推。
+  收不到事件的教训：**先换传输，别怀疑人生**。
+- **NapCat 重启就扫码**：容器重建/重启后 QQ 会话没了，WebUI 里要重新扫码。
+  根治：docker-compose 环境变量加 `ACCOUNT=<她的QQ>`，启动即自动快速登录。
+- **容器里访问宿主机别写 127.0.0.1**：NapCat 容器里的"本机"是容器自己。
+  上报/回调宿主机服务要用 docker 网桥网关地址（`ip route` 看，一般是 172.18.x.1）。
+- **WebUI 的配置 API 是坑**：`/api/OB11Config/get_config` 直接 404，没法热改。
+  手改 `onebot11_<账号>.json` + 重建容器才是正路。
+- **python 管道吞输出**：脚本 print 走管道是块缓冲，进程被 timeout 杀掉就全丢，
+  表现为"跑了但零输出"。常驻/诊断脚本一律 `python3 -u`。
 
 ## "像群友而不是客服"心法
 
@@ -159,10 +187,11 @@
 ## 目录
 
 ```
-bridge/     host.js 打完十八连补丁的成品 · patches/ 逐补丁重放脚本（patch.py~patch18.py）
-config/     onebot11_example.json NapCat OneBot 配置样例
-templates/  AGENTS.md 群友修炼手册 v8 · QQ-DUTY-LOG 样例
-scripts/    cs · learn_memes · pick_hint · draw · proactive · caption · whale.ps1（占位符版；auto_memes 已退役存档）
+bridge/     host.js 打完二十连补丁的成品 · patches/ 逐补丁重放脚本（patch.py~patch18.py，19/20 见 docs）
+config/     onebot11_example.json NapCat OneBot 配置样例（含 wsServer，httpClient 已弃用）
+deploy/     napcat-compose.example.yml（ACCOUNT+端口映射） · whale-ws.service（戳一戳守护）
+templates/  AGENTS.md 群友修炼手册 v11（含读空气/戳一戳守则） · QQ-DUTY-LOG 样例
+scripts/    cs · learn_memes · pick_hint · draw · proactive · caption · wsd · poke · whale.ps1（占位符版；auto_memes 已退役存档）
 docs/       bridge-patches.md 补丁全记录 · QQ-DUTY-LOG-live.md 实况值班日志（脱敏）· MEME_NOTES-snapshot.md 冲浪小抄样例
 ```
 

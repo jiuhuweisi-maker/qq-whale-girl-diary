@@ -148,7 +148,50 @@ data: p.Object({
 改成 `data:{id: String(mid)}` 后 `get_msg` 反查 reply 段保留，客户端灰色引用条生效。
 **教训：遇到"假成功"别黑盒穷举，去读对方的 schema/源码，十分钟顶三天。**
 
+## patch19 — 读空气：群聊现场回放注入
+她回话时只看得到被 @ 的那一句，群里刚发生了什么一无所知——接不了梗、
+看不见脸色、对线正酣她突然卖萌。patch19 在群消息转进会话**之前**，
+调 `get_group_msg_history` 拉最近 14 条（丢弃 10 分钟外的），压成
+"谁：话"格式（图→`[图]`、小黄脸→`[小黄脸]`、@→`@人`，每条截 40 字），
+取最后 8 条拼一个**只有她可见**的回放前缀：
+
+```
+（群聊现场回放，供你读空气用，别人看不到这段）
+黄明之父：@人 这是你吗
+鲸戒：我？头发
+——回放完，刚对你说的是——
+【黄明之父】这是你吗
+```
+
+实测她立刻学会看脸色：群里骂街她劝「火气这么大 先喝口水凉凉」；
+被发图开涮"鱼"会回怼「你这是把我端上桌了」。人设侧配套禁令：
+不得向群友透露回放机制、不得复读没 @ 她的话。
+
+## patch20 — /poke 路由：被戳一戳的入口
+NapCat 的戳一戳是 notice 事件（`notice_type=notify, sub_type=poke`），
+**不进消息历史**，轮询体系永远看不见——只能靠事件推送。但实测
+NapCat 4.18.41 的 **httpClient 上报一个事件都不推**（详见踩坑），
+最终方案是 wsServer + 独立守护：
+
+```
+NapCat wsServer(:3001) → scripts/wsd.py(whale-ws.service) → 桥 POST /poke
+```
+
+/poke 收到 `{user_id, group_id}` 后：
+1. 每 uid **30 秒冷却**（防连戳轰炸）；
+2. `get_group_member_info`/`get_stranger_info` 查名片当称呼；
+3. 记账 + `转入一条(「【某某】戳了戳你」, 按 gid 分流私聊/群聊)`。
+
+wsd.py 侧过滤：忽略自己发起的戳、忽略没戳到她的通知、**私聊戳只认主人**
+（陌生人不许她私聊回戳是家规，群戳来者不拒）。她收到后按人设回应：
+「戳回去了 / 手痒就互相戳」——实测自然得像活人。
+
 ## 已知坑（NapCat 4.18.41）
 - ~~发送 reply 段被静默吞~~ → patch18 已修复（字段名是 id 不是 message_id）。
 - reply 的 `id` 要用 onebot 层公开的 message_id（uniqueMsgId 短映射），
   历史接口和轮询拿到的都能直接用。
+- **httpClient 事件上报彻底不推**：enable、URL、连通性全对，日志"已启动"，
+  但 lifecycle/心跳/消息/notice 一个字节都不发；`reportSelfMsg=true` 也推不出
+  自己发的消息。换 `websocketServers`（wsServer 模式）立刻正常——lifecycle、
+  30s 心跳、群消息、input_status notice 全都实时推。**要收事件就配 WS，别碰 httpClient。**
+- 容器重建后 QQ 掉线要扫码：compose 环境变量 `ACCOUNT=<她的QQ>` 可实现启动即快速登录。

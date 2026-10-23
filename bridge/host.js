@@ -704,6 +704,33 @@ export function apply(ctx) {
     b.name = 项.name || b.name
     b.route = 项.route
   }
+  // patch19 读空气：群消息转发前，抓最近10分钟的群聊现场给模型当背景
+  async function 现场气氛(配置) {
+    try {
+      const r = await fetch(`${配置.NapCat}/get_group_msg_history`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ group_id: Number(配置.群号), count: 14 }),
+      })
+      const j = await r.json()
+      const msgs = (j && j.status === 'ok' && j.data && j.data.messages) || []
+      const 现在 = Math.floor(Date.now() / 1000)
+      const 行们 = []
+      for (const m of msgs) {
+        if (!m || 现在 - (m.time || 0) > 600) continue
+        const 谁 = String((m.sender && (m.sender.card || m.sender.nickname)) || '群友').slice(0, 12)
+        const 话 = (Array.isArray(m.message) ? m.message : []).map((x) => {
+          if (!x) return ''
+          if (x.type === 'text' && x.data) return String(x.data.text)
+          if (x.type === 'image' || x.type === 'mface') return '[图]'
+          if (x.type === 'face') return '[小黄脸]'
+          if (x.type === 'at') return '@人'
+          return ''
+        }).join('').trim().replace(/\s+/g, ' ').slice(0, 40)
+        if (话) 行们.push(谁 + '：' + 话)
+      }
+      return 行们.slice(-8)
+    } catch (error) { return [] }
+  }
   async function 冲缓冲(配置) {
     const now = Date.now()
     for (const [键, b] of Array.from(缓聊.entries())) {
@@ -711,7 +738,11 @@ export function apply(ctx) {
       if (now - b.last < 静默 && now - b.first < 25000) continue
       缓聊.delete(键)
       if (now - b.first > 600000) { 记账('缓冲内容太旧，丢弃'); continue }
-      const 文 = '【' + b.name + '】' + b.texts.join('\n')
+      let 文 = '【' + b.name + '】' + b.texts.join('\n')
+      if (b.route === 'group') {
+        const 气氛 = await 现场气氛(配置)
+        if (气氛.length > 1) 文 = '（群聊现场回放，供你读空气用，别人看不到这段）\n' + 气氛.join('\n') + '\n——回放完，刚对你说的是——\n' + 文
+      }
       const 果 = await 转入一条(文, b.images, b.mid, b.route, b.at, b.speaker)
       if (果 && 果.ok === false) { b.last = now; 缓聊.set(键, b) }   // 会话没醒：放回，下轮再试
     }
@@ -909,6 +940,33 @@ export function apply(ctx) {
     if (!文字) return 回(res, { ok: false, 说: '没有文字' })
     const 道 = 来.channel === 'none' ? 'none' : 'group'
     回(res, await 转入一条(文字, [], '', 道, 0, 0))
+  })
+
+  // patch20 戳一戳感知：eventd 把 NapCat 的 poke 通知转来；同人30秒冷却防连戳刷屏
+  const 上次戳 = new Map()
+  路线(`${路由前缀}/poke`, async (req, res) => {
+    const 来 = await 读体(req)
+    const uid = Number(来.user_id) || 0
+    const gid = Number(来.group_id) || 0
+    if (!uid) return 回(res, { ok: false, 说: '没有 user_id' })
+    const 配置 = 读配置()
+    const 前 = 上次戳.get(uid) || 0
+    if (Date.now() - 前 < 30000) return 回(res, { ok: true, 说: '戳一戳冷却中，忽略' })
+    上次戳.set(uid, Date.now())
+    if (上次戳.size > 60) 上次戳.clear()
+    if (gid && Number(配置.群号) !== gid) return 回(res, { ok: true, 说: '别的群的戳，不管' })
+    let 名 = '有人'
+    try {
+      const r = await fetch(`${配置.NapCat}/${gid ? 'get_group_member_info' : 'get_stranger_info'}`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(gid ? { group_id: gid, user_id: uid } : { user_id: uid }),
+      })
+      const j = await r.json()
+      const d = (j && j.data) || {}
+      名 = String(d.card || d.nickname || d.nick || '有人').slice(0, 16)
+    } catch (error) {}
+    记账(`戳一戳通知：${名}(${uid}) ${gid ? '在群里' : '私聊'}戳了她`)
+    回(res, await 转入一条(`【${名}】戳了戳你`, [], '', gid ? 'group' : 'private', gid ? uid : 0, uid))
   })
 
   // 手动试一发：**真发**（绕过试运行），只发一条固定测试句，动不了已发轮
