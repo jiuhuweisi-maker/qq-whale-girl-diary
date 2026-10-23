@@ -976,6 +976,12 @@ export function apply(ctx) {
     if (m) return { cmd: '日志', arg: m[1] || '' }
     m = t.match(/^(去群里说|替我说|群里发)[  ]+([\s\S]+)$/)
     if (m && m[2].trim()) return { cmd: '群里说', arg: m[2].trim() }
+    m = t.match(/^禁言[  ]+(\S+?)(?:[  ]+(\d{1,4}))?$/)
+    if (m && m[1]) return { cmd: '管', act: 'ban', who: m[1], min: Number(m[2] || 10) }
+    m = t.match(/^(?:解禁|放人)[  ]+(\S+)$/)
+    if (m) return { cmd: '管', act: 'unban', who: m[1] }
+    m = t.match(/^踢[  ]+(\S+)$/)
+    if (m) return { cmd: '管', act: 'kick', who: m[1] }
     return null
   }
 
@@ -1001,7 +1007,7 @@ export function apply(ctx) {
     记账(`主人指令：${String(原文).slice(0, 40)}`)
     try {
       if (令.cmd === '帮助') {
-        return 答('指令表：查余额｜状态｜日志N｜闭嘴(或 闭嘴30=静音30分钟)｜开口｜冷却｜去群里说 文本。都不进她脑子，零token')
+        return 答('指令表：查余额｜状态｜日志N｜闭嘴(或 闭嘴30=静音30分钟)｜开口｜冷却｜去群里说 文本｜禁言 昵称或QQ 分钟｜解禁 昵称｜踢 昵称（管理类需她是管理）。零token')
       }
       if (令.cmd === '余额') {
         const 钥 = 读DEEPSEEK密钥()
@@ -1016,6 +1022,26 @@ export function apply(ctx) {
       if (令.cmd === '状态') {
         const 最 = 日志.length ? 日志[日志.length - 1] : { 时间: '-', 文本: '-' }
         return 答(`📊 桥已跑 ${(process.uptime() / 60).toFixed(0)} 分钟｜总开关 ${配置.总开关 ? '开' : '关'}｜试运行 ${配置.试运行 ? '是' : '否'}｜发图 ${配置.发图 ? '有' : '无'}\n静音：${禁言中() ? '🔇 开着' : '没'}${无限禁言 ? '（直到开口）' : ''}\n热聊窗 ${热聊.size} 人｜去重队列 ${已转消息.size}\n最后一条：${最.时间} ${String(最.文本).slice(0, 50)}`)
+      }
+      if (令.cmd === '管') {
+        let uid = Number(令.who) || 0
+        if (!uid) {
+          const 员 = await 发一个(配置.NapCat, 'get_group_member_list', { group_id: Number(配置.群号), no_cache: true })
+          const 名0 = (员.数据 && 员.数据.data) || 员.数据 || []
+          const 名 = Array.isArray(名0) ? 名0 : []
+          const 中 = (Array.isArray(名) ? 名 : []).filter((x) => String(x.card || x.nickname || '').indexOf(令.who) !== -1)
+          if (中.length === 1) uid = Number(中[0].user_id)
+          else if (中.length > 1) return 答('「' + 令.who + '」撞名了（' + 中.map((x) => (x.card || x.nickname) + ':' + x.user_id).join('、') + '），报QQ号吧')
+          else return 答('群里找不到「' + 令.who + '」')
+        }
+        const 令体 = { group_id: Number(配置.群号), user_id: uid }
+        let r
+        if (令.act === 'ban') { 令体.duration = Math.min(Math.max(令.min, 1), 1440) * 60; r = await 发一个(配置.NapCat, 'set_group_ban', 令体) }
+        else if (令.act === 'unban') { r = await 发一个(配置.NapCat, 'set_group_ban', { ...令体, duration: 0 }) }
+        else { r = await 发一个(配置.NapCat, 'set_group_kick', 令体) }
+        const 动 = 令.act === 'ban' ? ('禁言' + 令.min + '分钟') : 令.act === 'unban' ? '解禁' : '踢出'
+        记账('主人指令→' + 动 + ' ' + (令.who) + '(' + uid + ')：' + (r.ok ? '✓' : '✗ ' + JSON.stringify(r.数据 && r.数据.message || r.数据).slice(0, 40)))
+        return 答(r.ok ? '已' + 动 + '：' + 令.who + '(' + uid + ')' : '没办成（' + 动 + ' ' + 令.who + '）：' + String((r.数据 && (r.数据.message || r.数据.retcode)) || '未知错') + '——她可能没当上管理')
       }
       if (令.cmd === '闭嘴') {
         if (令.arg) {
