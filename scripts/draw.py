@@ -21,6 +21,9 @@ for a in args:
     if m: size = m.group(1)
     else: words.append(a)
 prompt = " ".join(words).strip() or "a cute cartoon blue whale"
+STYLE = ("风格", "卡通", "写实", "动漫", "贴纸", "水彩", "油画", "像素", "手绘", "style", "3D", "3d")
+if not any(w in prompt for w in STYLE):
+    prompt = "可爱卡通贴纸风格，线条干净，色彩明快，Q版造型，搞笑夸张，白色背景，非写实非真人：" + prompt
 
 body = json.dumps({"model": "qwen-image-2.1-pro", "prompt": prompt, "size": size, "n": 1}).encode()
 req = urllib.request.Request(

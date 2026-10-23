@@ -1,6 +1,6 @@
-# dsh-qq-bridge 十七连补丁全记录（host.js）
+# dsh-qq-bridge 十八连补丁全记录（host.js）
 
-> 可重放：`bridge/host.js` 是打完全部补丁的成品；`bridge/patches/patch.py`~`patch17.py`
+> 可重放：`bridge/host.js` 是打完全部补丁的成品；`bridge/patches/patch.py`~`patch18.py`
 > 是逐补丁的重放脚本（按编号顺序对原装 host.js 依次 `python3 patchN.py` 即可复现）。
 
 插件本体：`dsh plugin --profile web add github:Yuuyuko-uu/dsh-qq-bridge`
@@ -133,7 +133,22 @@ if (!被艾特) {
 **聊天沉淀成记忆的闭环**：白天聊 → 晚上复盘写日志 → 换班/重启后读日志继承。
 双保险：就算她复盘轮忘了输出"略过"，none 通道也发不出去。
 
-## 已知坑（NapCat 4.18.41，未解）
-- **发送 reply 段被静默吞**：API 返回 retcode 0，但 `get_msg` 反查发出消息里
-  reply 段消失，客户端也没有灰色引用条（历史 id 和活 id 都试过）。
-  桥里保留"尝试 + 失败降级"代码，等 NapCat 修复，或改用事件上报拿活 id 再战。
+## patch18 — 引用回复的正确打开方式：id 字段（灰条修复）
+黑盒探测三次全灭后直接解剖 `napcat.mjs`（3.1MB 单文件包），发现
+**NapCat 4.18.41 的 reply 段 schema 是 `{id?: string, seq?: number}`**：
+
+```js
+data: p.Object({
+  id: p.Optional(p.String({ description: "消息ID的短ID映射" })),
+  seq: p.Optional(p.Number({ description: "消息序列号，优先使用" }))
+})
+```
+
+我们一直发 `data:{message_id:…}` → 字段对不上 → 校验静默丢弃 → retcode 0 假成功。
+改成 `data:{id: String(mid)}` 后 `get_msg` 反查 reply 段保留，客户端灰色引用条生效。
+**教训：遇到"假成功"别黑盒穷举，去读对方的 schema/源码，十分钟顶三天。**
+
+## 已知坑（NapCat 4.18.41）
+- ~~发送 reply 段被静默吞~~ → patch18 已修复（字段名是 id 不是 message_id）。
+- reply 的 `id` 要用 onebot 层公开的 message_id（uniqueMsgId 短映射），
+  历史接口和轮询拿到的都能直接用。

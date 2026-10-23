@@ -34,7 +34,7 @@
 | 画图两段式 | 明说"画"→秒回"稍等"→桥自动开画图轮→@人交图"久等了"（实测 44 秒交稿） |
 | 略过权+收尾权 | 无关消息输出"略过"=桥层真沉默；对方说"睡了/别回了"→告别+关陪聊窗，再@才理 |
 | 小黄脸识别 | QQ 自带 [微笑] 等 face 段翻译成文字给她，按梗味接（[微笑]=敷衍阴间） |
-| 引用回复 | 桥自动带 reply 段+失败降级（⚠️ NapCat 4.18.41 静默吞引用段，灰条暂不生效，详见 docs） |
+| 引用回复 | 桥自动带 reply 段，灰色引用条已生效 ✅（坑：NapCat 的 reply 段字段是 `data.id/seq`，发 `message_id` 会被静默吞掉） |
 | 系统标签 | v9 人设内核：鲸类萝莉/尾鳍情绪/中文限定/米饭至上/聪明但懒/傲娇但甜/说胖炸毛/潜水电报 |
 | 自主学习 | 每天 22:30 自动开"内部轮"复盘：回顾当天对话，把群友画像/新梗/翻车教训写进值班日志，全程不发 QQ——聊天不白聊 |
 
@@ -157,7 +157,7 @@
 ## 目录
 
 ```
-bridge/     host.js 打完十六连补丁的成品 · patches/ 逐补丁重放脚本（patch.py~patch16.py）
+bridge/     host.js 打完十八连补丁的成品 · patches/ 逐补丁重放脚本（patch.py~patch18.py）
 config/     onebot11_example.json NapCat OneBot 配置样例
 templates/  AGENTS.md 群友修炼手册 v8 · QQ-DUTY-LOG 样例
 scripts/    cs · auto_memes · learn_memes · pick_hint · draw · proactive · whale.ps1（占位符版）

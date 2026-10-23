@@ -424,7 +424,7 @@ export function apply(ctx) {
         const 体 = 私人消息体(段们[i])
         体.user_id = Number(配置.私聊QQ)
         const 带引P = i === 0 && 路.mid && 路.mid !== 'qq' && Array.isArray(体.message)
-        if (带引P) 体.message.unshift({ type: 'reply', data: { message_id: 路.mid } })
+        if (带引P) 体.message.unshift({ type: 'reply', data: { id: String(路.mid) } })
         let 果P = await 发一个(配置.NapCat, 'send_private_msg', 体)
         if (!果P.ok && 带引P) { 体.message.shift(); 果P = await 发一个(配置.NapCat, 'send_private_msg', 体) }
         出.push(果P)
@@ -441,7 +441,7 @@ export function apply(ctx) {
         体.group_id = Number(配置.群号)
         if (i === 0 && 路.艾特) 体.message.unshift({ type: 'at', data: { qq: String(路.艾特) } })
         const 带引G = i === 0 && 路.mid && 路.mid !== 'qq' && Array.isArray(体.message)
-        if (带引G) 体.message.unshift({ type: 'reply', data: { message_id: 路.mid } })
+        if (带引G) 体.message.unshift({ type: 'reply', data: { id: String(路.mid) } })
         let 果G = await 发一个(配置.NapCat, 'send_group_msg', 体)
         if (!果G.ok && 带引G) { 体.message.shift(); 果G = await 发一个(配置.NapCat, 'send_group_msg', 体) }
         出.push(果G)
