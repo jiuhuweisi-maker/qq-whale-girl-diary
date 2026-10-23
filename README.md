@@ -82,6 +82,8 @@
 先看 **[docs/REBUILD.md](docs/REBUILD.md)** —— 速建手册：带走清单、装机顺序（每步带验证命令）、
 已付学费的坑、试运行验收电池；一键脚本 `scripts/bootstrap.sh`。
 表情库本体（431 张 261MB）备份在 GitHub Release **stickers-lib-2026-10**（分卷，cat 还原）。
+日志/小抄最新版每天 12:40/22:40 由旧机自动同步在 **live-backup/** 目录。
+**开荒时把 REBUILD.md §4 那段开场白发给 agent 即可，主人只填尖括号。**
 
 ## 部署速览（复现清单）
 
