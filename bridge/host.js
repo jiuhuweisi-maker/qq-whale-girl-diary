@@ -373,6 +373,7 @@ export function apply(ctx) {
     const 出 = []
     const 路 = 路由 || { 来路: (来路时刻 && Date.now() - 来路时刻 < 90000 && 最后来路 === 'group') ? 'group' : 'private', 艾特: (艾特时刻 && Date.now() - 艾特时刻 < 90000) ? 艾特我人 : 0 }
     if (路.来路 === 'none') { 记账('内部轮（复盘/无通道），不发 QQ'); return 出 }
+    if (禁言中()) { 记账(`🔇 禁言中，拦下一条${路.来路 === 'group' ? '群' : '私'}发言：「${String(原文字 || '').slice(0, 24)}」`); return 出 }
     // ⭐ 正文里的 markdown 图（贴纸就是这么发的）也当图片发；抠掉之后正文更干净
     const 抠过 = 配置.发图 ? 抠正文图(原文字) : { 净文字: String(原文字 || ''), 图: [] }
     const 文字 = 抠过.净文字
@@ -881,6 +882,14 @@ export function apply(ctx) {
         const { 文字, 图们 } = 条转片段(条)
         if (!文字 && !图们.length) { 已转消息.add(条.message_id); 上次私聊时间 = 条.time || 上次私聊时间; continue }
         if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add(条.message_id); 上次私聊时间 = 条.time || 上次私聊时间; continue } // 超10分钟不挖坟
+        // ⭐ patch21 主人指令：桥层直接执行，不进 DSH（零 token）。只认纯文字，带图的当普通消息走
+        const 令 = (图们.length || !文字) ? null : 解析主人指令(文字)
+        if (令) {
+          已转消息.add(条.message_id)
+          上次私聊时间 = 条.time || 上次私聊时间
+          void 执行主人指令(配置, 令, 文字)
+          continue
+        }
         艾特我人 = 0
         加缓冲('p' + 她的号, { text: 文字, images: 图们, mid: String(条.message_id || ''), route: 'private', at: 0, speaker: 她的号, name: '主人' })
         上次私聊时间 = 条.time || 上次私聊时间
@@ -926,6 +935,114 @@ export function apply(ctx) {
     if (已转消息.size > 300) 已转消息.clear()
   }
 
+  // ============================================================
+  // patch21 主人指令：私聊里【仅主人】的管桥命令，桥层执行、零 token、不进 DSH
+  // ============================================================
+  let 禁言到 = 0 // 限时静音的截止时刻
+  let 无限禁言 = false // 无限静音，直到「开口」
+  const 禁言中 = () => 无限禁言 || Date.now() < 禁言到
+
+  function 解析主人指令(文) {
+    const t = String(文 || '').trim().replace(/^[/／>＞]+/, '').replace(/[。！!？~～\s]+$/, '').trim()
+    if (!t) return null
+    if (/^(查余额|余额|balance)$/i.test(t)) return { cmd: '余额' }
+    if (/^(状态|status)$/i.test(t)) return { cmd: '状态' }
+    if (/^(帮助|指令|help)$/i.test(t)) return { cmd: '帮助' }
+    if (/^冷却$/.test(t)) return { cmd: '冷却' }
+    if (/^开口$/.test(t)) return { cmd: '开口' }
+    let m = t.match(/^闭嘴[  ]*(\d{1,4})?$/)
+    if (m) return { cmd: '闭嘴', arg: m[1] || '' }
+    m = t.match(/^日志[  ]*(\d{1,2})?$/)
+    if (m) return { cmd: '日志', arg: m[1] || '' }
+    m = t.match(/^(去群里说|替我说|群里发)[  ]+([\s\S]+)$/)
+    if (m && m[2].trim()) return { cmd: '群里说', arg: m[2].trim() }
+    return null
+  }
+
+  function 读DEEPSEEK密钥() {
+    const 址们 = [(process.env.HOME || '/root') + '/.dsh/.credentials.yaml', '/root/.dsh/.credentials.yaml']
+    for (const 址 of 址们) {
+      try {
+        const y = readFileSync(址, 'utf-8')
+        const m = y.match(/DEEPSEEK_API_KEY:\s*(sk-[A-Za-z0-9._-]+)/)
+        if (m) return m[1]
+      } catch (error) {}
+    }
+    return ''
+  }
+
+  async function 执行主人指令(配置, 令, 原文) {
+    const 答 = async (文) => {
+      const 果 = await 发一个(配置.NapCat, 'send_private_msg', {
+        user_id: Number(配置.私聊QQ), message: [{ type: 'text', data: { text: ('【系统】' + String(文)).slice(0, 500) } }],
+      })
+      if (!果.ok) 记账('指令回执发不出去：' + JSON.stringify(果.数据).slice(0, 120))
+    }
+    记账(`主人指令：${String(原文).slice(0, 40)}`)
+    try {
+      if (令.cmd === '帮助') {
+        return 答('指令表：查余额｜状态｜日志N｜闭嘴(或 闭嘴30=静音30分钟)｜开口｜冷却｜去群里说 文本。都不进她脑子，零token')
+      }
+      if (令.cmd === '余额') {
+        const 钥 = 读DEEPSEEK密钥()
+        if (!钥) return 答('❌ 没找到 DEEPSEEK_API_KEY（.credentials.yaml）')
+        const r = await fetch('https://api.deepseek.com/user/balance', { headers: { Authorization: 'Bearer ' + 钥 } })
+        if (!r.ok) return 答('❌ 余额接口 HTTP ' + r.status)
+        const j = await r.json()
+        const b = ((j && j.balance_infos) || [])[0] || {}
+        if (!(j && j.is_available) || !b.currency) return 答('❌ 余额不可用（欠费或免费额度模式）')
+        return 答(`💰 主脑余额 ¥${b.total_balance}（充值 ${b.topped_up_balance} / 赠送 ${b.granted_balance}）`)
+      }
+      if (令.cmd === '状态') {
+        const 最 = 日志.length ? 日志[日志.length - 1] : { 时间: '-', 文本: '-' }
+        return 答(`📊 桥已跑 ${(process.uptime() / 60).toFixed(0)} 分钟｜总开关 ${配置.总开关 ? '开' : '关'}｜试运行 ${配置.试运行 ? '是' : '否'}｜发图 ${配置.发图 ? '有' : '无'}\n静音：${禁言中() ? '🔇 开着' : '没'}${无限禁言 ? '（直到开口）' : ''}\n热聊窗 ${热聊.size} 人｜去重队列 ${已转消息.size}\n最后一条：${最.时间} ${String(最.文本).slice(0, 50)}`)
+      }
+      if (令.cmd === '闭嘴') {
+        if (令.arg) {
+          const 分 = Math.min(Number(令.arg), 1440)
+          禁言到 = Date.now() + 分 * 60000; 无限禁言 = false
+          return 答(`🔇 静音 ${分} 分钟。群聊私聊全拦，主动冒泡也停（不烧token）`)
+        }
+        无限禁言 = true; 禁言到 = 0
+        return 答('🔇 已静音，直到你说「开口」')
+      }
+      if (令.cmd === '开口') {
+        无限禁言 = false; 禁言到 = 0
+        return 答('🔊 解禁，正常说话')
+      }
+      if (令.cmd === '冷却') {
+        热聊.clear()
+        try { 上次戳.clear() } catch (error) {}
+        return 答('♻️ 热聊窗和防刷屏表已清空')
+      }
+      if (令.cmd === '日志') {
+        const n = Math.min(Number(令.arg || 3) || 3, 8)
+        const 尾 = 日志.slice(-n).map((l) => `${l.时间} ${String(l.文本).slice(0, 60)}`).join('\n')
+        return 答(尾 || '（账本还空）')
+      }
+      if (令.cmd === '群里说') {
+        if (!配置.转群 || !配置.群号) return 答('❌ 群通道没开或没群号')
+        const 文 = String(令.arg).slice(0, 300)
+        const 果 = await 发一个(配置.NapCat, 'send_group_msg', { group_id: Number(配置.群号), message: [{ type: 'text', data: { text: 文 } }] })
+        return 答(果.ok ? `✅ 已代发进群：「${文.slice(0, 40)}」` : '❌ 群发失败：' + JSON.stringify(果.数据).slice(0, 120))
+      }
+      return 答('❌ 不认识的指令，发「帮助」看表')
+    } catch (error) {
+      记账('指令执行出错：' + String((error && error.message) || error))
+      try { return await 答('❌ 执行出错：' + String((error && error.message) || error).slice(0, 80)) } catch (e2) {}
+    }
+  }
+
+  // 调试入口：节点侧模拟主人指令（走与 QQ 私聊同一执行器）
+  路线(`${路由前缀}/master-cmd`, async (req, res) => {
+    const 来 = await 读体(req)
+    const 文 = typeof 来.text === 'string' ? 来.text : ''
+    const 令 = 解析主人指令(文)
+    if (!令) return 回(res, { ok: false, 说: '不是指令' })
+    void 执行主人指令(读配置(), 令, 文)
+    回(res, { ok: true, 说: '指令执行中，回执看主人私聊' })
+  })
+
   路线(`${路由前缀}/receive`, async (req, res) => {
     const 来 = await 读体(req)
     const 文字 = typeof 来.text === 'string' ? 来.text.trim() : ''
@@ -939,6 +1056,7 @@ export function apply(ctx) {
     const 文字 = typeof 来.text === 'string' ? 来.text.trim() : ''
     if (!文字) return 回(res, { ok: false, 说: '没有文字' })
     const 道 = 来.channel === 'none' ? 'none' : 'group'
+    if (道 === 'group' && 禁言中()) return 回(res, { ok: true, 说: '禁言中，冒泡已挡' })
     回(res, await 转入一条(文字, [], '', 道, 0, 0))
   })
 
@@ -965,6 +1083,7 @@ export function apply(ctx) {
       const d = (j && j.data) || {}
       名 = String(d.card || d.nickname || d.nick || '有人').slice(0, 16)
     } catch (error) {}
+    if (禁言中()) return 回(res, { ok: true, 说: '禁言中，这下先挡了' })
     记账(`戳一戳通知：${名}(${uid}) ${gid ? '在群里' : '私聊'}戳了她`)
     回(res, await 转入一条(`【${名}】戳了戳你`, [], '', gid ? 'group' : 'private', gid ? uid : 0, uid))
   })
