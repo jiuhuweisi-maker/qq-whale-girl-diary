@@ -951,7 +951,7 @@ export function apply(ctx) {
   const 禁言中 = () => 无限禁言 || Date.now() < 禁言到
 
   function 解析主人指令(文) {
-    const t = String(文 || '').trim().replace(/^[/／>＞]+/, '').replace(/[。！!？~～\s]+$/, '').trim()
+    const t = String(文 || '').trim().replace(/^[/／>＞「」『』【】\[\]()（）“”‘’'"]+/, '').replace(/[。！!？~～、，,「」『』【】\[\]()（）“”‘’'"\s]+$/, '').replace(/^[/／>＞「」『』【】\[\]()（）]+|[。！!？~～、，,\s]+$/g, '').trim()
     if (!t) return null
     if (/^(查余额|余额|balance)$/i.test(t)) return { cmd: '余额' }
     if (/^(状态|status)$/i.test(t)) return { cmd: '状态' }
