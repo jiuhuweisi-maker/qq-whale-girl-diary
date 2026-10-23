@@ -1025,6 +1025,14 @@ export function apply(ctx) {
     return 候选[0].令
   }
 
+  function 读DEEPSEEK密钥() {
+    try {
+    const txt = readFileSync('/root/.dsh/.credentials.yaml', 'utf8')
+      const m = txt.match(/DEEPSEEK_API_KEY[^\S\r\n]*:[^\S\r\n]*([^\s"']+)/)
+      return m ? m[1] : ''
+    } catch (e) { return '' }
+  }
+
   async function 执行主人指令(配置, 令, 原文) {
     const 答 = async (文) => {
       const 果 = await 发一个(配置.NapCat, 'send_private_msg', {
