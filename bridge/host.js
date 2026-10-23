@@ -1070,7 +1070,7 @@ export function apply(ctx) {
     const 来 = await 读体(req)
     const 文字 = typeof 来.text === 'string' ? 来.text.trim() : ''
     if (!文字) return 回(res, { ok: false, 说: '没有文字' })
-    const 道 = 来.channel === 'none' ? 'none' : 'group'
+    const 道 = 来.channel === 'none' ? 'none' : (来.channel === 'private' ? 'private' : 'group')
     if (道 === 'group' && 禁言中()) return 回(res, { ok: true, 说: '禁言中，冒泡已挡' })
     回(res, await 转入一条(文字, [], '', 道, 0, 0))
   })
