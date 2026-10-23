@@ -10,7 +10,7 @@
 | 资产 | 旧机路径 | 迁移方式 |
 |---|---|---|
 | 表情库 431 张 + INDEX.tsv + .used.json | /root/dsh-workspace/stickers/whale/ | GitHub Release `stickers-lib-2026-10`（分卷）或老服务器存活时 `rsync -a` 直迁 |
-| 值班日志 / 梗小抄 | QQ-DUTY-LOG.md / MEME_NOTES.md | git 里有 live 副本（docs/），新机器从 docs/ 拷出当种子；若旧机还活着优先 rsync 最新 |
+| 值班日志 / 梗小抄 | QQ-DUTY-LOG.md / MEME_NOTES.md | **GitHub `live-backup/` 目录每天 12:40/22:40 由旧机自动脱敏推送**（旧机猝死的兜底，最多落后半天）；旧机还活着且网可达时优先 rsync 实时版 |
 | 人设 AGENTS.md | /root/dsh-workspace/ | 仓库 templates/ 即最新（每次改动都同步过） |
 | DeepSeek 主脑密钥 + 镜像站 key | /root/.dsh/.credentials.yaml | **不在 git**。主人手里要一份，新机器原样填 |
 | 桥配置 | /root/.dsh/qq-bridge-config.json | 含真实号码，仓库 config/ 有模板；旧机 rsync 最省事 |
@@ -50,6 +50,10 @@
 - 私聊轮只认主人号、群聊自指过滤——所以不会有循环风险。
 - GitHub 从阿里云直连经常抽（本地也一样）：**git 备份走 bundle→scp→服务器中转 push**，
   表情库这种大资产走 Release 分卷（split -b 65m，`cat` 还原）。
+- 旧机自维护备份（已上线）：服务器 /opt/whale-live 用 **deploy key 走 ssh.github.com:443** 推
+  live-backup/（脚本 /opt/qq-cs/live_backup.sh + sanitize_live.py，脱敏映射在服务端本地维护）。
+  新机重建时同款照抄即可复活自备份；deploy key 私钥在旧机 /root/.ssh/whale_deploy——
+  **旧机没了这把钥匙也没了，但没关系**：新机 ssh-keygen 生成新的，主人用 gh 挂第二个 deploy key 就行。
 - 查余额 API：`GET https://api.deepseek.com/user/balance` + Bearer（镜像站无计费端点）。
 
 ## 3. 时间/token 预算
