@@ -1,6 +1,6 @@
-# dsh-qq-bridge 十六连补丁全记录（host.js）
+# dsh-qq-bridge 十七连补丁全记录（host.js）
 
-> 可重放：`bridge/host.js` 是打完全部补丁的成品；`bridge/patches/patch.py`~`patch16.py`
+> 可重放：`bridge/host.js` 是打完全部补丁的成品；`bridge/patches/patch.py`~`patch17.py`
 > 是逐补丁的重放脚本（按编号顺序对原装 host.js 依次 `python3 patchN.py` 即可复现）。
 
 插件本体：`dsh plugin --profile web add github:Yuuyuko-uu/dsh-qq-bridge`
@@ -124,6 +124,14 @@ if (!被艾特) {
 私聊 5 秒 / 群聊 7 秒静默窗（最长攒 25 秒），把连发的话合并成一条多行消息
 再转给她，**整体回应一次**。会话昏迷时放回缓冲重试，超 10 分钟丢弃。
 人设侧配套："同一个名字下面好几行 = 他连发的，整体回应别逐行回。"
+
+## patch17 — 内部轮通道（自主学习的基建）
+`/nudge` 加 `channel` 参数：`{"channel":"none"}` → 路由来路为 `none`：
+1. `转入一条` 不污染全局"最后来路"；2. `发到QQ` 开头直接记账返回，一个字节都不发 QQ。
+配合 `scripts/reflect.py`（cron 每天 22:30）：注入"晚间复盘"提示 →
+她读值班日志+回顾当天对话+把新认识写回日志 → 输出"略过"收尾。
+**聊天沉淀成记忆的闭环**：白天聊 → 晚上复盘写日志 → 换班/重启后读日志继承。
+双保险：就算她复盘轮忘了输出"略过"，none 通道也发不出去。
 
 ## 已知坑（NapCat 4.18.41，未解）
 - **发送 reply 段被静默吞**：API 返回 retcode 0，但 `get_msg` 反查发出消息里
