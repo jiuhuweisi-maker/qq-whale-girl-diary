@@ -1100,7 +1100,7 @@ export function apply(ctx) {
     } catch (error) {}
     if (禁言中()) return 回(res, { ok: true, 说: '禁言中，这下先挡了' })
     记账(`戳一戳通知：${名}(${uid}) ${gid ? '在群里' : '私聊'}戳了她`)
-    回(res, await 转入一条(`【${名}】戳了戳你`, [], '', gid ? 'group' : 'private', gid ? uid : 0, uid))
+    回(res, await 转入一条(`【${名}】戳了戳你（QQ ${uid}，要回戳就照抄跑：python3 /opt/qq-cs/poke.py ${uid}）`, [], '', gid ? 'group' : 'private', gid ? uid : 0, uid))
   })
 
   // 手动试一发：**真发**（绕过试运行），只发一条固定测试句，动不了已发轮
