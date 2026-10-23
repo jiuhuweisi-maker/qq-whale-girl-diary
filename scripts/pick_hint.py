@@ -11,7 +11,7 @@ try: used = json.load(open(ST))
 except Exception: used = {}
 now = int(time.time())
 files = [f for f in idx if os.path.exists(os.path.join(DIR, f))]
-files.sort(key=lambda f: used.get(f, 0))
+files.sort(key=lambda f: (used.get(f, 0), random.random()))
 cands = files[:3]
 for f in cands: used[f] = now
 json.dump(used, open(ST, "w"))

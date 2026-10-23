@@ -370,6 +370,8 @@ export function apply(ctx) {
 
   // patch22 节奏账本：她在群里连发纯文字的段数（发过图就清零）
   let 连纯文 = 0
+  const 图闸 = new Map() // patch24：文件小写名 -> 上次真发时间戳
+  let 群图最近 = 0
   /** 把一句正文发到该发的地方（私聊 / 群）；按空行拆段，一段一条连发。⭐ 末尾再加上图片。 */
   async function 发到QQ(配置, 原文字, 图们, 路由) {
     const 出 = []
@@ -386,6 +388,15 @@ export function apply(ctx) {
     const 图数据 = []
     const 加图 = (源) => {
       if (!源 || 图数据.length >= 4) return
+      const 闸键 = String(源.value || '').split(/[\\/]/).pop().toLowerCase()
+      if (闸键) {
+        const 现 = Date.now()
+        const 上回 = 图闸.get(闸键) || 0
+        if (现 - 上回 < 86400000) { 记账(`🚫 图闸拦重复：这张 24 小时内贴过了（${闸键.slice(0, 10)}…）`); return }
+        if (路.来路 === 'group' && 现 - 群图最近 < 90000) { 记账('⏳ 图闸按下：群里两张图不到 90 秒'); return }
+        图闸.set(闸键, 现)
+        if (路.来路 === 'group') 群图最近 = 现
+      }
       if (源.kind === 'url') { 图数据.push({ url: 源.value }); return }
       let 值 = 源.value
       // ⭐ 伙伴回发时常常照抄 DSH 给的那条「只读副本」路径（webp）——
@@ -761,7 +772,7 @@ export function apply(ctx) {
     // 私聊轮询自己会清 艾特我人，这里不清，免得 /receive 测试误伤
     const 配置 = 读配置()
     // ⭐ patch22 三句一图：连纯文字够 3 段就在这轮挂提醒（桥计数，不经大脑，别点破）
-    if (来路 === 'group' && 连纯文 >= 5) 文字 = String(文字 || '') + '\n（桥的提醒：你在群里已连发 ' + 连纯文 + ' 条纯文字了——本轮挑张对味的表情包甩出去，给气氛浇点油）'
+    if (来路 === 'group' && 连纯文 >= 8) 文字 = String(文字 || '') + '\n（桥的提醒：你在群里已连发 ' + 连纯文 + ' 条纯文字了——本轮挑张对味的表情包甩出去，给气氛浇点油）'
     if (!配置.目标会话) return { ok: false, 说: '还没选「目标会话」' }
     if (!配置.总开关) return { ok: false, 说: '总开关关着，先打开' }
     const agent = 找agent(配置.目标会话)
