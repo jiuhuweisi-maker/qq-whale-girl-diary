@@ -116,3 +116,10 @@ crontab -l | sed -E '/^# paused-after-qq-risk /s/^# paused-after-qq-risk //' | c
 - 服务器：+2G swap；内存水位 avail~600-800M正常(新家QQ全家桶约350-450M)
 - 已知杂音：CHECK_PATCH_UPDATE FETCH_URL_FAILED(补丁更新通道拉国内断网，不影响使用)；dbus login1 Inhibit报错(Xvfb环境无systemd-logind，无害)
 
+
+## patch53：@判定NaN击穿修复（乔迁后遗症，20:52）
+- 病灶：SnowLuma群消息条目**不带 self_id 字段**（NapCat带）→ Number(undefined)=NaN → 被@判定恒false+叫别人判定恒true → 20:44主人@她'活了吗哦鲸鲸'整条群线哑火（私聊无恙：zdjd进脑20:43:42→回20:44:30，打字时长随字数的正态节奏照常）
+- 修：轮询循环内加 自53=条.self_id有效则用之，否则退到配置.她QQ 兜底；1013自回声/1055被@/1061叫别人三处统一引用。备份.bak53
+- guard v2(复活梯子)：掉线先自动 supervisorctl restart qq(进程级,15分钟一次机会,票可能扛住=主人要的'自动登录'软掉线场景)→救不回才企微求扫码。KICK计数改wc -l防双输出
+- 闲置清点：eventd/napcat-risk-guard本就不在跑；运行面只剩 dsh+whale-ws+snowluma 三户，avail 580M+2G swap
+

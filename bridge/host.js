@@ -1009,8 +1009,9 @@ export function apply(ctx) {
       const 列表 = await 拉('get_group_msg_history', { group_id: Number(配置.群号), count: 30 })
       for (const 条 of 列表.sort((a, b) => (a.time || 0) - (b.time || 0))) {
         if (!条) continue
+        const 自53 = Number(条.self_id) && Number(条.self_id) > 0 ? Number(条.self_id) : Number(配置.她QQ) || <她的QQ>
         const 群发言者 = Number(条.user_id)
-        if (群发言者 === Number(条.self_id)) continue
+        if (群发言者 === (Number(条.self_id)||自53)) continue
         if (群静默中()) { 已转消息.add(条.message_id); continue } // patch45 群静默48h养号：群话不入脑
         // ⭐ patch44 深夜静默：01:00-07:00 群里的话不入脑（主人私聊不拦），三点秒回才是bot铁证
         try {
@@ -1052,12 +1053,12 @@ export function apply(ctx) {
         const 被艾特 = 段们G.some((x) => {
           if (!x || x.type !== 'at') return false
           const q = String((x.data && x.data.qq) || x.qq || '')
-          return q === 'all' || Number(q) === Number(条.self_id)
+          return q === 'all' || Number(q) === (Number(条.self_id)||自53)
         })
         if (!被艾特) {
           const 热 = 热聊.get(群发言者)
           if (!(热 && Date.now() < 热)) continue        // 不在热聊窗口且没 @ → 装死
-          if (段们G.some((x) => x && x.type === 'at' && String((x.data && x.data.qq) || x.qq || '') !== 'all' && Number((x.data && x.data.qq) || 0) !== Number(条.self_id))) continue  // 在叫别人 → 不接茬
+          if (段们G.some((x) => x && x.type === 'at' && String((x.data && x.data.qq) || x.qq || '') !== 'all' && Number((x.data && x.data.qq) || 0) !== (Number(条.self_id)||自53))) continue  // 在叫别人 → 不接茬
           热聊.set(群发言者, Date.now() + (群发言者 === Number(配置.私聊QQ) ? 600000 : 180000)) // patch25滑窗：收到即续期
         } else {
           热聊.set(群发言者, Date.now() + (群发言者 === Number(配置.私聊QQ) ? 600000 : 180000)) // 被@：常人3分钟，主人10分钟
