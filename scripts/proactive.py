@@ -14,7 +14,12 @@ def rd(p):
             return datetime.datetime.fromisoformat(t)
         except Exception:
             return datetime.datetime.strptime(t, "%Y-%m-%dT%H:%M")
+    except FileNotFoundError:
+        return None
     except Exception:
+        try:
+            open(LOG, "a").write("%s proactive 读数失败(当None放行,需人工看): %s\n" % (now.strftime("%m-%d %H:%M"), p))
+        except Exception: pass
         return None
 nxt = rd(STATE); lastfire = rd(FIRE)
 if not (10 <= now.hour <= 21): raise SystemExit(0)
