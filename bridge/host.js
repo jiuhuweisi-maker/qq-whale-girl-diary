@@ -291,8 +291,22 @@ export function apply(ctx) {
   let 上一轮 = { 轮号: -1, 文本: '', 图们: [] }
   const 已发轮 = new Set()
   const 已转消息 = new Set() // 已经转发进 DSH 的 QQ 消息 id（防重复转）
-  let 上次私聊时间 = Math.floor(Date.now() / 1000) // 从这一刻起只认新消息，不补旧的
+  const 私水位文件 = '/opt/qq-cs/.bridge-pm-wm' // ⭐ patch47 私聊水位线持久化：重启空窗里的私信不再被静默吞掉（10分钟坟墓规则仍封顶）
+  const 读私水位 = () => {
+    const n = Math.floor(Date.now() / 1000)
+    try { const v = Number(require('fs').readFileSync(私水位文件, 'utf8').trim()) || 0; if (!v || n - v > 600) return n; return v } catch (e) { return n }
+  }
+  let 上次私聊时间 = 读私水位()
   let 上次群时间 = Math.floor(Date.now() / 1000)
+  let 连败48 = 0 // ⭐ patch48 僵尸检测：QQ发送连败3次⇒企微报警（登录接口会说谎，发送失败不会）
+  const 报僵尸 = async () => {
+    try {
+      const conf = String(require('fs').readFileSync('/opt/qq-cs/notify.conf', 'utf8')).match(/webhook=(\S+)/)
+      if (!conf) return
+      await fetch(conf[1], { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ msgtype: 'text', text: { content: '🧟 鲸鱼娘僵尸检测：QQ发送已连续失败3次。get_login_info 可能还在报好，但会话基本已死——需要主人重新扫码。' } }) })
+      记账('🧟 已推企微僵尸告警（连败3）')
+    } catch (e) {}
+  }
 
   function 记账(文本) {
     const d = new Date()
@@ -347,8 +361,13 @@ export function apply(ctx) {
         body: JSON.stringify(体),
       })
       const j = await r.json()
-      return { action, ok: !!(j && j.status === 'ok' && j.retcode === 0), 数据: j }
+      const ok48 = !!(j && j.status === 'ok' && j.retcode === 0)
+      if (ok48) 连败48 = 0
+      else { 连败48++; if (连败48 === 3) void 报僵尸() }
+      return { action, ok: ok48, 数据: j }
     } catch (error) {
+      连败48++
+      if (连败48 === 3) void 报僵尸()
       return { action, ok: false, 数据: { 错: String((error && error.message) || error) } }
     }
   }
@@ -932,6 +951,7 @@ export function apply(ctx) {
       return { 文字, 图们 }
     }
 
+    const 旧水位47 = 上次私聊时间
     if (配置.转私聊 && 配置.私聊QQ) {
       const 列表 = await 拉('get_friend_msg_history', { user_id: 她的号, count: 10 })
       for (const 条 of 列表.sort((a, b) => (a.time || 0) - (b.time || 0))) {
@@ -955,6 +975,8 @@ export function apply(ctx) {
         已转消息.add(条.message_id)
       }
     }
+
+    try { if (上次私聊时间 !== 旧水位47) require('fs').writeFileSync(私水位文件, String(上次私聊时间)) } catch (e) {} // patch47
 
     if (配置.转群 && 配置.群号) {
       const 列表 = await 拉('get_group_msg_history', { group_id: Number(配置.群号), count: 30 })
