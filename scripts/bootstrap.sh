@@ -8,6 +8,7 @@ set -e
 mkdir -p /opt/qq-cs /root/dsh-workspace/stickers
 cp -f scripts/*.py /opt/qq-cs/
 cp -f scripts/watchdog.sh scripts/live_backup.sh scripts/napcat-risk-guard.sh /opt/qq-cs/ 2>/dev/null || true
+cp -f scripts/session_archive_query.js /opt/qq-cs/
 chmod +x /opt/qq-cs/*.py /opt/qq-cs/*.sh 2>/dev/null || true
 # 桥配置（试运行先开 true，验收过再改 false 真发）
 cat > /root/.dsh/qq-bridge-config.json <<EOF

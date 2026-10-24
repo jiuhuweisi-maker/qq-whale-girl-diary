@@ -90,6 +90,8 @@
 
 QQ 设备风险下线时，按 **[docs/QQ-RISK.md](docs/QQ-RISK.md)** 暂停 NapCat 并核对账号安全。
 
+DSH 会话上下文过长时，按 **[docs/SESSION-ROTATION.md](docs/SESSION-ROTATION.md)** 交接并切换 QQ 桥接；旧会话档案可按需检索。
+
 ## 换新服务器？
 先看 **[docs/REBUILD.md](docs/REBUILD.md)** —— 速建手册：带走清单、装机顺序（每步带验证命令）、
 已付学费的坑、试运行验收电池；一键脚本 `scripts/bootstrap.sh`。
