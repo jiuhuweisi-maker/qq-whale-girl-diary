@@ -306,16 +306,31 @@ export function apply(ctx) {
   }
 
   let 发送窗口 = []
-  async function 节流发送() {
-    // ⭐ patch43 防踢节流：一分钟窗口内第4条起，每条前缓20秒（日常对话无感，追发/刷屏才显形）
+  let 图窗 = []
+  let 图日 = { d: '', n: 0 }
+  async function 节流发送(是图) {
+    // ⭐ patch43+44 防踢节流：第4条/分钟起缓20秒；图片另加第3张/分钟起缓25秒、日封顶60张（刷屏式发图最像bot）
     const now = Date.now()
+    const 日 = new Date().toLocaleDateString('sv')
+    if (图日.d !== 日) { 图日.d = 日; 图日.n = 0 }
+    if (是图) {
+      if (图日.n > 60) return '限额'
+      const 近图 = 图窗.filter(t => now - t < 60000).length
+      if (近图 >= 2) await new Promise(r => setTimeout(r, 25000))
+      图窗.push(now)
+      if (图窗.length > 30) 图窗.splice(0, 图窗.length - 30)
+      图日.n += 1
+    }
     const 近 = 发送窗口.filter(t => now - t < 60000).length
     if (近 >= 3) await new Promise(r => setTimeout(r, 20000))
     发送窗口.push(Date.now())
     if (发送窗口.length > 40) 发送窗口.splice(0, 发送窗口.length - 40)
+    return null
   }
   async function 发一个(base, action, 体) {
-    await 节流发送()
+    const 是图 = Array.isArray(体 && 体.message) && 体.message.some((x) => x && x.type === 'image')
+    const 闸 = await 节流发送(是图)
+    if (闸 === '限额') return { ok: false, 说: '今天发图到顶了，明儿再说' }
     try {
       const r = await fetch(`${base}/${action}`, {
         method: 'POST',
@@ -938,6 +953,11 @@ export function apply(ctx) {
         if (!条) continue
         const 群发言者 = Number(条.user_id)
         if (群发言者 === Number(条.self_id)) continue
+        // ⭐ patch44 深夜静默：01:00-07:00 群里的话不入脑（主人私聊不拦），三点秒回才是bot铁证
+        try {
+          const 夜时 = new Date().getHours()
+          if (夜时 >= 1 && 夜时 < 7 && 群发言者 !== Number(配置.私聊QQ)) { 已转消息.add(条.message_id); continue }
+        } catch (error) {}
         // ⭐ patch37 鲸元券兑奖：口令命中→奖品图即发（零token，先到先得）
         try {
           const 券f = '/opt/qq-cs/.lottery.json'
