@@ -31,7 +31,7 @@ if not mode:
         try: last = datetime.datetime.strptime(rd(ST_R), "%Y-%m-%d")
         except Exception: pass
         gap = (now.date() - last.date()).days if last else 99
-        if gap >= 2 and random.random() < 0.4:
+        if gap >= 1 and random.random() < 0.65:
             mode = "report"
 if not mode:
     raise SystemExit(0)

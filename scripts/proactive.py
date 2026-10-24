@@ -8,8 +8,14 @@ CFG = json.load(open("/root/.dsh/qq-bridge-config.json"))
 GID = int(CFG.get("群号") or 0)
 now = datetime.datetime.now()
 def rd(p):
-    try: return datetime.datetime.fromisoformat(open(p).read().strip())
-    except Exception: return None
+    try:
+        t = open(p).read().strip()
+        try:
+            return datetime.datetime.fromisoformat(t)
+        except Exception:
+            return datetime.datetime.strptime(t, "%Y-%m-%dT%H:%M")
+    except Exception:
+        return None
 nxt = rd(STATE); lastfire = rd(FIRE)
 if not (10 <= now.hour <= 21): raise SystemExit(0)
 due = bool(nxt is None or now >= nxt)
@@ -41,8 +47,8 @@ open(FIRE, "w").write(now.isoformat(timespec="minutes"))
 if due:
     gap = random.choice([3,4,5,6,7,8,9,10,11])
     n2 = now + datetime.timedelta(hours=gap)
-    if n2.hour < 10 or n2.hour > 21:
-        n2 = (n2 + datetime.timedelta(days=1)).replace(hour=random.randint(10,13), minute=random.randint(0,59))
+    if n2.hour > 21: n2 = n2 + datetime.timedelta(days=1)
+    if n2.hour < 10 or n2.hour > 21: n2 = n2.replace(hour=random.randint(10,13), minute=random.randint(0,59))
     open(STATE,"w").write(n2.isoformat(timespec="minutes"))
     nxt = n2
 open(LOG,"a").write("%s proactive ok=%s rescue=%s silent=%dmin 下次 %s\n" % (now.strftime("%m-%d %H:%M"), r.get("ok"), rescue, silent_min, nxt.strftime("%m月%d日%H:%M") if nxt else "-"))
