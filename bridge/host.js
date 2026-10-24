@@ -386,25 +386,19 @@ export function apply(ctx) {
 
   /** 把一段长文字按空行拆成自然段（没有空行就整段）。 */
   function 按段拆(文字) {
-    // ⭐ patch51 标点级连发（主人钦定：一个逗号一条，逗号吃掉，像人）
+    // ⭐ patch60 换行即消息：切分权归还她自己的排版，逗号连发机器退役（主人钦定独立思考）
     const 原文 = String(文字 || '').trim()
     if (!原文) return []
     const 条 = []
-    const 并入 = (c) => {
-      // 无中文且短 => 表情/颜文字尾巴，挂到上一条去；否则新开一条；超42字硬切
-      if (!/[\u4e00-\u9fff]/.test(c) && c.length <= 16 && 条.length) { 条[条.length - 1] += ' ' + c; return }
-      while (c.length > 42) { 条.push(c.slice(0, 42).trim()); c = c.slice(42) }
-      if (c) 条.push(c)
-    }
     for (const 行 of 原文.split(/\n+/)) {
-      for (const 片 of 行.split(/[，,、；;]+/)) {
-        const 净 = 片.trim()
-        if (!净) continue
-        for (const 尾 of 净.split(/(?<=[。！？!?…])/)) {
-          const 子 = 尾.trim()
-          if (子) 并入(子)
-        }
+      let c = 行.trim()
+      if (!c) continue
+      while (c.length > 78) {
+        let 断 = c.lastIndexOf(' ', 78)
+        if (断 < 30) 断 = 78
+        条.push(c.slice(0, 断).trim()); c = c.slice(断).trim()
       }
+      if (c) 条.push(c)
     }
     return 条.filter((x) => x && x.trim().length)
   }
