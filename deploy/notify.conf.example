@@ -1,0 +1,3 @@
+# 掉线告警推送配置：把企微/钉钉/飞书群机器人的 webhook URL 填进来，kick_watch.sh 即自动生效
+# 例子(企微): webhook=https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxx
+webhook=

@@ -10,3 +10,5 @@
 38 22 * * 0 /usr/bin/python3 /opt/qq-cs/weekly_report.py >> /opt/qq-cs/weekly.log 2>&1
 5 20 * * * /usr/bin/python3 /opt/qq-cs/whale_lottery.py >> /opt/qq-cs/lottery.log 2>&1
 12 9 * * 1 /usr/bin/python3 /opt/qq-cs/bili_trends.py >> /opt/qq-cs/bili_trends.log 2>&1
+*/5 * * * * /opt/qq-cs/kick_watch.sh >> /opt/qq-cs/kick_watch.log 2>&1
+3 */2 * * * /opt/qq-cs/keep_brain.sh

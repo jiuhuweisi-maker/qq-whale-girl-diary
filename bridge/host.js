@@ -305,7 +305,17 @@ export function apply(ctx) {
     } catch (error) {}
   }
 
+  let 发送窗口 = []
+  async function 节流发送() {
+    // ⭐ patch43 防踢节流：一分钟窗口内第4条起，每条前缓20秒（日常对话无感，追发/刷屏才显形）
+    const now = Date.now()
+    const 近 = 发送窗口.filter(t => now - t < 60000).length
+    if (近 >= 3) await new Promise(r => setTimeout(r, 20000))
+    发送窗口.push(Date.now())
+    if (发送窗口.length > 40) 发送窗口.splice(0, 发送窗口.length - 40)
+  }
   async function 发一个(base, action, 体) {
+    await 节流发送()
     try {
       const r = await fetch(`${base}/${action}`, {
         method: 'POST',
@@ -777,8 +787,11 @@ export function apply(ctx) {
     if (来路 === 'group' && 连纯文 >= 8) 文字 = String(文字 || '') + '\n（桥的提醒：你在群里已连发 ' + 连纯文 + ' 条纯文字了——本轮挑张对味的表情包甩出去，给气氛浇点油）'
     if (!配置.目标会话) return { ok: false, 说: '还没选「目标会话」' }
     if (!配置.总开关) return { ok: false, 说: '总开关关着，先打开' }
-    const agent = 找agent(配置.目标会话)
-    if (!agent) agent = await 救会话()
+    let agent = 找agent(配置.目标会话)
+    if (!agent) {
+      const 救果 = await 救会话()
+      if (救果 === 'alive') agent = 找agent(配置.目标会话)
+    }
     if (!agent) return { ok: false, 说: `目标会话现在没活着（${短id(配置.目标会话)}），自愈也没救回来` }
 
     // ── 收图：限量、限重，失败就跳过，不挡住文字 ──
