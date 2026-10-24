@@ -348,7 +348,7 @@ export function apply(ctx) {
       图日.n += 1
     }
     const 近 = 发送窗口.filter(t => now - t < 60000).length
-    if (近 >= 3) await new Promise(r => setTimeout(r, 20000))
+    if (近 >= 5) await new Promise(r => setTimeout(r, 12000))
     发送窗口.push(Date.now())
     if (发送窗口.length > 40) 发送窗口.splice(0, 发送窗口.length - 40)
     return null
@@ -361,9 +361,9 @@ export function apply(ctx) {
     // ⭐ patch46 回话节奏随机化：治固定几秒回复的机器人钟摆（主人18:31建议）
     try {
       const 文46 = Array.isArray(体 && 体.message) ? 体.message.map((x) => (x && x.data && x.data.text) || '').join('') : ''
-      const μ50 = Math.min(12000, 2200 + 文46.length * 190) + (是图 ? 1500 : 0) // ⭐ patch50 正态分布间隔（评论区处方）：μ随长度、σ=0.35μ
+      const μ50 = Math.min(6500, 1100 + 文46.length * 120) + (是图 ? 800 : 0) // ⭐ patch50 正态分布间隔（评论区处方）：μ随长度、σ=0.35μ
       const 正50 = (() => { let u1 = 0; while (u1 === 0) u1 = Math.random(); const u2 = Math.random(); return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2) })()
-      const 歇46 = Math.max(900, Math.min(18000, Math.round(μ50 + 正50 * μ50 * 0.35)))
+      const 歇46 = Math.max(600, Math.min(9000, Math.round(μ50 + 正50 * μ50 * 0.35)))
       await new Promise((rr) => setTimeout(rr, 歇46))
     } catch (error) {}
     try {
@@ -455,7 +455,17 @@ export function apply(ctx) {
   const 图闸 = new Map() // patch24：文件小写名 -> 上次真发时间戳
   let 群图最近 = 0
   /** 把一句正文发到该发的地方（私聊 / 群）；按空行拆段，一段一条连发。⭐ 末尾再加上图片。 */
+  
+  // ⭐ patch57 嘴锁：两个大脑回合的回复批不再交叉插队（"你们聊"后马上续聊的错乱感来源）
+  let 嘴锁57 = Promise.resolve()
   async function 发到QQ(配置, 原文字, 图们, 路由) {
+    const 前57 = 嘴锁57
+    let 解57
+    嘴锁57 = new Promise((r) => (解57 = r))
+    await 前57.catch(() => {})
+    try { return await 发到QQ原57(配置, 原文字, 图们, 路由) } finally { 解57() }
+  }
+  async function 发到QQ原57(配置, 原文字, 图们, 路由) {
     const 出 = []
     const 路 = 路由 || { 来路: (来路时刻 && Date.now() - 来路时刻 < 90000 && 最后来路 === 'group') ? 'group' : 'private', 艾特: (艾特时刻 && Date.now() - 艾特时刻 < 90000) ? 艾特我人 : 0 }
     if (路.来路 === 'none') { 记账('内部轮（复盘/无通道），不发 QQ'); return 出 }
@@ -834,7 +844,7 @@ export function apply(ctx) {
   async function 冲缓冲(配置) {
     const now = Date.now()
     for (const [键, b] of Array.from(缓聊.entries())) {
-      const 静默 = b.route === 'private' ? 5000 : 7000
+      const 静默 = b.route === 'private' ? 4000 : 5500
       if (now - b.last < 静默 && now - b.first < 25000) continue
       缓聊.delete(键)
       if (now - b.first > 180000 && now - b.last > 60000) { 记账('插话等太久，弃'); continue } // patch55: 她在打长字时给插话者3分钟排队窗（桥忙≠装死）
