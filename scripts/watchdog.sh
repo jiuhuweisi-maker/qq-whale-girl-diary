@@ -10,7 +10,7 @@ API=$(python3 -c "import json;N=json.load(open('$CFG'))['NapCat'];print(N if isi
 MASTER=$(python3 -c "import json;print(json.load(open('$CFG'))['私聊QQ'])")
 BAD=""
 for s in dsh whale-ws; do systemctl is-active $s --quiet || { systemctl restart $s; sleep 8; systemctl is-active $s --quiet || BAD="$BAD $s"; }; done
-docker ps -q -f name=napcat | grep -q . || { docker restart napcat >/dev/null 2>&1; sleep 15; docker ps -q -f name=napcat | grep -q . || BAD="$BAD napcat"; }
+docker ps -q -f name=snowluma | grep -q . || { BAD="$BAD snowluma(容器不在跑!只报警绝不restart)"; }
 T=$(journalctl -u dsh --no-pager 2>/dev/null | grep -oE 'token=[A-Za-z0-9_-]+' | tail -1 | cut -d= -f2)
 curl -s -m 6 "http://127.0.0.1:3080/dsh-qq-bridge/poke?token=$T" -d '{}' -H 'content-type: application/json' | grep -qE '"ok"|uid' || BAD="$BAD bridge"
 if [ -n "$BAD" ]; then
