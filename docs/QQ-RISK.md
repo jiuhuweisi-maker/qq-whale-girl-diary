@@ -106,3 +106,13 @@ crontab -l | sed -E '/^# paused-after-qq-risk /s/^# paused-after-qq-risk //' | c
 
 - **patch51 标点级连发**（19:5x 主人细化）：按段拆重写——逗号/顿号/分号即消息边界（标点吃掉），换行即分条，句末标点保留挂尾，≤16字无中文的颜/emoji尾巴自动并回上一条，>42字无标点碎块硬切；每小条各自过正态随机憋话。主人原句实测输出四条完美🐋
 
+
+## 2026-10-24 乔迁：NapCat→SnowLuma（主人拍板，patch52）
+- 新家：官方镜像 motricseven7/snowluma:latest(1.88G，QQ+Xvfb+noVNC+注入全家桶)，容器名snowluma，restart=unless-stopped，OneBot HTTP映射127.0.0.1:3002/WS 3003（避NapCat的3000/3001）
+- 接入：QQ官方Linux客户端登录(仅扫码，VNC 6081)，SnowLuma hook注入进程→标准OneBot v11→桥零改动思路成立；实测历史消息结构/发送/登录接口与NapCat兼容
+- patch52：host.js加带票52()（NapCat字段支持 #token=片段→自动转?access_token=），5处fetch包装；wsd指3003带票(戳一戳中继)；eventd的httpClients尝试无效已拆
+- **铁律（血泪）：SnowLuma容器不可restart——20:33那次restart后票据直接丢失(官方客户端票未落盘持久)，需人工重新扫码**。旧napcat-risk-guard的'熔断stop+restart'逻辑对新家**作废**→新写snowluma-guard.sh(2分钟cron)：alive→dead才企微报警，**永远只报警不重启**
+- 冷备：napcat容器stopped保留，/opt/whale-napcat-snapshot-20261024.tar.gz(132K全量配置)；回滚=改NapCat字段回http://127.0.0.1:3000去#token+docker start napcat+restart dsh
+- 服务器：+2G swap；内存水位 avail~600-800M正常(新家QQ全家桶约350-450M)
+- 已知杂音：CHECK_PATCH_UPDATE FETCH_URL_FAILED(补丁更新通道拉国内断网，不影响使用)；dbus login1 Inhibit报错(Xvfb环境无systemd-logind，无害)
+

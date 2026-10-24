@@ -25,6 +25,16 @@ export const inject = ['agents', 'sessions', 'sessionTitle', 'webServer', 'timer
 const 目录 = process.env.DSH_HOME || join(homedir(), '.dsh')
 const 配置文件 = join(目录, 'qq-bridge-config.json')
 const 路由前缀 = '/dsh-qq-bridge'
+
+// ⭐ patch52 SnowLuma票支持：配置NapCat字段可带 #token=xxx 片段，所有出网请求自动转 ?access_token=xxx
+const 带票52 = (u) => {
+  const i = u.indexOf('#token=')
+  if (i < 0) return u
+  const j = u.indexOf('/', i)
+  const 票 = j < 0 ? u.slice(i + 7) : u.slice(i + 7, j)
+  const 径 = j < 0 ? '' : u.slice(j)
+  return u.slice(0, i) + 径 + (径.includes('?') ? '&' : '?') + 'access_token=' + 票
+}
 const 日志上限 = 60
 
 const 默认配置 = {
@@ -357,7 +367,7 @@ export function apply(ctx) {
       await new Promise((rr) => setTimeout(rr, 歇46))
     } catch (error) {}
     try {
-      const r = await fetch(`${base}/${action}`, {
+      const r = await fetch(带票52(`${base}/${action}`), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(体),
@@ -730,7 +740,7 @@ export function apply(ctx) {
     const 清单 = 会话清单()
     let NapCat状态 = null
     try {
-      const r = await fetch(`${配置.NapCat}/get_login_info`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+      const r = await fetch(带票52(`${配置.NapCat}/get_login_info`), { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
       const j = await r.json()
       if (j && j.status === 'ok') NapCat状态 = { 用户: j.data.user_id, 昵称: j.data.nickname }
     } catch (error) {
@@ -797,7 +807,7 @@ export function apply(ctx) {
   // patch19 读空气：群消息转发前，抓最近10分钟的群聊现场给模型当背景
   async function 现场气氛(配置) {
     try {
-      const r = await fetch(`${配置.NapCat}/get_group_msg_history`, {
+      const r = await fetch(带票52(`${配置.NapCat}/get_group_msg_history`), {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ group_id: Number(配置.群号), count: 14 }),
       })
@@ -946,7 +956,7 @@ export function apply(ctx) {
 
     const 拉 = async (action, 体) => {
       try {
-        const r = await fetch(`${配置.NapCat}/${action}`, {
+        const r = await fetch(带票52(`${配置.NapCat}/${action}`), {
           method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(体),
         })
         const j = await r.json()
@@ -1365,7 +1375,7 @@ export function apply(ctx) {
     if (gid && Number(配置.群号) !== gid) return 回(res, { ok: true, 说: '别的群的戳，不管' })
     let 名 = '有人'
     try {
-      const r = await fetch(`${配置.NapCat}/${gid ? 'get_group_member_info' : 'get_stranger_info'}`, {
+      const r = await fetch(带票52(`${配置.NapCat}/${gid ? 'get_group_member_info' : 'get_stranger_info'}`), {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify(gid ? { group_id: gid, user_id: uid } : { user_id: uid }),
       })
