@@ -837,7 +837,7 @@ export function apply(ctx) {
       const 静默 = b.route === 'private' ? 5000 : 7000
       if (now - b.last < 静默 && now - b.first < 25000) continue
       缓聊.delete(键)
-      if (now - b.first > 600000) { 记账('缓冲内容太旧，丢弃'); continue }
+      if (now - b.first > 180000 && now - b.last > 60000) { 记账('插话等太久，弃'); continue } // patch55: 她在打长字时给插话者3分钟排队窗（桥忙≠装死）
       let 文 = '【' + b.name + '】' + b.texts.join('\n')
       if (b.route === 'group') {
         const 气氛 = await 现场气氛(配置)
