@@ -89,3 +89,11 @@ crontab -l | sed -E '/^# paused-after-qq-risk /s/^# paused-after-qq-risk //' | c
 - 群静默没能救命（登录寿命~55min），行为层假设基本排除→矛头=机房IP观察期/账号侧标记；容器已冻结（restart=no+stop，防无效重试加深标记）
 - **patch47** 私聊水位线持久化（/opt/qq-cs/.bridge-pm-wm，坟墓规则600s封顶）：桥重启空窗里主人的私信最多延迟10分钟内补投，不再被永久吞
 - **patch48** 僵尸检测：QQ发送连败3次⇒企微🧟告警（发送失败不会说谎）；今晚若扫码复活，以后僵尸死第一时间可见
+
+### patch49 反检测六开关全开 + 快速登录自愈实锤（19:1x-19:2x，评论区方案落地）
+- 来源：主人抄回B站评论区（苏辞视频）：NapCat 配置 bypass{hook,window,module,process,container,js} 全开+回复间隔随机化（后者=patch46已做）。落地：host侧 docker cp 改 config → bypass 六项 false→true → docker restart
+- **重大旁证**：容器重启后日志 正在快速登录 <她的QQ> **两次自动重登成功**（19:20/19:21，探针均 retcode 0 发出）——19:1x 主人 WebUI 密码+滑块登录后 passkey 已换新，**从今天起恢复流程默认不需要扫码**（快速登录优先，失败才降级扫码；密码登录会触发腾讯滑块，机房IP下能免则免）
+- 19:1x 主人往她QQ钱包充了钱（收信日志实锤"给你QQ里面充了点钱"）——评论区"账号价值信号"的玄学加成，到账了
+- 登录qq时出现过一次"有安全风险"提示（主人在别处登她的号）——已提醒：养号期别在陌生设备登她的号，手机+这台服务器两个登录点就够
+- 静默闸仍在工作（群里柱间喊'在吗''看来真关了'她忍着没回，10-26 17:55 复播）
+- 防护归位：risk-guard/dsh/whale-ws 全active，无熔断旗，restart=unless-stopped
