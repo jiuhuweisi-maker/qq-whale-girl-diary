@@ -2,6 +2,8 @@
 
 2026-10-24 07:19:50，NapCat 收到 `KickedOffLine`，QQ 手机端提示 Linux 设备风险下线。随后 NapCat 每约两分钟刷新一次登录二维码。此类设备判定由 QQ 平台作出，脚本无法保证 NapCat 以后不被判风险。
 
+13:24 进行过一次受控重登：旧登录态失效，13:25 手机 QQ 扫码后服务器只显示“等待确认”，手机未出现确认页，始终未登录成功。已再次停止 NapCat；不要连续重试。
+
 ## 服务器保护
 
 - `/opt/qq-cs/napcat-risk-guard.sh` 由 `napcat-risk-guard.service` 持续看 NapCat 日志。再次出现 `KickedOffLine` 时，它创建 `/opt/qq-cs/.napcat-risk-paused`、关闭容器自动重启并停止 NapCat，防止持续刷新二维码。
