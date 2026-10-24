@@ -334,6 +334,12 @@ export function apply(ctx) {
     const 是图 = Array.isArray(体 && 体.message) && 体.message.some((x) => x && x.type === 'image')
     const 闸 = await 节流发送(是图)
     if (闸 === '限额') return { ok: false, 说: '今天发图到顶了，明儿再说' }
+    // ⭐ patch46 回话节奏随机化：治固定几秒回复的机器人钟摆（主人18:31建议）
+    try {
+      const 文46 = Array.isArray(体 && 体.message) ? 体.message.map((x) => (x && x.data && x.data.text) || '').join('') : ''
+      const 歇46 = 1800 + Math.min(16000, 文46.length * (180 + Math.floor(Math.random() * 420))) + Math.floor(Math.random() * 3000) + (是图 ? Math.floor(Math.random() * 4500) : 0)
+      await new Promise((rr) => setTimeout(rr, 歇46))
+    } catch (error) {}
     try {
       const r = await fetch(`${base}/${action}`, {
         method: 'POST',
