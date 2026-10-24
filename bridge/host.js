@@ -305,6 +305,8 @@ export function apply(ctx) {
     } catch (error) {}
   }
 
+  const 静默文件 = '/opt/qq-cs/.group-silence-until'
+  const 群静默中 = () => { try { const t = Number(require('fs').readFileSync(静默文件, 'utf8').trim()) || 0; return Date.now() / 1000 < t } catch (e) { return false } }
   let 发送窗口 = []
   let 图窗 = []
   let 图日 = { d: '', n: 0 }
@@ -328,6 +330,7 @@ export function apply(ctx) {
     return null
   }
   async function 发一个(base, action, 体) {
+    if (action === 'send_group_msg' && 群静默中()) { 记账('🤐 群静默中，一条群发被挡'); return { ok: true, 说: '群静默挡' } }
     const 是图 = Array.isArray(体 && 体.message) && 体.message.some((x) => x && x.type === 'image')
     const 闸 = await 节流发送(是图)
     if (闸 === '限额') return { ok: false, 说: '今天发图到顶了，明儿再说' }
@@ -953,6 +956,7 @@ export function apply(ctx) {
         if (!条) continue
         const 群发言者 = Number(条.user_id)
         if (群发言者 === Number(条.self_id)) continue
+        if (群静默中()) { 已转消息.add(条.message_id); continue } // patch45 群静默48h养号：群话不入脑
         // ⭐ patch44 深夜静默：01:00-07:00 群里的话不入脑（主人私聊不拦），三点秒回才是bot铁证
         try {
           const 夜时 = new Date().getHours()
@@ -1297,6 +1301,7 @@ export function apply(ctx) {
     if (!文字) return 回(res, { ok: false, 说: '没有文字' })
     const 道 = 来.channel === 'none' ? 'none' : (来.channel === 'private' ? 'private' : 'group')
     if (道 === 'group' && 禁言中()) return 回(res, { ok: true, 说: '禁言中，冒泡已挡' })
+    if (道 === 'group' && 群静默中()) return 回(res, { ok: true, 说: '群静默48h中，冒泡已挡' })
     回(res, await 转入一条(文字, [], '', 道, 0, 0))
   })
 
