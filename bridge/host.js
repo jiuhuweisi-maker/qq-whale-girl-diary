@@ -376,25 +376,28 @@ export function apply(ctx) {
 
   /** 把一段长文字按空行拆成自然段（没有空行就整段）。 */
   function 按段拆(文字) {
-    const 段 = String(文字 || '')
-      .split(/\n\s*\n/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0)
-    // ⭐ patch50 长句强拆（主人钦定：别一口气一长串）：超45字的段落按句末标点切小块，约≤40字一条
-    const 碎 = []
-    for (const p of 段) {
-      if (p.length <= 45) { 碎.push(p); continue }
-      const 子句 = p.match(/[^。！？!?~…]+[。！？!?~…]*/g) || [p]
-      let buf = ''
-      for (const c of 子句) {
-        if (buf.trim() && (buf + c).trim().length > 40) { 碎.push(buf.trim()); buf = c }
-        else buf += c
-      }
-      if (buf.trim()) 碎.push(buf.trim())
+    // ⭐ patch51 标点级连发（主人钦定：一个逗号一条，逗号吃掉，像人）
+    const 原文 = String(文字 || '').trim()
+    if (!原文) return []
+    const 条 = []
+    const 并入 = (c) => {
+      // 无中文且短 => 表情/颜文字尾巴，挂到上一条去；否则新开一条；超42字硬切
+      if (!/[\u4e00-\u9fff]/.test(c) && c.length <= 16 && 条.length) { 条[条.length - 1] += ' ' + c; return }
+      while (c.length > 42) { 条.push(c.slice(0, 42).trim()); c = c.slice(42) }
+      if (c) 条.push(c)
     }
-    return 碎
+    for (const 行 of 原文.split(/\n+/)) {
+      for (const 片 of 行.split(/[，,、；;]+/)) {
+        const 净 = 片.trim()
+        if (!净) continue
+        for (const 尾 of 净.split(/(?<=[。！？!?…])/)) {
+          const 子 = 尾.trim()
+          if (子) 并入(子)
+        }
+      }
+    }
+    return 条.filter((x) => x && x.trim().length)
   }
-
   /**
    * 相对路径的图按哪儿找：
    *   ① 设置里的「图片根目录」（填了就以它为准）
