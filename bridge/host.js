@@ -351,7 +351,9 @@ export function apply(ctx) {
     // ⭐ patch46 回话节奏随机化：治固定几秒回复的机器人钟摆（主人18:31建议）
     try {
       const 文46 = Array.isArray(体 && 体.message) ? 体.message.map((x) => (x && x.data && x.data.text) || '').join('') : ''
-      const 歇46 = 1800 + Math.min(16000, 文46.length * (180 + Math.floor(Math.random() * 420))) + Math.floor(Math.random() * 3000) + (是图 ? Math.floor(Math.random() * 4500) : 0)
+      const μ50 = Math.min(12000, 2200 + 文46.length * 190) + (是图 ? 1500 : 0) // ⭐ patch50 正态分布间隔（评论区处方）：μ随长度、σ=0.35μ
+      const 正50 = (() => { let u1 = 0; while (u1 === 0) u1 = Math.random(); const u2 = Math.random(); return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2) })()
+      const 歇46 = Math.max(900, Math.min(18000, Math.round(μ50 + 正50 * μ50 * 0.35)))
       await new Promise((rr) => setTimeout(rr, 歇46))
     } catch (error) {}
     try {
@@ -378,7 +380,19 @@ export function apply(ctx) {
       .split(/\n\s*\n/)
       .map((s) => s.trim())
       .filter((s) => s.length > 0)
-    return 段
+    // ⭐ patch50 长句强拆（主人钦定：别一口气一长串）：超45字的段落按句末标点切小块，约≤40字一条
+    const 碎 = []
+    for (const p of 段) {
+      if (p.length <= 45) { 碎.push(p); continue }
+      const 子句 = p.match(/[^。！？!?~…]+[。！？!?~…]*/g) || [p]
+      let buf = ''
+      for (const c of 子句) {
+        if (buf.trim() && (buf + c).trim().length > 40) { 碎.push(buf.trim()); buf = c }
+        else buf += c
+      }
+      if (buf.trim()) 碎.push(buf.trim())
+    }
+    return 碎
   }
 
   /**
