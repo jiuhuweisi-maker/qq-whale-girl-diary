@@ -6,7 +6,7 @@ N = CFG.get("NapCat"); API = N if isinstance(N, str) else (N or {}).get("base", 
 ME = int(requests.get(API + "/get_login_info", timeout=8).json()["data"]["user_id"])
 STATE = "/opt/qq-cs/.report_date.txt"
 today = time.strftime("%Y-%m-%d")
-if open(STATE).read().strip() if os.path.exists(STATE) else "" == today:
+if os.path.exists(STATE) and open(STATE).read().strip() == today:
     print("今天已报过"); raise SystemExit
 day = time.strftime("%Y-%m")
 recs = []
@@ -35,6 +35,15 @@ for r in picked:
     lines.append("· [%s] %s" % (str(r["nick"])[:10], str(r.get("text", ""))[:50]))
 if at_me: lines.append("今天@/喊我 %d 次" % len(at_me))
 text = "\n".join(lines)
-requests.post(API + "/send_private_msg", json={"user_id": MASTER, "message": text}, timeout=10)
-open(STATE, "w").write(today)
-print("已发日报")
+r = requests.post(API + "/send_private_msg", json={"user_id": MASTER, "message": [{"type": "text", "data": {"text": text}}]}, timeout=15).json()
+if r.get("retcode") == 0:
+    open(STATE, "w").write(today); print("已发日报 ok")
+else:
+    # 退招：按行拆段逐条发(长文单条可能被真实客户端拒)
+    ok = True
+    for ln in text.split("\n"):
+        rr = requests.post(API + "/send_private_msg", json={"user_id": MASTER, "message": [{"type": "text", "data": {"text": ln}}]}, timeout=15).json()
+        if rr.get("retcode") != 0: ok = False
+        import time as _t; _t.sleep(1.5)
+    if ok: open(STATE, "w").write(today)
+    print("日报拆段发", "ok" if ok else "FAIL " + str(rr.get("retcode")) + " " + str(rr.get("wording"))[:60])

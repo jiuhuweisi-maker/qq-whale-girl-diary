@@ -849,6 +849,7 @@ export function apply(ctx) {
       缓聊.delete(键)
       if (now - b.first > 180000 && now - b.last > 60000) { 记账('插话等太久，弃'); continue } // patch55: 她在打长字时给插话者3分钟排队窗（桥忙≠装死）
       let 文 = '【' + b.name + '】' + b.texts.join('\n')
+      if (b.route === 'private') 文 = '（这是私聊，只有你和主人，不在群里——群里的事除非他问起就别带进来）' + 文 // patch58 场景标签，治答非所问串景
       if (b.route === 'group') {
         const 气氛 = await 现场气氛(配置)
         if (气氛.length > 1) 文 = '（群聊现场回放，供你读空气用，别人看不到这段）\n' + 气氛.join('\n') + '\n——回放完，刚对你说的是——\n' + 文

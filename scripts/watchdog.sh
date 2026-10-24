@@ -19,7 +19,7 @@ if [ -n "$BAD" ]; then
   OLD=$(cat $ST 2>/dev/null || echo 0)
   if [ $((NOW - OLD)) -gt 3600 ]; then
     echo $NOW > $ST
-    curl -s -m 8 "$API/send_private_msg" -d "{\"user_id\":$MASTER,\"message\":\"【系统巡检】自动拉起失败：$BAD ，需要人来捞一下了😿\"}" -H 'content-type: application/json' >/dev/null
+    curl -s -m 8 "$API/send_private_msg" -d "{\"user_id\":$MASTER,\"message\":[{\"type\":\"text\",\"data\":{\"text\":\"【系统巡检】自动拉起失败：$BAD ，需要人来捞一下了😿\"}}]}" -H 'content-type: application/json' >/dev/null
   fi
   echo "$(date '+%F %T') 异常:$BAD" >> /opt/qq-cs/watchdog.log
 else
