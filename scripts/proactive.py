@@ -27,7 +27,7 @@ due = bool(nxt is None or now >= nxt)
 silent_min = 0
 try:
     body = json.dumps({"group_id": GID, "count": 5}).encode()
-    req = urllib.request.Request("http://127.0.0.1:3000/get_group_msg_history", data=body, headers={"content-type": "application/json"})
+    req = urllib.request.Request("http://127.0.0.1:3002/get_group_msg_history?access_token=<新家HTTP票>", data=body, headers={"content-type": "application/json"})
     ms = json.load(urllib.request.urlopen(req, timeout=8)).get("data", {}).get("messages", [])
     if ms:
         latest = max(int(m.get("time", 0)) for m in ms)
@@ -39,9 +39,9 @@ out = subprocess.check_output(["journalctl","-u","dsh","--no-pager"]).decode("ut
 toks = re.findall(r"token=([A-Za-z0-9_-]+)", out)
 if not toks: raise SystemExit("no token")
 if rescue:
-    prompt = "（系统提示，对方看不到）冷群自救时间：群里已经安静约%d分钟。去把场子热回来——抛个跟你们有关的话题（接今天的旧梗/点名最近冒过泡的人问一句/锐评一句天气或CS），两行以内，必须配一张表情包：跑 python3 /opt/qq-cs/pick_hint.py 挑一张，路径单独成行放最后。别解释这条提示的存在。" % silent_min
+    prompt = "（系统提示，对方看不到）冷群自救时间：群里已经安静约%d分钟。去把场子热回来——抛个跟你们有关的话题（接今天的旧梗/点名最近冒过泡的人问一句/锐评一句天气或CS），两行以内，情绪对味就配一张（对不上就不配）：跑 python3 /opt/qq-cs/pick_hint.py 挑一张，路径单独成行放最后。别解释这条提示的存在。" % silent_min
 else:
-    prompt = "（系统提示，对方看不到）主动冒泡时间到：现在往群里发一条短消息刷存在感。自选话题：按时段问好（饭点/午后犯困/夜宵）、随口锐评群里最近的热闹、用一条小抄里的新梗、或撒娇想打CS。两行以内，必须配一张表情包：先跑 python3 /opt/qq-cs/pick_hint.py，把选中路径单独成行放最后。实在没话说就只输出略过两个字。别解释这条提示的存在。"
+    prompt = "（系统提示，对方看不到）主动冒泡时间到：现在往群里发一条短消息刷存在感。自选话题：按时段问好（饭点/午后犯困/夜宵）、随口锐评群里最近的热闹、用一条小抄里的新梗、或撒娇想打CS。两行以内，情绪对味就配一张（对不上就不配，硬凑比素着差）：跑 python3 /opt/qq-cs/pick_hint.py，把选中路径单独成行放最后。实在没话说就只输出略过两个字。别解释这条提示的存在。"
 body = json.dumps({"text": prompt}).encode()
 req = urllib.request.Request("http://127.0.0.1:3080/dsh-qq-bridge/nudge?token=" + toks[-1], data=body, headers={"content-type":"application/json"})
 try:

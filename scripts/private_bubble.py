@@ -13,7 +13,10 @@ def rd(p):
     except Exception: return ""
 mode = sys.argv[1] if len(sys.argv) > 1 else ""
 if not mode:
-    if now.hour == 22 and rd(ST_N) != today:
+    import random as _rnd
+    _t = _rnd.Random(today).randint(21*60+35, 23*60+15)  # 今晚随机晚安时刻(分)，逐日不同
+    _nowm = now.hour*60 + now.minute
+    if 21 <= now.hour <= 23 and _nowm >= _t and rd(ST_N) != today:
         mode = "night"
     elif now.hour >= 10 and rd(ST_G) != today:
         wd = rd(FLAG)
