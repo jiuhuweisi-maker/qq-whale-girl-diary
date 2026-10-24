@@ -4,11 +4,13 @@
 
 13:24 进行过一次受控重登：旧登录态失效，13:25 手机 QQ 扫码后服务器只显示“等待确认”，手机未出现确认页，始终未登录成功。已再次停止 NapCat；不要连续重试。
 
+13:34 再次受控启动后，NapCat 使用旧会话自动快速登录成功，无需扫码；OneBot `get_login_info` 返回 `retcode=0`，桥接 `sess-alive` 返回 `ok=true`。风险保护服务运行中，看门狗 cron 已恢复。
+
 ## 服务器保护
 
 - `/opt/qq-cs/napcat-risk-guard.sh` 由 `napcat-risk-guard.service` 持续看 NapCat 日志。再次出现 `KickedOffLine` 时，它创建 `/opt/qq-cs/.napcat-risk-paused`、关闭容器自动重启并停止 NapCat，防止持续刷新二维码。
 - `watchdog.sh` 在暂停标记存在时立即退出，不会重新拉起 NapCat。
-- 2026-10-24 的事故处理中，NapCat 已停止、Docker 重启策略设为 `no`，crontab 的 watchdog 行已注释；原 crontab 备份在 `/root/crontab-before-napcat-risk-20261024-131841.bak`。
+- 首次处置时，NapCat 已停止、Docker 重启策略设为 `no`，crontab 的 watchdog 行已注释；原 crontab 备份在 `/root/crontab-before-napcat-risk-20261024-131841.bak`。恢复后 Docker 重启策略为 `unless-stopped`，看门狗已重新启用。
 - 保护只负责在下线后止损，不能消除第三方客户端的风控风险。若要求长期避免这类设备风险，应改用 QQ 官方机器人平台并按其开放能力重建桥接；机器人身份和现有小号能力需要重新核对。
 
 ## 账号检查
