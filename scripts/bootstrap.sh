@@ -7,7 +7,7 @@ set -e
 : "${QQ_BOT:?缺 QQ_BOT}" "${MASTER_QQ:?缺 MASTER_QQ}" "${GROUP_QQ:?缺 GROUP_QQ}"
 mkdir -p /opt/qq-cs /root/dsh-workspace/stickers
 cp -f scripts/*.py /opt/qq-cs/
-cp -f scripts/watchdog.sh scripts/live_backup.sh /opt/qq-cs/ 2>/dev/null || true
+cp -f scripts/watchdog.sh scripts/live_backup.sh scripts/napcat-risk-guard.sh /opt/qq-cs/ 2>/dev/null || true
 chmod +x /opt/qq-cs/*.py /opt/qq-cs/*.sh 2>/dev/null || true
 # 桥配置（试运行先开 true，验收过再改 false 真发）
 cat > /root/.dsh/qq-bridge-config.json <<EOF
@@ -34,8 +34,8 @@ EOF
 [ -f /root/dsh-workspace/QQ-DUTY-LOG.md ] || cp docs/QQ-DUTY-LOG-live.md /root/dsh-workspace/QQ-DUTY-LOG.md
 [ -f /root/dsh-workspace/MEME_NOTES.md ] || cp docs/MEME_NOTES-snapshot.md /root/dsh-workspace/MEME_NOTES.md
 # systemd
-for u in whale-ws; do cp -f deploy/$u.service /etc/systemd/system/; done
-systemctl daemon-reload && systemctl enable --now whale-ws
+for u in whale-ws napcat-risk-guard; do cp -f deploy/$u.service /etc/systemd/system/; done
+systemctl daemon-reload && systemctl enable --now whale-ws napcat-risk-guard
 # cron（去重安装）
 crontab -l 2>/dev/null | grep -v qq-cs > /tmp/ct.new || true
 tr -d '\r' < deploy/crontab.example >> /tmp/ct.new

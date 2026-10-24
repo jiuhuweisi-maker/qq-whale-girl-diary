@@ -88,6 +88,8 @@
 本地电脑通过 SSH 隧道（`-L 13080:3080 -L 16099:6099`）访问控制台和 NapCat WebUI。
 防火墙只开 22，别的端口一律不开——要访问就走隧道。
 
+QQ 设备风险下线时，按 **[docs/QQ-RISK.md](docs/QQ-RISK.md)** 暂停 NapCat 并核对账号安全。
+
 ## 换新服务器？
 先看 **[docs/REBUILD.md](docs/REBUILD.md)** —— 速建手册：带走清单、装机顺序（每步带验证命令）、
 已付学费的坑、试运行验收电池；一键脚本 `scripts/bootstrap.sh`。

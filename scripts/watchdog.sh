@@ -1,4 +1,9 @@
 #!/bin/bash
+QQ_RISK_PAUSE=/opt/qq-cs/.napcat-risk-paused
+if [ -e "$QQ_RISK_PAUSE" ]; then
+  echo "$(date '+%F %T') QQ风险暂停，跳过自动拉起" >> /opt/qq-cs/watchdog.log
+  exit 0
+fi
 # 自愈看门狗：挂了自动拉起；拉不起来才私聊主人报警（1小时内不重复报）
 CFG=/root/.dsh/qq-bridge-config.json
 API=$(python3 -c "import json;N=json.load(open('$CFG'))['NapCat'];print(N if isinstance(N,str) else N['base'])")
