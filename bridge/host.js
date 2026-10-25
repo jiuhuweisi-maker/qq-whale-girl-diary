@@ -825,15 +825,21 @@ export function apply(ctx) {
   const 缓聊 = new Map()
   function 加缓冲(键, 项) {
     let b = 缓聊.get(键)
-    if (!b) { b = { texts: [], images: [], mid: '', first: Date.now(), last: 0, at: 0, speaker: 0, route: 项.route, name: 项.name }; 缓聊.set(键, b) }
+    if (!b) { b = { texts: [], images: [], mid: '', first: Date.now(), last: 0, at: 0, speaker: 0, route: 项.route, name: 项.name, pingOnly: false }; 缓聊.set(键, b) }
     if (项.text && 项.text.trim()) b.texts.push(项.text.trim())
     if (项.images && 项.images.length) b.images.push(...项.images.slice(0, 4))
+    if (项.pingOnly) b.pingOnly = true
     b.mid = b.mid || 项.mid // patch65: 引用锚定批次第一条,答正题不锚尾表情
     b.last = Date.now()
     if (项.at) b.at = 项.at
     b.speaker = 项.speaker || b.speaker
     b.name = 项.name || b.name
     b.route = 项.route
+  }
+  function 缓冲成话(b) {
+    const 文字 = b.texts.join('\n')
+    if (!文字.trim() && !b.images.length && b.pingOnly) return `【${b.name}】（只@了鲸鱼娘，没有附文字或图片）`
+    return `【${b.name}】${文字}`
   }
   // patch19 读空气：群消息转发前，抓最近10分钟的群聊现场给模型当背景
   async function 现场气氛(配置) {
@@ -884,7 +890,7 @@ export function apply(ctx) {
     }
     const 群批 = 到期.filter((x) => x.b.route === 'group').sort((a, c) => a.b.first - c.b.first)
     if (群批.length) {
-      const 合 = { 头们: 群批.map((x) => '【' + x.b.name + '】' + x.b.texts.join('\n')), 图们: [], mid: 群批[0].b.mid, at: 0, speaker: 群批[群批.length - 1].b.speaker }
+      const 合 = { 头们: 群批.map((x) => 缓冲成话(x.b)), 图们: [], mid: 群批[0].b.mid, at: 0, speaker: 群批[群批.length - 1].b.speaker }
       for (const x of 群批) 合.图们.push(...x.b.images)
       合.图们 = 合.图们.slice(0, 6)
       for (const x of 群批) if (x.b.at) { 合.at = x.b.at; 合.speaker = x.b.speaker }
@@ -1135,14 +1141,14 @@ export function apply(ctx) {
         if ((条.time || 0) < 上次群时间) { if (新69 && 被艾特 && !已转消息.has(条.message_id)) 记账('杀69·水位·@我seq' + String(条.message_seq)); 已转消息.add(条.message_id); continue }
         if (已转消息.has(条.message_id)) { if (新69 && 被艾特) 记账('杀69·已转·@我seq' + String(条.message_seq)); continue }
         const { 文字, 图们 } = 条转片段(条)
-        if (!文字 && !图们.length && 被艾特) 文字 = '（对方只@了你，没带话——是叫你呢，自己接）' // patch62: 空@放行，治装死
-    else if (!文字 && !图们.length) { 已转消息.add(条.message_id); 上次群时间 = 条.time || 上次群时间; continue }
+        const 只点名 = !文字 && !图们.length && 被艾特
+        if (!文字 && !图们.length && !被艾特) { 已转消息.add(条.message_id); 上次群时间 = 条.time || 上次群时间; continue }
         if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add(条.message_id); 上次群时间 = 条.time || 上次群时间; continue } // 超10分钟不挖坟
         艾特我人 = 群发言者 || 艾特我人
         艾特时刻 = Date.now()
         const 名前 = 群发言者 === Number(配置.私聊QQ) ? '主人' : String((条.sender && (条.sender.card || 条.sender.nickname)) || '群友')
         if (新69) 记账('活69·进群批·seq' + String(条.message_seq) + (被艾特 ? '·@我' : ''))
-        加缓冲('g' + 群发言者, { text: 文字, images: 图们, mid: String(条.message_id || ''), route: 'group', at: 被艾特 ? 群发言者 : 0, speaker: 群发言者, name: 名前 })
+        加缓冲('g' + 群发言者, { text: 文字, images: 图们, mid: String(条.message_id || ''), route: 'group', at: 被艾特 ? 群发言者 : 0, speaker: 群发言者, name: 名前, pingOnly: 只点名 })
         上次群时间 = 条.time || 上次群时间
         已转消息.add(条.message_id)
       }
