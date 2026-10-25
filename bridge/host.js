@@ -333,7 +333,9 @@ export function apply(ctx) {
   // ---------- 状态 ----------
 
   const 日志 = []
-  let 上一轮 = { 轮号: -1, 文本: '', 图们: [] }
+  const 按轮输出 = new Map()
+  const 待认领路由 = new Map()
+  const 轮路由 = new Map()
   const 已发轮 = new Set()
   const 已转消息 = new Set() // 已经转发进 DSH 的 QQ 消息 id（防重复转）
   const 私水位文件 = '/opt/qq-cs/.bridge-pm-wm' // ⭐ patch47 私聊水位线持久化：重启空窗里的私信不再被静默吞掉（10分钟坟墓规则仍封顶）
@@ -481,8 +483,6 @@ export function apply(ctx) {
     return ''
   }
 
-  // patch22 节奏账本：她在群里连发纯文字的段数（发过图就清零）
-  let 连纯文 = 0
   const 图闸 = new Map() // patch24：文件小写名 -> 上次真发时间戳
   let 群图最近 = 0
   /** 把一句正文发到该发的地方（私聊 / 群）；按空行拆段，一段一条连发。⭐ 末尾再加上图片。 */
@@ -599,10 +599,6 @@ export function apply(ctx) {
         await new Promise((r) => setTimeout(r, 发段延迟))
       }
     }
-    if (路.来路 === 'group') {
-      if (图数据.length) 连纯文 = 0
-      else if (段们.length) 连纯文 = Math.min(连纯文 + 段们.length, 12)
-    }
     return 出
   }
 
@@ -636,7 +632,7 @@ export function apply(ctx) {
     }
   }
 
-  /** 盯会话事件：记住这一轮最后一句，在 turn/end 时落地。 */
+  /** 用 DSH 实际认领的消息 ID 绑定 turn，避免网页控制台的回复误发到 QQ。 */
   function 收到事件(session, event) {
     const 配置 = 读配置()
     if (!配置.目标会话) return
@@ -644,59 +640,67 @@ export function apply(ctx) {
 
     if (event && event.type === 'assistant/message') {
       const d = event.data || {}
+      const 轮号 = Number(d.turn)
+      if (!Number.isFinite(轮号)) return
       if (d.interrupted) {
-        if (qq待转轮 > 0) { qq待转轮 -= 1; 路由队.shift() }
-        上一轮 = { 轮号: -1, 文本: '', 图们: [] }
+        按轮输出.delete(轮号)
         return
       }
       const 文 = String(提取正文(d.message) || '').trim()
       const 图们 = 提取图块(d.message)
-      if (文) 上一轮 = { 轮号: d.turn, 文本: 文, 图们 }
-      // ⭐ 有的回合是先出图、后出字（或只出图）：别把图丢了
-      else if (图们.length) 上一轮 = { 轮号: d.turn, 文本: 上一轮.轮号 === d.turn ? 上一轮.文本 : '', 图们: (上一轮.轮号 === d.turn ? 上一轮.图们 : []).concat(图们).slice(0, 10) }
+      const 当前 = 按轮输出.get(轮号) || { 文本: '', 图们: [] }
+      if (文) 按轮输出.set(轮号, { 文本: 文, 图们: (图们.length ? 图们 : 当前.图们).slice(0, 10) })
+      // 有的回合先出图、后出字（或只出图），按 turn 收集，别把图丢了。
+      else if (图们.length) 按轮输出.set(轮号, { 文本: 当前.文本, 图们: 当前.图们.concat(图们).slice(0, 10) })
       return
     }
 
     if (event && event.type === 'turn/end') {
       const d = event.data || {}
       const 完成 = !!(d.reason && d.reason.kind === 'completed')
-      const 有东西 = 上一轮.文本 || (上一轮.图们 && 上一轮.图们.length)
-      if (完成 && 上一轮.轮号 === d.turn && 有东西 && !已发轮.has(d.turn)) {
-        已发轮.add(d.turn)
-        if (qq待转轮 > 0) {
-          qq待转轮 -= 1
-          const 路由 = 路由队.shift() || null
-          let 落文 = String(上一轮.文本 || '')
-          if (落文.indexOf('【收尾】') !== -1) {
-            落文 = 落文.replace(/【收尾】/g, '').trim()
-            if (路由 && 路由.话) { 热聊.delete(路由.话); 记账('她收尾了话题，' + 路由.话 + ' 的陪聊窗已关（再@才会理）') }
-          }
-          let 画描 = ''
-          const 画match = 落文.match(/【画待[:：]([\s\S]*?)】/)
-          if (画match) { 画描 = String(画match[1] || '').trim() || '对方刚才要的东西'; 落文 = 落文.replace(/【画待[:：][\s\S]*?】/g, '').trim() }
-          const 有料 = 落文 || (上一轮.图们 && 上一轮.图们.length)
-          if (落文.trim() === '略过' && !(上一轮.图们 && 上一轮.图们.length)) 记账('她选择略过这条，不发 QQ')
-          else if (有料) void 落地一发(配置, 落文, 上一轮.图们, 路由)
-          else 记账('这条剥掉标记后没内容，不发')
-          if (画描) {
-            void (async () => {
-              await new Promise((r) => setTimeout(r, 1200))
-              const ag = 找agent(配置.目标会话)
-              if (!ag) { 记账('画待：会话没醒，画不成了'); return }
-              qq待转轮 += 1
-              路由队.push({ 来路: 路由 ? 路由.来路 : 'private', 艾特: (路由 && (路由.话 || 路由.艾特)) || 0, 话: (路由 && 路由.话) || 0, mid: (路由 && 路由.mid) || '' })
-              try {
-                await ag.followup({ id: String(Date.now()) + '-' + Math.random().toString(36).slice(2), role: 'user', source: { kind: 'qq' }, content: [{ type: 'text', text: '（系统提示，对方看不到）现在开始画：' + 画描 + '。画法：Bash 跑 python3 /opt/qq-cs/draw.py 描述 --size=1024x1024，它会打印成图路径；把该路径单独成行放在回复最后，配一句自然的话（比如 来啦，久等了）。画失败就老实说没画出来，别硬编路径。' }] })
-              } catch (e) { 记账('画待注入失败：' + String((e && e.message) || e)) }
-            })()
-          }
-        } else {
-          记账('这轮不是 QQ 转过来的（多半是网页控制台里直接问的），不发 QQ')
+      const 轮号 = Number(d.turn)
+      if (!Number.isFinite(轮号)) return
+      const 输出 = 按轮输出.get(轮号) || { 文本: '', 图们: [] }
+      const 路由记录 = 轮路由.get(轮号)
+      const 路由冲突 = !!(路由记录 && 路由记录.不确定)
+      const 路由 = 路由冲突 ? null : (路由记录 || null)
+      按轮输出.delete(轮号)
+      轮路由.delete(轮号)
+      const 有东西 = 输出.文本 || (输出.图们 && 输出.图们.length)
+
+      if (完成 && 路由 && 有东西 && !已发轮.has(轮号)) {
+        已发轮.add(轮号)
+        if (已发轮.size > 1000) 已发轮.delete(已发轮.values().next().value)
+        let 落文 = String(输出.文本 || '')
+        if (落文.indexOf('【收尾】') !== -1) {
+          落文 = 落文.replace(/【收尾】/g, '').trim()
+          if (路由.话) { 热聊.delete(路由.话); 记账('她收尾了话题，' + 路由.话 + ' 的陪聊窗已关（再@才会理）') }
         }
-      } else if (!完成 && qq待转轮 > 0) {
-        qq待转轮 -= 1; 路由队.shift(); 记账('这轮没正常跑完，不发 QQ')
+        let 画描 = ''
+        const 画match = 落文.match(/【画待[:：]([\s\S]*?)】/)
+        if (画match) { 画描 = String(画match[1] || '').trim() || '对方刚才要的东西'; 落文 = 落文.replace(/【画待[:：][\s\S]*?】/g, '').trim() }
+        const 有料 = 落文 || (输出.图们 && 输出.图们.length)
+        if (落文.trim() === '略过' && !(输出.图们 && 输出.图们.length)) 记账('她选择略过这条，不发 QQ')
+        else if (有料) void 落地一发(配置, 落文, 输出.图们, 路由)
+        else 记账('这条剥掉标记后没内容，不发')
+        if (画描) {
+          void (async () => {
+            await new Promise((r) => setTimeout(r, 1200))
+            const ag = 找agent(配置.目标会话)
+            if (!ag) { 记账('画待：会话没醒，画不成了'); return }
+            const 续路由 = { 来路: 路由.来路, 艾特: 路由.话 || 路由.艾特 || 0, 话: 路由.话 || 0, mid: 路由.mid || '' }
+            try {
+              await 跟进并记路由(ag, [{ type: 'text', text: '（系统提示，对方看不到）现在开始画：' + 画描 + '。画法：Bash 跑 python3 /opt/qq-cs/draw.py 描述 --size=1024x1024，它会打印成图路径；把该路径单独成行放在回复最后，配一句自然的话（比如 来啦，久等了）。画失败就老实说没画出来，别硬编路径。' }], 续路由)
+            } catch (e) { 记账('画待注入失败：' + String((e && e.message) || e)) }
+          })()
+        }
+      } else if (路由) {
+        记账(完成 ? 'QQ 对应的这轮没有可发内容' : 'QQ 对应的这轮没正常跑完，不发 QQ')
+      } else if (路由冲突) {
+        记账('同一轮对应多条 QQ 消息，跳过回发以免串台')
+      } else if (完成 && 有东西) {
+        记账('这轮没有对应的 QQ 入站消息，不发 QQ（网页控制台内容不会外发）')
       }
-      上一轮 = { 轮号: -1, 文本: '', 图们: [] }
     }
   }
 
@@ -748,6 +752,47 @@ export function apply(ctx) {
     } catch (error) {
       return 'qq-' + Date.now() + '-' + Math.random().toString(36).slice(2)
     }
+  }
+
+  // 把桥送进去的用户消息 ID 记下来；等 DSH 真正认领它时，才知道属于哪一轮。
+  async function 跟进并记路由(agent, content, route) {
+    const id = 新id()
+    待认领路由.set(id, { ...route, queuedAt: Date.now() })
+    while (待认领路由.size > 512) {
+      待认领路由.delete(待认领路由.keys().next().value)
+      记账('待认领路由积压超过512条，清掉最旧一条，避免内存越堆越多')
+    }
+    try {
+      await agent.followup({ id, role: 'user', content, source: { kind: 'qq' } })
+      return id
+    } catch (error) {
+      待认领路由.delete(id)
+      throw error
+    }
+  }
+
+  function 收到认领({ agent, message, turn } = {}) {
+    const 目标 = String(读配置().目标会话 || '')
+    if (!目标 || String(agent && agent.session && agent.session.id) !== 目标) return
+    const id = String(message && message.id || '')
+    const 路由 = 待认领路由.get(id)
+    if (!路由) return
+    待认领路由.delete(id)
+    const 轮号 = Number(turn)
+    if (!Number.isFinite(轮号)) { 记账('DSH 认领了 QQ 消息但没有轮次编号，跳过回发以免串台'); return }
+    if (轮路由.has(轮号)) {
+      轮路由.set(轮号, { 不确定: true })
+      记账('同一轮认领到多条 QQ 消息，跳过回发以免串台')
+      return
+    }
+    轮路由.set(轮号, 路由)
+  }
+
+  function 收到丢弃({ agent, message } = {}) {
+    const 目标 = String(读配置().目标会话 || '')
+    if (!目标 || String(agent && agent.session && agent.session.id) !== 目标) return
+    const id = String(message && message.id || '')
+    if (待认领路由.delete(id)) 记账('DSH 丢弃了一条还没开始的 QQ 消息，不会误把别的回复发出去')
   }
 
   /** 手搓一条 user 消息（跟 speak-up 一样：role=user，source.kind 标成 qq，不冒充她亲手打的）。 */
@@ -840,7 +885,6 @@ export function apply(ctx) {
   let 艾特我人 = 0
   let 艾特时刻 = 0
   const 热聊 = new Map()
-  const 路由队 = []
   // 合并缓冲：有人连珠炮时等他说完，合成一条再转（私聊5秒/群聊7秒静默窗）
   const 缓聊 = new Map()
   function 加缓冲(键, 项) {
@@ -864,10 +908,15 @@ export function apply(ctx) {
   // patch19 读空气：群消息转发前，抓最近10分钟的群聊现场给模型当背景
   async function 现场气氛(配置) {
     try {
-      const r = await fetch(带票52(`${配置.NapCat}/get_group_msg_history`), {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ group_id: Number(配置.群号), count: 14 }),
-      })
+      const 控制器 = new AbortController()
+      const 定时器 = setTimeout(() => 控制器.abort(), 5000)
+      let r
+      try {
+        r = await fetch(带票52(`${配置.NapCat}/get_group_msg_history`), {
+          method: 'POST', headers: { 'content-type': 'application/json' }, signal: 控制器.signal,
+          body: JSON.stringify({ group_id: Number(配置.群号), count: 14 }),
+        })
+      } finally { clearTimeout(定时器) }
       const j = await r.json()
       const msgs = (j && j.status === 'ok' && j.data && j.data.messages) || []
       const 现在 = Math.floor(Date.now() / 1000)
@@ -901,12 +950,8 @@ export function apply(ctx) {
     for (const { 键, b } of 到期.filter((x) => x.b.route !== 'group')) {
       let 文 = '【' + b.name + '】' + b.texts.join('\n')
       if (b.route === 'private') 文 = '（这是私聊，只有你和主人，不在群里——群里的事除非他问起就别带进来）' + 文
-      let 果
-      try {
-        果 = await Promise.race([转入一条(文, b.images, b.mid, b.route, b.at, b.speaker), new Promise((res) => setTimeout(() => res({ ok: false, 说: '转太久了，当没送达' }), 25000))])
-        if (果 && 果.说 === '转太久了，当没送达') 记账('保险丝70·私聊批·25秒卡死，退回重试')
-      } catch (e70b) { 果 = { ok: false } }
-      if (果 && 果.ok === false) { b.last = now; 缓聊.set(键, b) }
+      const 果 = await 限时转入(文, b.images, b.mid, b.route, b.at, b.speaker, '私聊批')
+      if (果 && 果.ok === false && !果.不确定) { b.last = now; 退回缓冲(键, b) }
     }
     const 群批 = 到期.filter((x) => x.b.route === 'group').sort((a, c) => a.b.first - c.b.first)
     if (群批.length) {
@@ -918,22 +963,64 @@ export function apply(ctx) {
       if (群批.length > 1) 文 += '\n（以上是' + 群批.length + '个人的话一起到的：像真人那样挑你最想接的接，一至两条足够，其余的让它自然飘走，不必人人有回应，更不必回头挖旧账认真答）'
       const 气氛 = await 现场气氛(配置)
       if (气氛.length > 1) 文 = '（以下是此刻之前的群聊旧场景回放，带【群】标记，读空气用，别人看不到；录像不是正在跟你说话）\n' + 气氛.join('\n') + '\n——回放完，刚才对你说的是——\n' + 文
-      let 果
-      try {
-        果 = await Promise.race([转入一条(文, 合.图们, 合.mid, 'group', 合.at, 合.speaker), new Promise((res) => setTimeout(() => res({ ok: false, 说: '转太久了，当没送达' }), 25000))])
-        if (果 && 果.说 === '转太久了，当没送达') 记账('保险丝70·群批·25秒卡死，退回重试')
-      } catch (e70b) { 果 = { ok: false } }
-      if (果 && 果.ok === false) { for (const x of 群批) { x.b.last = now; 缓聊.set(x.键, x.b) } }
+      const 果 = await 限时转入(文, 合.图们, 合.mid, 'group', 合.at, 合.speaker, '群批')
+      if (果 && 果.ok === false && !果.不确定) {
+        for (const x of 群批) { x.b.last = now; 退回缓冲(x.键, x.b) }
+      }
     }
   }
+
+  function 退回缓冲(键, 老批) {
+    const 新批 = 缓聊.get(键)
+    if (!新批) { 缓聊.set(键, 老批); return }
+    const 先 = 老批.first <= 新批.first ? 老批 : 新批
+    const 后 = 先 === 老批 ? 新批 : 老批
+    缓聊.set(键, {
+      ...先,
+      texts: [...老批.texts, ...新批.texts],
+      images: [...老批.images, ...新批.images].slice(0, 12),
+      first: Math.min(老批.first, 新批.first),
+      last: Math.max(老批.last, 新批.last, Date.now()),
+      mid: 老批.mid || 新批.mid,
+      at: 后.at || 先.at,
+      speaker: 后.speaker || 先.speaker,
+      name: 后.name || 先.name,
+      route: 后.route || 先.route,
+      pingOnly: !!(老批.pingOnly || 新批.pingOnly),
+    })
+  }
+
+  async function 限时转入(文字, 图们, 消息id, 来路, 艾特谁, 说话人, 批名) {
+    let 定时器
+    const 请求 = Promise.resolve().then(() => 转入一条(文字, 图们, 消息id, 来路, 艾特谁, 说话人))
+    const 结果Promise = 请求.then(
+      (value) => ({ kind: 'done', value }),
+      (error) => ({ kind: 'error', error }),
+    )
+    const 结果 = await Promise.race([
+      结果Promise,
+      new Promise((resolve) => { 定时器 = setTimeout(() => resolve({ kind: 'timeout' }), 25000) }),
+    ])
+    clearTimeout(定时器)
+    if (结果.kind === 'timeout') {
+      记账(`保险丝70·${批名}·25秒未确认；原请求继续等结果，不自动重发，避免同一条回两遍`)
+      void 结果Promise.then((late) => {
+        if (late.kind === 'error') 记账(`超时后的${批名}最终失败：${String((late.error && late.error.message) || late.error).slice(0, 100)}`)
+        else if (late.value && late.value.ok === false) 记账(`超时后的${批名}最终没转进去：${String(late.value.说 || '原因不明').slice(0, 100)}`)
+      })
+      return { ok: false, 不确定: true, 说: '等待超时，结果还没确定' }
+    }
+    if (结果.kind === 'error') {
+      记账(`${批名}失败：${String((结果.error && 结果.error.message) || 结果.error).slice(0, 100)}`)
+      return { ok: false, 不确定: true, 说: '转入结果不确定' }
+    }
+    return 结果.value
+  }
   const 黄脸表 = ['惊讶','撇嘴','色','发呆','得意','流泪','害羞','闭嘴','睡','大哭','尴尬','发怒','调皮','呲牙','惊讶','难过','酷','冷汗','抓狂','吐','偷笑','可爱','白眼','傲慢','饥饿','困','惊恐','流汗','憨笑','大兵','奋斗','咒骂','疑问','嘘','晕','折磨','衰','骷髅','敲打','再见','擦汗','抠鼻','鼓掌','糗大了','坏笑','左哼哼','右哼哼','哈欠','鄙视','委屈','快哭了','阴险','亲亲','吓','可怜','菜刀','西瓜','啤酒','篮球','乒乓','咖啡','饭','玫瑰','凋谢','示爱','爱心','心碎','蛋糕','闪电','炸弹','刀','足球','瓢虫','便便','月亮','太阳','礼物','拥抱','强','弱','握手','胜利','抱拳','勾引','拳头','差劲','爱你','NO','OK','爱情','飞吻','跳跳','发抖','怄火','转圈','磕头','回头','跳绳','挥手','激动','街舞','献吻','左太极','右太极']
-  let qq待转轮 = 0
   async function 转入一条(文字, 图们, 消息id, 来路, 艾特谁, 说话人) {
     if (来路 && 来路 !== 'none') { 最后来路 = 来路; 来路时刻 = Date.now() }
     // 私聊轮询自己会清 艾特我人，这里不清，免得 /receive 测试误伤
     const 配置 = 读配置()
-    // ⭐ patch22 三句一图：连纯文字够 3 段就在这轮挂提醒（桥计数，不经大脑，别点破）
-    if (来路 === 'group' && 连纯文 >= 8) 文字 = String(文字 || '') + '\n（桥的提醒：你在群里已连发 ' + 连纯文 + ' 条纯文字了——本轮挑张对味的表情包甩出去，给气氛浇点油）'
     if (!配置.目标会话) return { ok: false, 说: '还没选「目标会话」' }
     if (!配置.总开关) return { ok: false, 说: '总开关关着，先打开' }
     let agent = 找agent(配置.目标会话)
@@ -999,10 +1086,7 @@ export function apply(ctx) {
       // ⚠⚠ 必须 await：followup 返回 Promise。不接住的话，它 reject 时（会话半死 / agent 已释放）
       //   catch 根本看不到（try 早就退出了）⇒ 未处理的 rejection ⇒ **整个 DSH 宿主退出**
       //   （2026-10-21：speak-up 同一个坑已经被用户报成"装了鱼就死了"，这里一并修）
-      await agent.followup({ id: 新id(), role: 'user', content, source: { kind: 'qq' } })
-      qq待转轮 += 1
-      路由队.push({ 来路: 来路 || 最后来路 || 'private', 艾特: Number(艾特谁) || 0, 话: Number(说话人) || 0, mid: String(消息id || '') })
-      if (路由队.length > 60) 路由队.shift()
+      await 跟进并记路由(agent, content, { 来路: 来路 || 最后来路 || 'private', 艾特: Number(艾特谁) || 0, 话: Number(说话人) || 0, mid: String(消息id || '') })
       try {
         if (ctx.sessions && typeof ctx.sessions.flush === 'function') await ctx.sessions.flush(agent.session)
       } catch (error) {}
@@ -1010,7 +1094,7 @@ export function apply(ctx) {
       记账(`收到 QQ 里的${收下.length ? '图片' : '话'}${图话} → 转进 DSH：「${(原话 || '（没配字）').slice(0, 50)}${原话.length > 50 ? '…' : ''}」`)
       return { ok: true, 说: '转进去了，它会照常开一轮' }
     } catch (error) {
-      return { ok: false, 说: `followup 失败：${String((error && error.message) || error)}` }
+      return { ok: false, 不确定: true, 说: `DSH 没确认这条消息是否收下：${String((error && error.message) || error)}` }
     }
   }
 
@@ -1103,7 +1187,7 @@ export function apply(ctx) {
       const 列表 = await 拉('get_group_msg_history', { group_id: Number(配置.群号), count: 30 })
       for (const 条 of 列表.sort((a, b) => (a.time || 0) - (b.time || 0))) {
         if (!条) continue
-        const 自53 = Number(条.self_id) && Number(条.self_id) > 0 ? Number(条.self_id) : Number(配置.她QQ) || <她的QQ>
+        const 自53 = Number(条.self_id) && Number(条.self_id) > 0 ? Number(条.self_id) : Number(配置.她的QQ) || 0
         const 群发言者 = Number(条.user_id)
         if (群发言者 === (Number(条.self_id)||自53)) continue
         if (群静默中()) { 已转消息.add(条.message_id); continue } // patch45 群静默48h养号：群话不入脑
@@ -1394,13 +1478,6 @@ export function apply(ctx) {
     }
   }
 
-  // patch22 调试：查看/设置连文字计数（token 已把门）
-  路线(`${路由前缀}/streak`, async (req, res) => {
-    const 来 = await 读体(req)
-    if (来.set !== undefined) 连纯文 = Math.max(0, Math.min(Number(来.set) || 0, 12))
-    回(res, { ok: true, 连纯文 })
-  })
-
   // 调试入口：节点侧模拟主人指令（走与 QQ 私聊同一执行器）
   路线(`${路由前缀}/master-cmd`, async (req, res) => {
     const 来 = await 读体(req)
@@ -1509,17 +1586,23 @@ export function apply(ctx) {
   // ---------- 挂监听 ----------
 
   ctx.effect(() => {
-    const 摘 = ctx.on('session/event', (session, event) => {
+    const 摘事件 = ctx.on('session/event', (session, event) => {
       try {
         收到事件(session, event)
       } catch (error) {
         记账(`转发时出错：${String((error && error.message) || error)}`)
       }
     })
+    const 摘认领 = ctx.on('agent/inbox/claimed', (payload) => {
+      try { 收到认领(payload) } catch (error) { 记账(`匹配 QQ 回复来源失败：${String((error && error.message) || error)}`) }
+    })
+    const 摘丢弃 = ctx.on('agent/inbox/discarded', (payload) => {
+      try { 收到丢弃(payload) } catch (error) { 记账(`清理未开始的 QQ 消息失败：${String((error && error.message) || error)}`) }
+    })
     return () => {
-      try {
-        if (typeof 摘 === 'function') 摘()
-      } catch (error) {}
+      for (const 摘 of [摘事件, 摘认领, 摘丢弃]) {
+        try { if (typeof 摘 === 'function') 摘() } catch (error) {}
+      }
     }
   }, 'qq-bridge: 盯伙伴说话')
 
@@ -1550,3 +1633,4 @@ export function apply(ctx) {
 
   return { 记账, 概况, 落地一发, 发到QQ, 收到事件, 日志 }
 }
+
