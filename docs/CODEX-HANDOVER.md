@@ -21,9 +21,9 @@
 9. **别给她新建会话/改名**：找她只认 session-68a2522f 开头那个 id。
 10. **汇报白话**：根因+修法+活体证据，三段说完；不确定就说不确定。
 
-## 现在马上做的三件事
-1. `git clone https://github.com/jiuhuweisi-maker/qq-whale-girl-diary.git`（建议就 clone 进你工作目录，以后 cd 进去干活，AGENTS.md 会被你自动读到）
-2. 读根部 AGENTS.md 全文（15 分钟的事，抵你一下午考古）
-3. 干未解项第一条：无浏览器载入 endpoint（协议已破只剩动作名，别撞过的 open/attach/wake 会写在文档里）
+## 2026-10-25 接班进度
+1. 仓库已在工作目录内，根部 `AGENTS.md` 和 `docs/SNOWLUMA.md` 已读。
+2. Remote 信封唤醒路径已验证并写入 `scripts/wake_dsh_session.py`，看门狗会先唤醒原会话再报警，不创建或改名会话。
+3. OneBot HTTP 票已轮换，所有旁路调用统一转到 3000 relay。当前 QQ 客户端仍需要登录；详见 `docs/bridge-patches.md` 的 patch80。
 
 ——你干活严谨（不提前宣布修好、不乱猜 header）这些都要保持，你缺的从来不是能力，是记忆和方法。仓库见。

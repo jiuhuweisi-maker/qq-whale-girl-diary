@@ -32,13 +32,16 @@ echo "$(date +%H:%M) $ALIVE" >> /opt/qq-cs/sess_alive.log
 if echo "$ALIVE" | grep -q '"ok":true'; then
   rm -f /opt/qq-cs/.brain_notified
 elif echo "$ALIVE" | grep -q '"状":"dead"'; then
-  # DSH 在线但目标会话没载入。重启服务也不会把网页会话自动唤醒，还会打断别的会话。
-  echo "$(date '+%F %T') 鲸鱼娘会话未载入；跳过无效的 dsh 重启" >> /opt/qq-cs/watchdog.log
-  WHY='鲸鱼娘会话没载入；打开鲸鱼娘GUI(14080隧道页)点她的会话卡片'
-  if [ ! -f /opt/qq-cs/.brain_notified ]; then
-    BU=$(grep -oP '(?<=webhook=).*' /opt/qq-cs/notify.conf 2>/dev/null)
-    [ -n "$BU" ] && curl -s -m 8 "$BU" -H 'content-type: application/json' -d "{\"msgtype\":\"text\",\"text\":{\"content\":\"🧠 养鱼场提醒｜$(date '+%F %H:%M')｜$WHY\"}}" >/dev/null 2>&1
-    touch /opt/qq-cs/.brain_notified
+  # DSH 在线但目标会话没载入：先用 Remote API 唤醒原会话，不重启服务。
+  if python3 /opt/qq-cs/wake_dsh_session.py >> /opt/qq-cs/watchdog.log 2>&1; then
+    rm -f /opt/qq-cs/.brain_notified
+  else
+    WHY='鲸鱼娘会话没载入；自动唤醒失败，需检查 DSH 会话状态'
+    if [ ! -f /opt/qq-cs/.brain_notified ]; then
+      BU=$(grep -oP '(?<=webhook=).*' /opt/qq-cs/notify.conf 2>/dev/null)
+      [ -n "$BU" ] && curl -s -m 8 "$BU" -H 'content-type: application/json' -d "{\"msgtype\":\"text\",\"text\":{\"content\":\"🧠 养鱼场提醒｜$(date '+%F %H:%M')｜$WHY\"}}" >/dev/null 2>&1
+      touch /opt/qq-cs/.brain_notified
+    fi
   fi
 else
   # 只有桥不通或状态异常时才重启 DSH 服务；重启后仍不健康才报警。
@@ -51,7 +54,11 @@ else
     rm -f /opt/qq-cs/.brain_notified
   else
     if echo "$A2" | grep -q '"状":"dead"'; then
-      WHY='DSH已恢复但鲸鱼娘会话没载入；打开鲸鱼娘GUI(14080隧道页)点她的会话卡片'
+      if python3 /opt/qq-cs/wake_dsh_session.py >> /opt/qq-cs/watchdog.log 2>&1; then
+        rm -f /opt/qq-cs/.brain_notified
+        exit 0
+      fi
+      WHY='DSH已恢复但鲸鱼娘会话没载入；自动唤醒失败，需检查 DSH 会话状态'
     else
       WHY='重启DSH后桥仍不健康；需要检查服务器日志'
     fi

@@ -2,9 +2,12 @@
 # snowluma-guard v2 复活梯子：掉线→先试进程级重连→无效才报警求扫码。绝不restart容器。
 STATE=/opt/qq-cs/.snowluma-alive
 RETRY=/opt/qq-cs/.snowluma-retry
-T="<新家HTTP票>"
 LOGF=/opt/qq-cs/snowluma-guard.log
-R=$(curl -s -m 8 "http://127.0.0.1:3002/get_login_info?access_token=$T" -d '{}' 2>/dev/null)
+R=$(curl -s -m 8 "http://127.0.0.1:3000/get_login_info" -d '{}' 2>/dev/null)
+if echo "$R" | grep -qE 'relay fail HTTP Error 40(1|3)'; then
+  echo "$(date '+%F %T') OneBot访问票校验失败；不重启QQ进程" >> "$LOGF"
+  exit 0
+fi
 KICK=$(docker logs snowluma --since 3m 2>&1 | grep -aE "Kicked|踢下线" | wc -l)
 ALIVE=dead
 echo "$R" | grep -q '"retcode":0' && ALIVE=alive

@@ -1295,7 +1295,8 @@ export function apply(ctx) {
     const 净 = t.replace(/[^0-9A-Za-z\u4e00-\u9fff]+/g, '')
     const 剥 = t.replace(/^[/／>＞「」『』【】\[\]()（）“”‘’'""]+/, '').replace(/[。！!？~～、，,「」『』【】\[\]()（）“”‘’'""]+$/, '').replace(/^[/／>＞「」『』【】\[\]()（）]+|[。！!？~～、，,\s]+$/g, '').trim()
     if (!剥) return null
-    if (/^(查余额|余额|balance)$/i.test(剥)) return { cmd: '余额' }
+    if (/预警/.test(净) && /(?:状态|开没|开了没|开了吗|开着吗|开没有|有没有开|是否|是不是)/.test(净)) return { cmd: '余额预警' }
+    if (/^查余额$/i.test(剥)) return { cmd: '余额' }
     if (/^(状态|status)$/i.test(剥)) return { cmd: '状态' }
     if (/^(帮助|指令|help)$/i.test(剥)) return { cmd: '帮助' }
     if (/^冷却$/.test(剥)) return { cmd: '冷却' }
@@ -1326,7 +1327,8 @@ export function apply(ctx) {
       const c2 = t.match(/(十五|二十|三十|一|两|俩|三|五|十)\s*分钟/); if (c2) return 数[c2[1]] || 10
       return 0
     })()
-    if (/余额|额度|balance|钱(?:还)?(?:剩|够|多少)|(?:还有|还剩)多少(?:钱|块)/i.test(净) && (净.length <= 10 || /查|看|还有|剩|多少|够|报|差/.test(净) || 强令)) 打分({ cmd: '余额' }, 3)
+    const 明确查账 = /^(?:(?:请|麻烦|你|可以|能不能|帮我|帮忙)*(?:查|查询|查看|看看|看下|看一下|报|报下|报一下)(?:一下|下)?(?:(?:我的?|账户|账上|的))*?(?:余额|额度|balance)|(?:(?:现在|我的?|账户|账上|的)*)?(?:余额|额度|balance)(?:还有多少|还剩多少|有多少|是多少|多少|查一下|看一下))(?:呢|吗|呀|啊|可以吗|行吗|谢谢)?$/i.test(净)
+    if (明确查账) 打分({ cmd: '余额' }, 3)
     if (/(鲸元券|抽奖)/.test(净) && 净.length <= 12) 打分({ cmd: '券' }, 3)
     if (/^(?:你的?|现在|目前)?(?:状态|运行情况|健康)/.test(净) && 净.length <= 14) 打分({ cmd: '状态' }, 3)
     if (/(状态|运行|活着|在线|挂没挂).{0,3}(怎样|如何|咋样|情况|吗)/.test(净)) 打分({ cmd: '状态' }, 3)
@@ -1382,7 +1384,25 @@ export function apply(ctx) {
     try {
       if (令.cmd === '冲突') return 答(令.说)
             if (令.cmd === '帮助') {
-        return 答('我会的这些，随口说就行：查余额｜状态｜日志N｜闭嘴(可带分钟)｜开口｜冷却｜去群里说…｜禁言 谁 几分钟｜解禁 谁｜踢 谁｜发张鲸元券。前缀加 / = 铁了心发指令；我办完都会回你一声')
+        return 答('我会的这些，随口说就行：查余额｜余额预警开没有｜状态｜日志N｜闭嘴(可带分钟)｜开口｜冷却｜去群里说…｜禁言 谁 几分钟｜解禁 谁｜踢 谁｜发张鲸元券。前缀加 / = 铁了心发指令；我办完都会回你一声')
+      }
+      if (令.cmd === '余额预警') {
+        const 预警脚本在 = existsSync('/opt/qq-cs/balance_warn.py')
+        let 巡检已接入 = false
+        try { 巡检已接入 = /python3\s+\/opt\/qq-cs\/balance_warn\.py(?:\s|$)/.test(readFileSync('/opt/qq-cs/watchdog.sh', 'utf8')) } catch (error) {}
+        if (existsSync('/opt/qq-cs/.napcat-risk-paused')) return 答('现在暂停着呢，风险保护还没放开。')
+        if (!预警脚本在 || !巡检已接入) return 答('还没开起来，预警脚本没接上。')
+        if (!读DEEPSEEK密钥()) return 答('脚本在，但查账用的密钥没读到，所以实际跑不起来。')
+        try {
+          const 行们 = readFileSync('/opt/qq-cs/watchdog.log', 'utf8').trim().split(/\r?\n/).reverse()
+          const 最新 = 行们.map((行) => 行.match(/^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})\s+(.*)$/)).find(Boolean)
+          if (!最新) return 答('配置看着开着，但我没看到巡检记录，不敢说它正常跑着。')
+          const 时刻 = Date.parse(`${最新[1]}T${最新[2]}+08:00`)
+          const 间隔 = Date.now() - 时刻
+          if (!Number.isFinite(时刻) || 间隔 < 0 || 间隔 > 45 * 60 * 1000) return 答('配置看着开着，但最近的巡检记录有点旧，不敢保证它正常。')
+          if (/异常:/.test(最新[3])) return 答('开着是开着，最近一轮巡检报错了，提醒可能没发出去。')
+        } catch (error) { return 答('配置看着开着，但我读不到巡检记录，不敢保证它正常。') }
+        return 答('开着呢，最近巡检也正常。')
       }
       if (令.cmd === '余额') {
         const 钥 = 读DEEPSEEK密钥()
@@ -1392,7 +1412,14 @@ export function apply(ctx) {
         const j = await r.json()
         const b = ((j && j.balance_infos) || [])[0] || {}
         if (!(j && j.is_available) || !b.currency) return 答('接口说这账户不可用了——多半欠费，快看看喵！')
-        return 答(`摸摸口袋：还剩 ¥${b.total_balance}（你充的 ${b.topped_up_balance}，白送的 ${b.granted_balance}）`) 
+        const 余额说法 = [
+          `摸摸口袋：还剩 ¥${b.total_balance}（你充的 ${b.topped_up_balance}，白送的 ${b.granted_balance}）`,
+          `查了下账：账上 ¥${b.total_balance}，其中充值 ${b.topped_up_balance}、赠送 ${b.granted_balance}`,
+          `存钱罐摇一摇：¥${b.total_balance}（你打进来 ${b.topped_up_balance}，白给 ${b.granted_balance}）`,
+          `目前口粮 ¥${b.total_balance}——充值部分 ${b.topped_up_balance}，赠送部分 ${b.granted_balance}`,
+          `报个数：¥${b.total_balance}（充 ${b.topped_up_balance} / 送 ${b.granted_balance}），还够我撑一阵`,
+        ]
+        return 答(余额说法[Math.floor(Math.random() * 余额说法.length)])
       }
       if (令.cmd === '状态') {
         const 最 = 日志.length ? 日志[日志.length - 1] : { 时间: '-', 文本: '-' }

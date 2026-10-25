@@ -27,7 +27,7 @@ due = bool(nxt is None or now >= nxt)
 silent_min = 0
 try:
     body = json.dumps({"group_id": GID, "count": 5}).encode()
-    req = urllib.request.Request("http://127.0.0.1:3002/get_group_msg_history?access_token=<新家HTTP票>", data=body, headers={"content-type": "application/json"})
+    req = urllib.request.Request("http://127.0.0.1:3000/get_group_msg_history", data=body, headers={"content-type": "application/json"})
     ms = json.load(urllib.request.urlopen(req, timeout=8)).get("data", {}).get("messages", [])
     if ms:
         latest = max(int(m.get("time", 0)) for m in ms)
