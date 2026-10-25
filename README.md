@@ -229,4 +229,3 @@ docs/       bridge-patches.md 补丁全记录 · QQ-DUTY-LOG-live.md 实况值�
 ## 感谢
 
 - [NapCat](https://github.com/NapNeko/NapCatQQ) · [dsh-qq-bridge](https://github.com/Yuuyuko-uu/dsh-qq-bridge) · [memecub](https://memecub.com/zh/tag/%E9%B2%B8%E9%B1%BC%E5%A8%98) · [DSH](https://github.com/deepseek-ai) 生态同行（groupmate / NimuQDock 的设计启发了本版人设）
-
