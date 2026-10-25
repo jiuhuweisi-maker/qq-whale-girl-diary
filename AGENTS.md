@@ -33,8 +33,16 @@
 - 心跳文件 `/opt/qq-cs/.bridge-heartbeat`（每4圈成功拉写一次）；watchdog 每30分钟：心跳窒息>180s→重启 dsh；**但 dsh 活着而会话没载入→只提醒不重启**（patch76）——此时需要人工打开 GUI（14080 隧道页）点她的会话卡片唤醒，或见下条未解项。
 - 群消息转发条件：被@（含空@兜底文案必转）或热聊窗口内（常人3分钟/主人10分钟滑窗）；机器人消息不转；01:00-07:00 群消息不入脑；>600s 旧消息按墓碑弃（留"杀69"痕）。
 
+## 会话唤醒（协议已破 2026-10-25 晚，值班妈妈现场抓捕）
+- **她的会话没被删除，实体健康**。GUI 里那条"QQ→DSH 收图失败只读诊断"**就是她本人的主会话**（调查时被改名，原"未命名17小时"）——不要再新建诊断会话找她，目标会话 id 只有一个：session-68a2522f...。
+- 网关是 **Remote 信封协议，不是 REST**：`POST /api/session/<endpoint>`，鉴权=登录 cookie（GUI token 不通用；curl 裸调 401/404 是假象不是路由不存在），信封体：
+  `{"type":"client-request","rpcId":"任意串","method":"session/<endpoint>","payload":{"args":{"_request":{}}}}`
+  三条铁则：method 必须与 endpoint 完全相等；args 必含 `_request` 字段；报错会逐步暴露 descriptor 缺什么字段，照补即可。
+- 已验可用：`session/list` → 每项含 `title/agentAvailable/running`。**agentAvailable:true ≠ 已载入**——载入发生在**前端打开会话卡片的瞬间**。浏览器代理法：登录后（`/?token=$TK` 打开即带 cookie）POST session/list 拿条目、点对应卡片即唤醒（21:3x 实证：点开→桥探针 sess-alive 转 alive）。
+- 死活判定一律用桥探针 `GET /dsh-qq-bridge/sess-alive?token=$TK`，不要猜。
+
 ## 未解项（接手后优先）
-1. **会话唤醒 API 未找到**：`GET /api/sessions` 返 401（路由存在！鉴权方式未知）。找到无浏览器唤醒"session-68a2522f..."的方法，codex 就能完全自愈。线索：dsh web 的服务层（`/usr/local/bin/dsh` 指向的包）里 grep `/api/sessions` 的鉴权；或前端 bundle 路径（`curl http://127.0.0.1:3080/` 的 HTML 里 src 解析有坑，HTML 可能是 SPA 注入，试试 journalctl 里看请求行）。
+1. 无浏览器载入 endpoint：上节协议的最后一公里（open/attach/wake 已试过不匹配，别再撞；从 descriptor 注册表方向挖：报错含 endpoint 名的都是真路由，可用同样信封挨个 list 探）。
 2. 主人验收项：@她(带文字)30秒内应答——上线后做一次实弹并记账。
 3. 连发漂移率复测（基线：8回合3漂，patch68 后应显著下降）；quote 掷骰比例 40%→主人可能想调 25%。
 4. `dsh-ops` 残留注册行每启动打一条 skip 警告——主人已裁定**别再动它**（第五次重启不值）。
