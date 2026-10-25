@@ -143,3 +143,5 @@ crontab -l | sed -E '/^# paused-after-qq-risk /s/^# paused-after-qq-risk //' | c
 [2026-10-25 14:30] 名册终审：主人裁定猴王=力莽外号（力莽=Leysion.👀=猴王一人三名），柱间🐵表情梗另计。加'会晕是正常的'留白课：记不准就坦白'没记牢再说一遍'，宁留白不缝错线，拿不准私信问。搬家全案收官——桥十病皆治、两案平反、名册定档、留白入格。
 
 [2026-10-25 14:31] dsh-ops@0.4.1上岗实锤：桌面HMR昨夜01:37即热加载（插件装完自动激活，昨晚'待重启'为过虑）；13:27一次package.json.lock争用warn已在14:26重启后消失，config持久化。日志关键：插件自迁移'disabled legacy shell fallback, removed FastCtx keys'——旧版失忆元凶FastCtx被新版主动清除，无残留。ops_bash实弹通过（MINGW bash、输出有界），工具面瘦身生效，记忆四书无损。明日午比对缓存命中徽章，鲸鱼娘服务器侧仍按主人令不动。
+
+[2026-10-25 15:20] 穷尽普查卷宗(主人问'到底还有多少残留')：①桥lib五雷已拆净(grep零残留,client.js的require是UMD宿主注入非残留)②cron全家25脚本全过:语法编译OK、依赖的6个OneBot动作(get_login_info/get_group_msg_history/get_friend_msg_history/get_group_member_list/send_private_msg/send_group_msg+set_group_ban/get_msg/get_group_member_info)在SnowLuma实测全retcode0、mark_msg_read不支持但无人调用③nudge链路token实时从journalctl取toks[-1],重启轮换自动跟上新证无罪④3001零幽灵引用⑤sanitize_live裸跑报错系参数误用,真实链12:40验活⑤新增patch67磁盘哨兵(<600MB即webhook,当前23G)。系统性结论:已知残留=零;防'静默死'三保险齐——心跳+看门狗自愈+失败才报警。方法论定版:任何'已修复'必须有活体证据(文件/心跳/日志痕迹),空catch即坟头草。
