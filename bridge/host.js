@@ -1302,6 +1302,7 @@ export function apply(ctx) {
         if (!配置.转群 || !配置.群号) return 答('❌ 群通道没开或没群号')
         const 文 = String(令.arg).slice(0, 300)
         const 果 = await 发一个(配置.NapCat, 'send_group_msg', { group_id: Number(配置.群号), message: [{ type: 'text', data: { text: 文 } }] })
+        加缓冲('p' + Number(配置.私聊QQ), { text: '（桥务通报：刚才那句「' + 文.slice(0, 40) + '」进群，是桥照主人的话代发的——' + (果.ok ? '已经发出去了' : '不过没发出去') + '。不是你亲口说的，知道就好，不用复述不用接话）', images: [], mid: '', route: 'private', at: 0, speaker: Number(配置.私聊QQ), name: '桥' }) // patch64: 代发知会她，主人点头的
         return 答(果.ok ? `✅ 已代发进群：「${文.slice(0, 40)}」` : '❌ 群发失败：' + JSON.stringify(果.数据).slice(0, 120))
       }
       return 答('❌ 不认识的指令，发「帮助」看表')
