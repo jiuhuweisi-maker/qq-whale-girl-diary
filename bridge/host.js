@@ -181,6 +181,21 @@ async function 取图字节(数据) {
       try { return readFileSync(new URL(url)) } catch (error) {}
     } else if (/^https?:/i.test(url)) {
       try {
+        const ctl70 = new AbortController()
+        const 毒70 = setTimeout(() => ctl70.abort(), 15000)
+        let r = null
+        try {
+          r = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 QQ/9.9.9.9' }, signal: ctl70.signal })
+          const b70 = Buffer.from(await r.arrayBuffer())
+          if (!r.ok || b70.length < 400) {
+            const u70 = new URL(url); u70.searchParams.set('rkey', '')
+            r = await fetch(u70.toString(), { headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 QQ/9.9.9.9' }, signal: ctl70.signal })
+          }
+          return Buffer.from(await r.arrayBuffer())
+        } finally { clearTimeout(毒70) }
+      } catch (e70) { return null }
+      /* 原裸fetch封板: */
+      try {
         const r = await fetch(url)
         if (r.ok) return Buffer.from(await r.arrayBuffer())
       } catch (error) {}
@@ -307,7 +322,9 @@ export function apply(ctx) {
     try { const v = Number(readFileSync(私水位文件, 'utf8').trim()) || 0; if (!v || n - v > 600) return n; return v } catch (e) { return n }
   }
   let 上次私聊时间 = 读私水位()
-  let 上次群时间 = Math.floor(Date.now() / 1000)
+  let 上次群时间 = Math.floor(Date.now() / 1000) - 610 // patch72: 初值让位于墓碑线,重启漏接的10分钟内消息补得上,不陪葬
+  const 群水位文件 = '/opt/qq-cs/.bridge-gm-wm'
+  try { const v71 = Number(readFileSync(群水位文件, 'utf8').trim()) || 0; const 顶72 = Math.floor(Date.now() / 1000) - 610; if (v71 && v71 < 顶72) 上次群时间 = v71 } catch (e) {} // patch72硬版:文件值必须早于墓碑边界才可信,否则用now-610
   let 连败48 = 0 // ⭐ patch48 僵尸检测：QQ发送连败3次⇒企微报警（登录接口会说谎，发送失败不会）
   const 报僵尸 = async () => {
     try {
@@ -858,7 +875,11 @@ export function apply(ctx) {
     for (const { 键, b } of 到期.filter((x) => x.b.route !== 'group')) {
       let 文 = '【' + b.name + '】' + b.texts.join('\n')
       if (b.route === 'private') 文 = '（这是私聊，只有你和主人，不在群里——群里的事除非他问起就别带进来）' + 文
-      const 果 = await 转入一条(文, b.images, b.mid, b.route, b.at, b.speaker)
+      let 果
+      try {
+        果 = await Promise.race([转入一条(文, b.images, b.mid, b.route, b.at, b.speaker), new Promise((res) => setTimeout(() => res({ ok: false, 说: '转太久了，当没送达' }), 25000))])
+        if (果 && 果.说 === '转太久了，当没送达') 记账('保险丝70·私聊批·25秒卡死，退回重试')
+      } catch (e70b) { 果 = { ok: false } }
       if (果 && 果.ok === false) { b.last = now; 缓聊.set(键, b) }
     }
     const 群批 = 到期.filter((x) => x.b.route === 'group').sort((a, c) => a.b.first - c.b.first)
@@ -871,7 +892,11 @@ export function apply(ctx) {
       if (群批.length > 1) 文 += '\n（以上是' + 群批.length + '个人的话一起到的：像真人那样挑你最想接的接，一至两条足够，其余的让它自然飘走，不必人人有回应，更不必回头挖旧账认真答）'
       const 气氛 = await 现场气氛(配置)
       if (气氛.length > 1) 文 = '（以下是此刻之前的群聊旧场景回放，带【群】标记，读空气用，别人看不到；录像不是正在跟你说话）\n' + 气氛.join('\n') + '\n——回放完，刚才对你说的是——\n' + 文
-      const 果 = await 转入一条(文, 合.图们, 合.mid, 'group', 合.at, 合.speaker)
+      let 果
+      try {
+        果 = await Promise.race([转入一条(文, 合.图们, 合.mid, 'group', 合.at, 合.speaker), new Promise((res) => setTimeout(() => res({ ok: false, 说: '转太久了，当没送达' }), 25000))])
+        if (果 && 果.说 === '转太久了，当没送达') 记账('保险丝70·群批·25秒卡死，退回重试')
+      } catch (e70b) { 果 = { ok: false } }
       if (果 && 果.ok === false) { for (const x of 群批) { x.b.last = now; 缓聊.set(x.键, x.b) } }
     }
   }
@@ -993,11 +1018,17 @@ export function apply(ctx) {
         try { r = await fetch(带票52(`${配置.NapCat}/${action}`), {
           method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(体), signal: ctl.signal,
         }) } finally { clearTimeout(毒66) }
-        const j = await r.json()
+        let j = null
+        try { j = await r.json() } catch (eJ) { 拉败69++; if (拉败69 % 40 === 1) 记账('拉坏69·' + action + '·解析炸:http' + r.status) ; return [] }
         try { 写心跳66() } catch (e66) { console.log('拉-心跳炸:', String((e66 && e66.message) || e66).slice(0, 60)) }
-        return j && j.status === 'ok' && Array.isArray(j.data && j.data.messages) ? j.data.messages : []
+        if (!(j && j.status === 'ok' && Array.isArray(j.data && j.data.messages))) {
+          拉败69++; if (拉败69 % 40 === 1) 记账('拉坏69·' + action + '·status=' + String(j && j.status) + '·rc' + String(j && j.retcode) + '·' + String((j && j.wording) || '').slice(0, 30))
+          return []
+        }
+        return j.data.messages
       } catch (error) {
-        console.log('拉-吞错:', String((error && error.message) || error).slice(0, 60))
+        拉败69++; if (拉败69 % 40 === 1) 记账('拉坏69·' + action + '·' + String((error && error.message) || error).slice(0, 40))
+        else console.log('拉-吞错:', String((error && error.message) || error).slice(0, 60))
         return []
       }
     }
@@ -1100,8 +1131,9 @@ export function apply(ctx) {
           热聊.set(群发言者, Date.now() + (群发言者 === Number(配置.私聊QQ) ? 600000 : 180000)) // 被@：常人3分钟，主人10分钟
           if (热聊.size > 40) { const k = 热聊.keys().next().value; 热聊.delete(k) }
         }
-        if ((条.time || 0) < 上次群时间) continue
-        if (已转消息.has(条.message_id)) continue
+        const 新69 = Date.now() / 1000 - (条.time || 0) < 900
+        if ((条.time || 0) < 上次群时间) { if (新69 && 被艾特 && !已转消息.has(条.message_id)) 记账('杀69·水位·@我seq' + String(条.message_seq)); 已转消息.add(条.message_id); continue }
+        if (已转消息.has(条.message_id)) { if (新69 && 被艾特) 记账('杀69·已转·@我seq' + String(条.message_seq)); continue }
         const { 文字, 图们 } = 条转片段(条)
         if (!文字 && !图们.length && 被艾特) 文字 = '（对方只@了你，没带话——是叫你呢，自己接）' // patch62: 空@放行，治装死
     else if (!文字 && !图们.length) { 已转消息.add(条.message_id); 上次群时间 = 条.time || 上次群时间; continue }
@@ -1109,12 +1141,14 @@ export function apply(ctx) {
         艾特我人 = 群发言者 || 艾特我人
         艾特时刻 = Date.now()
         const 名前 = 群发言者 === Number(配置.私聊QQ) ? '主人' : String((条.sender && (条.sender.card || 条.sender.nickname)) || '群友')
+        if (新69) 记账('活69·进群批·seq' + String(条.message_seq) + (被艾特 ? '·@我' : ''))
         加缓冲('g' + 群发言者, { text: 文字, images: 图们, mid: String(条.message_id || ''), route: 'group', at: 被艾特 ? 群发言者 : 0, speaker: 群发言者, name: 名前 })
         上次群时间 = 条.time || 上次群时间
         已转消息.add(条.message_id)
       }
     }
 
+    try { writeFileSync(群水位文件, String(上次群时间)) } catch (e) {}
     await 冲缓冲(配置)
     if (已转消息.size > 300) 已转消息.clear()
   }
@@ -1463,6 +1497,7 @@ export function apply(ctx) {
   }, 'qq-bridge: 盯伙伴说话')
 
   // patch66 心跳:每轮轮询末尾写盘,watchdog查它——fetch窒息事故3分钟内被换班救回
+  let 拉败69 = 0
   let 心跳计数66 = 0
   const 写心跳66 = () => { try { if (++心跳计数66 % 4 === 0) writeFileSync('/opt/qq-cs/.bridge-heartbeat', String(Date.now())) } catch (e) {} }
 
