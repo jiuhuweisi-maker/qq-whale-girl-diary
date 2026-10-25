@@ -468,6 +468,16 @@ export function apply(ctx) {
     const 抠过 = 配置.发图 ? 抠正文图(原文字) : { 净文字: String(原文字 || ''), 图: [] }
     const 文字 = 抠过.净文字
     const 段们 = 按段拆(文字).length ? 按段拆(文字) : [String(文字 || '').trim()].filter((s) => s.length > 0)
+    // patch61 脏口滤网：系统小字不是她的话
+    const 脏口 = (t) => {
+      if (/[\u4e00-\u9fff]/.test(t)) return false
+      if (t.length <= 10) return false
+      if (/(This content|External web content|fair use|copyrighted|verify that you|ignore previous|system prompt)/i.test(t)) return true
+      return (t.match(/[A-Za-z]{3,}/g) || []).length >= 10
+    }
+    const 段们2 = 段们.filter((t) => !脏口(t))
+    if (段们2.length !== 段们.length) 记账('滤掉系统串话' + (段们.length - 段们2.length) + '条')
+    段们.splice(0, 段们.length, ...段们2)
     const 发段延迟 = 450 // 每段之间隔一下，像真人一条条发
     const 最大 = Math.max(1, Math.min(Number(配置.图上限MB) || 5, 30)) * 1024 * 1024
     // ⭐ 图片：base64 或网络地址，QQ 那边直接收，不用访问本机文件
@@ -830,7 +840,7 @@ export function apply(ctx) {
           if (x.type === 'at') return '@人'
           return ''
         }).join('').trim().replace(/\s+/g, ' ').slice(0, 40)
-        if (话) 行们.push(谁 + '：' + 话)
+        if (话) 行们.push('【群】' + 谁 + '：' + 话)
       }
       return 行们.slice(-8)
     } catch (error) { return [] }
@@ -838,7 +848,7 @@ export function apply(ctx) {
   async function 冲缓冲(配置) {
     const now = Date.now()
     for (const [键, b] of Array.from(缓聊.entries())) {
-      const 静默 = b.route === 'private' ? 4000 : 5500
+      const 静默 = b.route === 'private' ? 6500 : 5500
       if (now - b.last < 静默 && now - b.first < 25000) continue
       缓聊.delete(键)
       if (now - b.first > 180000 && now - b.last > 60000) { 记账('插话等太久，弃'); continue } // patch55: 她在打长字时给插话者3分钟排队窗（桥忙≠装死）
@@ -846,7 +856,7 @@ export function apply(ctx) {
       if (b.route === 'private') 文 = '（这是私聊，只有你和主人，不在群里——群里的事除非他问起就别带进来）' + 文 // patch58 场景标签，治答非所问串景
       if (b.route === 'group') {
         const 气氛 = await 现场气氛(配置)
-        if (气氛.length > 1) 文 = '（群聊现场回放，供你读空气用，别人看不到这段）\n' + 气氛.join('\n') + '\n——回放完，刚对你说的是——\n' + 文
+        if (气氛.length > 1) 文 = '（以下是此刻之前的群聊旧场景回放，带【群】标记，读空气用，别人看不到；录像不是正在跟你说话）\n' + 气氛.join('\n') + '\n——回放完，刚对你说的是——\n' + 文
       }
       const 果 = await 转入一条(文, b.images, b.mid, b.route, b.at, b.speaker)
       if (果 && 果.ok === false) { b.last = now; 缓聊.set(键, b) }   // 会话没醒：放回，下轮再试
