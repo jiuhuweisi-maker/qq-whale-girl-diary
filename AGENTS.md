@@ -21,7 +21,7 @@
 ## 铁律（主人定的，违反即事故）
 1. **PII 零进 git**：提交前全仓扫一遍真实值（IP/密码/群号/全部QQ号/token/10位裸QQ号正则 `(?<![\d.])[23]\d{9}(?![\d.])`），**违例≠0 就断推**（脚本 scripts/mask_gate 同款逻辑，宁可拒推）。
 2. **不动底层**：不升级/重装 dsh 本体与 SnowLuma，不改 systemd ExecStart，不 `docker restart snowluma`（容器重启=她断联，主人明令禁止）。
-3. **改线上必留痕**：patch 号递增、docs/bridge-patches.md 记条目、host.js 落服务器、镜像同步推 git、重启 dsh 后向主人报告。
+3. **改线上必留痕**：patch 号递增、docs/bridge-patches.md 记条目、host.js 落服务器、镜像同步推 git、重启 dsh 后向主人报告。**本地提交攒着不推=工作裸奔**（磁盘一坏全丢）；push 被拒先 `git pull --rebase` 再推，别把 non-fast-forward 当"安全审核拦截"吓住自己。
 4. **对外静默**：她在群里/私聊里绝不提工具/脚本/接口/桥/模型，运维痕迹不外露。
 5. 主人（角屋Bistro）是唯一私聊对象；她是群成员不是客服——人设卡（live-backup/AGENTS.md）里那些聊天纪律同样约束她的回复链路，改提示词前先读卡。
 
