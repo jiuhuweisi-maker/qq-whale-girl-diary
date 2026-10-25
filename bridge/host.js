@@ -1082,7 +1082,8 @@ export function apply(ctx) {
         if ((条.time || 0) < 上次群时间) continue
         if (已转消息.has(条.message_id)) continue
         const { 文字, 图们 } = 条转片段(条)
-        if (!文字 && !图们.length) { 已转消息.add(条.message_id); 上次群时间 = 条.time || 上次群时间; continue }
+        if (!文字 && !图们.length && 被艾特) 文字 = '（对方只@了你，没带话——是叫你呢，自己接）' // patch62: 空@放行，治装死
+    else if (!文字 && !图们.length) { 已转消息.add(条.message_id); 上次群时间 = 条.time || 上次群时间; continue }
         if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add(条.message_id); 上次群时间 = 条.time || 上次群时间; continue } // 超10分钟不挖坟
         艾特我人 = 群发言者 || 艾特我人
         艾特时刻 = Date.now()
