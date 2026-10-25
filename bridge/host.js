@@ -847,19 +847,32 @@ export function apply(ctx) {
   }
   async function 冲缓冲(配置) {
     const now = Date.now()
+    const 到期 = []
     for (const [键, b] of Array.from(缓聊.entries())) {
       const 静默 = b.route === 'private' ? 6500 : 5500
       if (now - b.last < 静默 && now - b.first < 25000) continue
       缓聊.delete(键)
-      if (now - b.first > 180000 && now - b.last > 60000) { 记账('插话等太久，弃'); continue } // patch55: 她在打长字时给插话者3分钟排队窗（桥忙≠装死）
+      if (now - b.first > 180000 && now - b.last > 60000) { 记账('插话等太久，弃'); continue }
+      到期.push({ 键, b })
+    }
+    for (const { 键, b } of 到期.filter((x) => x.b.route !== 'group')) {
       let 文 = '【' + b.name + '】' + b.texts.join('\n')
-      if (b.route === 'private') 文 = '（这是私聊，只有你和主人，不在群里——群里的事除非他问起就别带进来）' + 文 // patch58 场景标签，治答非所问串景
-      if (b.route === 'group') {
-        const 气氛 = await 现场气氛(配置)
-        if (气氛.length > 1) 文 = '（以下是此刻之前的群聊旧场景回放，带【群】标记，读空气用，别人看不到；录像不是正在跟你说话）\n' + 气氛.join('\n') + '\n——回放完，刚对你说的是——\n' + 文
-      }
+      if (b.route === 'private') 文 = '（这是私聊，只有你和主人，不在群里——群里的事除非他问起就别带进来）' + 文
       const 果 = await 转入一条(文, b.images, b.mid, b.route, b.at, b.speaker)
-      if (果 && 果.ok === false) { b.last = now; 缓聊.set(键, b) }   // 会话没醒：放回，下轮再试
+      if (果 && 果.ok === false) { b.last = now; 缓聊.set(键, b) }
+    }
+    const 群批 = 到期.filter((x) => x.b.route === 'group').sort((a, c) => a.b.first - c.b.first)
+    if (群批.length) {
+      const 合 = { 头们: 群批.map((x) => '【' + x.b.name + '】' + x.b.texts.join('\n')), 图们: [], mid: 群批[0].b.mid, at: 0, speaker: 群批[群批.length - 1].b.speaker }
+      for (const x of 群批) 合.图们.push(...x.b.images)
+      合.图们 = 合.图们.slice(0, 6)
+      for (const x of 群批) if (x.b.at) { 合.at = x.b.at; 合.speaker = x.b.speaker }
+      let 文 = 合.头们.join('\n')
+      if (群批.length > 1) 文 += '\n（以上是' + 群批.length + '个人的话一起到的：像真人那样挑你最想接的接，一至两条足够，其余的让它自然飘走，不必人人有回应，更不必回头挖旧账认真答）'
+      const 气氛 = await 现场气氛(配置)
+      if (气氛.length > 1) 文 = '（以下是此刻之前的群聊旧场景回放，带【群】标记，读空气用，别人看不到；录像不是正在跟你说话）\n' + 气氛.join('\n') + '\n——回放完，刚才对你说的是——\n' + 文
+      const 果 = await 转入一条(文, 合.图们, 合.mid, 'group', 合.at, 合.speaker)
+      if (果 && 果.ok === false) { for (const x of 群批) { x.b.last = now; 缓聊.set(x.键, x.b) } }
     }
   }
   const 黄脸表 = ['惊讶','撇嘴','色','发呆','得意','流泪','害羞','闭嘴','睡','大哭','尴尬','发怒','调皮','呲牙','惊讶','难过','酷','冷汗','抓狂','吐','偷笑','可爱','白眼','傲慢','饥饿','困','惊恐','流汗','憨笑','大兵','奋斗','咒骂','疑问','嘘','晕','折磨','衰','骷髅','敲打','再见','擦汗','抠鼻','鼓掌','糗大了','坏笑','左哼哼','右哼哼','哈欠','鄙视','委屈','快哭了','阴险','亲亲','吓','可怜','菜刀','西瓜','啤酒','篮球','乒乓','咖啡','饭','玫瑰','凋谢','示爱','爱心','心碎','蛋糕','闪电','炸弹','刀','足球','瓢虫','便便','月亮','太阳','礼物','拥抱','强','弱','握手','胜利','抱拳','勾引','拳头','差劲','爱你','NO','OK','爱情','飞吻','跳跳','发抖','怄火','转圈','磕头','回头','跳绳','挥手','激动','街舞','献吻','左太极','右太极']
