@@ -644,6 +644,7 @@ export function apply(ctx) {
       if (!Number.isFinite(轮号)) return
       if (d.interrupted) {
         按轮输出.delete(轮号)
+        轮路由.delete(轮号)
         return
       }
       const 文 = String(提取正文(d.message) || '').trim()
@@ -977,11 +978,11 @@ export function apply(ctx) {
     const 后 = 先 === 老批 ? 新批 : 老批
     缓聊.set(键, {
       ...先,
-      texts: [...老批.texts, ...新批.texts],
-      images: [...老批.images, ...新批.images].slice(0, 12),
+      texts: [...先.texts, ...后.texts],
+      images: [...先.images, ...后.images].slice(0, 12),
       first: Math.min(老批.first, 新批.first),
       last: Math.max(老批.last, 新批.last, Date.now()),
-      mid: 老批.mid || 新批.mid,
+      mid: 先.mid || 后.mid,
       at: 后.at || 先.at,
       speaker: 后.speaker || 先.speaker,
       name: 后.name || 先.name,
