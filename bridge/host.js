@@ -339,6 +339,20 @@ export function apply(ctx) {
   const 已发轮 = new Set()
   const 已转消息 = new Set() // 已经转发进 DSH 的 QQ 消息 id（防重复转）
   const 私水位文件 = '/opt/qq-cs/.bridge-pm-wm' // ⭐ patch47 私聊水位线持久化：重启空窗里的私信不再被静默吞掉（10分钟坟墓规则仍封顶）
+  const 水位写错 = new Set()
+  function 写水位文件(文件, 水位, 名称) {
+    try {
+      writeFileSync(文件, String(水位))
+      if (水位写错.delete(名称)) 记账(`${名称}水位写入已恢复`)
+      return true
+    } catch (error) {
+      if (!水位写错.has(名称)) {
+        记账(`${名称}水位写入失败：${String((error && error.message) || error).slice(0, 80)}`)
+        水位写错.add(名称)
+      }
+      return false
+    }
+  }
   const 读私水位 = () => {
     const n = Math.floor(Date.now() / 1000)
     try { const v = Number(readFileSync(私水位文件, 'utf8').trim()) || 0; if (!v || n - v > 600) return n; return v } catch (e) { return n }
@@ -1182,8 +1196,6 @@ export function apply(ctx) {
       }
     }
 
-    try { if (上次私聊时间 !== 旧水位47) writeFileSync(私水位文件, String(上次私聊时间)) } catch (e) {} // patch47
-
     if (配置.转群 && 配置.群号) {
       const 列表 = await 拉('get_group_msg_history', { group_id: Number(配置.群号), count: 30 })
       for (const 条 of 列表.sort((a, b) => (a.time || 0) - (b.time || 0))) {
@@ -1260,8 +1272,11 @@ export function apply(ctx) {
       }
     }
 
-    try { writeFileSync(群水位文件, String(上次群时间)) } catch (e) {}
     await 冲缓冲(配置)
+    const 私聊待发 = Array.from(缓聊.keys()).some((键) => 键.startsWith('p'))
+    if (!私聊待发 && 上次私聊时间 !== 旧水位47) 写水位文件(私水位文件, 上次私聊时间, '私聊')
+    const 群聊待发 = Array.from(缓聊.keys()).some((键) => 键.startsWith('g'))
+    if (!群聊待发) 写水位文件(群水位文件, 上次群时间, '群聊')
     if (已转消息.size > 300) 已转消息.clear()
   }
 
@@ -1610,7 +1625,18 @@ export function apply(ctx) {
   // patch66 心跳:每轮轮询末尾写盘,watchdog查它——fetch窒息事故3分钟内被换班救回
   let 拉败69 = 0
   let 心跳计数66 = 0
-  const 写心跳66 = () => { try { if (++心跳计数66 % 4 === 0) writeFileSync('/opt/qq-cs/.bridge-heartbeat', String(Date.now())) } catch (e) {} }
+  let 心跳写失败66 = false
+  const 写心跳66 = () => {
+    if (++心跳计数66 % 4 !== 0) return
+    try {
+      writeFileSync('/opt/qq-cs/.bridge-heartbeat', String(Date.now()))
+      if (心跳写失败66) 记账('桥心跳写入已恢复')
+      心跳写失败66 = false
+    } catch (error) {
+      if (!心跳写失败66) 记账('桥心跳写入失败：' + String((error && error.message) || error).slice(0, 80))
+      心跳写失败66 = true
+    }
+  }
 
   // 轮询 NapCat 收「她新发的 QQ」→ 转进 DSH（QQ → DSH 这半，不赖 BOT）
   ctx.effect(() => {
