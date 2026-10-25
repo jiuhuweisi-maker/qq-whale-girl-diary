@@ -533,7 +533,7 @@ export function apply(ctx) {
       for (let i = 0; i < 段们.length; i++) {
         const 体 = 私人消息体(段们[i])
         体.user_id = Number(配置.私聊QQ)
-        const 带引P = i === 0 && 路.mid && 路.mid !== 'qq' && Array.isArray(体.message)
+        const 带引P = i === 0 && 路.mid && 路.mid !== 'qq' && Array.isArray(体.message) && Math.random() < 0.15 // patch65 私聊少引
         if (带引P) 体.message.unshift({ type: 'reply', data: { id: String(路.mid) } })
         let 果P = await 发一个(配置.NapCat, 'send_private_msg', 体)
         if (!果P.ok && 带引P) { 体.message.shift(); 果P = await 发一个(配置.NapCat, 'send_private_msg', 体) }
@@ -550,7 +550,7 @@ export function apply(ctx) {
         const 体 = 群消息体(段们[i])
         体.group_id = Number(配置.群号)
         if (i === 0 && 路.艾特) 体.message.unshift({ type: 'at', data: { qq: String(路.艾特) } })
-        const 带引G = i === 0 && 路.mid && 路.mid !== 'qq' && Array.isArray(体.message)
+        const 带引G = i === 0 && 路.mid && 路.mid !== 'qq' && Array.isArray(体.message) && (路.艾特 ? true : Math.random() < 0.4) // patch65 回@必引闲话掷骰
         if (带引G) 体.message.unshift({ type: 'reply', data: { id: String(路.mid) } })
         let 果G = await 发一个(配置.NapCat, 'send_group_msg', 体)
         if (!果G.ok && 带引G) { 体.message.shift(); 果G = await 发一个(配置.NapCat, 'send_group_msg', 体) }
@@ -811,7 +811,7 @@ export function apply(ctx) {
     if (!b) { b = { texts: [], images: [], mid: '', first: Date.now(), last: 0, at: 0, speaker: 0, route: 项.route, name: 项.name }; 缓聊.set(键, b) }
     if (项.text && 项.text.trim()) b.texts.push(项.text.trim())
     if (项.images && 项.images.length) b.images.push(...项.images.slice(0, 4))
-    b.mid = 项.mid || b.mid
+    b.mid = b.mid || 项.mid // patch65: 引用锚定批次第一条,答正题不锚尾表情
     b.last = Date.now()
     if (项.at) b.at = 项.at
     b.speaker = 项.speaker || b.speaker
