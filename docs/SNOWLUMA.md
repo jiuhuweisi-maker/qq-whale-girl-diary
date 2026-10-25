@@ -106,3 +106,6 @@ AGENTS'场与嘴'段：机器小字不是你的话/只用一张嘴不许命令�
 
 ### patch65 引用条平反+dsh-ops上服务器（2026-10-25 午后）
 案一：主人连发三条(@鲸戒肉嘟嘟/弄伤鳞片/🐵💢)，她答首题但引用锚在批尾表情——加缓冲b.mid每条覆写取最新。改'b.mid||项.mid'锚批首，答哪条引哪条。案二：每轮100%挂引用=公式。新规：群里回@必引（让@的人知道答他），闲话40%掷骰引，私聊15%——引用条是标点不是口癖。插件：服务器npm11有Class-extends bug，改走官方'dsh plugin --profile web install dsh-ops'（pnpm通道15秒过），v0.4.1已入web bundles重启静默加载（skipping零报错）。换班两次(14:37/14:40)召回，活会话1目标在线。观察项：引用频率手感、她侧缓存命中率。
+
+### patch66 ESM五雷+轮询窒息 triple保险（2026-10-25 下午大案）
+案发现场:主人14:49/14:51引用柱间话@她两条全无响应。验尸:桥轮询14:49:07后窒息——SnowLuma历史接口偶发挂起不应答,host.js的fetch无超时,await永挂,4秒轮询累积挂死连接吃光连接池,进程活着日志无声外部一切正常,只有轮询整体溺毙。两条@消息超10分钟挖坟线成孤儿。根因深挖牵出连环旧案:host.js在新家以ESM运行(profile type:module),但残留五处NapCat时代require('fs')——每处抛ReferenceError被自身空catch吞掉——patch47私聊水位持久化、patch45群静默开关、notify.conf读取**从安装那天就没生效过**('以为修好的病其实睡在死代码里')。修复:①拉函数fetch加AbortController 8秒超时(挂起变弃轮,下圈重来)②五处require改import版readFileSync/writeFileSync(三僵尸补丁全部复活)③心跳落盘/opt/qq-cs/.bridge-heartbeat(拉成功才写,窒息即停)④watchdog加心跳探针:>3分钟陈旧自动重启dsh换班——fetch级窒息从此最多昏睡3分钟。探针66常驻轮账本(20圈一笔)供查岗。教训:空catch是坟头草,所有'已修复'必须有活体证据(心跳/水位文件/日志痕迹)。

@@ -304,14 +304,14 @@ export function apply(ctx) {
   const 私水位文件 = '/opt/qq-cs/.bridge-pm-wm' // ⭐ patch47 私聊水位线持久化：重启空窗里的私信不再被静默吞掉（10分钟坟墓规则仍封顶）
   const 读私水位 = () => {
     const n = Math.floor(Date.now() / 1000)
-    try { const v = Number(require('fs').readFileSync(私水位文件, 'utf8').trim()) || 0; if (!v || n - v > 600) return n; return v } catch (e) { return n }
+    try { const v = Number(readFileSync(私水位文件, 'utf8').trim()) || 0; if (!v || n - v > 600) return n; return v } catch (e) { return n }
   }
   let 上次私聊时间 = 读私水位()
   let 上次群时间 = Math.floor(Date.now() / 1000)
   let 连败48 = 0 // ⭐ patch48 僵尸检测：QQ发送连败3次⇒企微报警（登录接口会说谎，发送失败不会）
   const 报僵尸 = async () => {
     try {
-      const conf = String(require('fs').readFileSync('/opt/qq-cs/notify.conf', 'utf8')).match(/webhook=(\S+)/)
+      const conf = String(readFileSync('/opt/qq-cs/notify.conf', 'utf8')).match(/webhook=(\S+)/)
       if (!conf) return
       await fetch(conf[1], { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ msgtype: 'text', text: { content: '🧟 鲸鱼娘僵尸检测：QQ发送已连续失败3次。get_login_info 可能还在报好，但会话基本已死——需要主人重新扫码。' } }) })
       记账('🧟 已推企微僵尸告警（连败3）')
@@ -330,7 +330,7 @@ export function apply(ctx) {
   }
 
   const 静默文件 = '/opt/qq-cs/.group-silence-until'
-  const 群静默中 = () => { try { const t = Number(require('fs').readFileSync(静默文件, 'utf8').trim()) || 0; return Date.now() / 1000 < t } catch (e) { return false } }
+  const 群静默中 = () => { try { const t = Number(readFileSync(静默文件, 'utf8').trim()) || 0; return Date.now() / 1000 < t } catch (e) { return false } }
   let 发送窗口 = []
   let 图窗 = []
   let 图日 = { d: '', n: 0 }
@@ -959,7 +959,10 @@ export function apply(ctx) {
    * ⚠ 纯 HTTP 轮询：不连 WebSocket、不依赖 BOT。
    * ⚠ 只认 `私聊QQ` 这个人发的（群也一样按这个号过滤），自己的回话不会自我繁殖。
    */
+  let 探针66 = 0
   async function 轮询收消息() {
+    探针66++
+    if (探针66 % 20 === 1) 记账('探针66:轮询第' + 探针66 + '圈活着')
     const 配置 = 读配置()
     // 总开关关 / 没选会话：只把「上次时间」推到此刻，别开的时候就补一大串旧的
     if (!配置.总开关 || !配置.目标会话) {
@@ -971,12 +974,17 @@ export function apply(ctx) {
 
     const 拉 = async (action, 体) => {
       try {
-        const r = await fetch(带票52(`${配置.NapCat}/${action}`), {
-          method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(体),
-        })
+        const ctl = new AbortController()
+        const 毒66 = setTimeout(() => ctl.abort(), 8000) // patch66: SnowLuma偶发挂起不应答,fetch永不回会吃光连接池窒息轮询
+        let r
+        try { r = await fetch(带票52(`${配置.NapCat}/${action}`), {
+          method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(体), signal: ctl.signal,
+        }) } finally { clearTimeout(毒66) }
         const j = await r.json()
+        try { 写心跳66() } catch (e66) { console.log('拉-心跳炸:', String((e66 && e66.message) || e66).slice(0, 60)) }
         return j && j.status === 'ok' && Array.isArray(j.data && j.data.messages) ? j.data.messages : []
       } catch (error) {
+        console.log('拉-吞错:', String((error && error.message) || error).slice(0, 60))
         return []
       }
     }
@@ -1018,7 +1026,7 @@ export function apply(ctx) {
       }
     }
 
-    try { if (上次私聊时间 !== 旧水位47) require('fs').writeFileSync(私水位文件, String(上次私聊时间)) } catch (e) {} // patch47
+    try { if (上次私聊时间 !== 旧水位47) writeFileSync(私水位文件, String(上次私聊时间)) } catch (e) {} // patch47
 
     if (配置.转群 && 配置.群号) {
       const 列表 = await 拉('get_group_msg_history', { group_id: Number(配置.群号), count: 30 })
@@ -1440,6 +1448,10 @@ export function apply(ctx) {
       } catch (error) {}
     }
   }, 'qq-bridge: 盯伙伴说话')
+
+  // patch66 心跳:每轮轮询末尾写盘,watchdog查它——fetch窒息事故3分钟内被换班救回
+  let 心跳计数66 = 0
+  const 写心跳66 = () => { try { if (++心跳计数66 % 4 === 0) writeFileSync('/opt/qq-cs/.bridge-heartbeat', String(Date.now())) } catch (e) {} }
 
   // 轮询 NapCat 收「她新发的 QQ」→ 转进 DSH（QQ → DSH 这半，不赖 BOT）
   ctx.effect(() => {
