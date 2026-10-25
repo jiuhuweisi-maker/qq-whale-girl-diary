@@ -165,14 +165,15 @@ const 扩展 = (类) => (类 === 'image/png' ? 'png' : 类 === 'image/gif' ? 'gi
 
 function 看图类(字节) {
   try {
-    if (字节[0] === 0x89 && 字节[1] === 0x50) return 'image/png'
-    if (字节[0] === 0x47 && 字节[1] === 0x49) return 'image/gif'
-    if (字节[0] === 0x52 && 字节[1] === 0x49 && 字节[8] === 0x57) return 'image/webp'
+    if (字节.length >= 8 && 字节[0] === 0x89 && 字节[1] === 0x50 && 字节[2] === 0x4e && 字节[3] === 0x47) return 'image/png'
+    if (字节.length >= 6 && 字节[0] === 0x47 && 字节[1] === 0x49 && 字节[2] === 0x46 && 字节[3] === 0x38) return 'image/gif'
+    if (字节.length >= 12 && 字节.toString('ascii', 0, 4) === 'RIFF' && 字节.toString('ascii', 8, 12) === 'WEBP') return 'image/webp'
+    if (字节.length >= 3 && 字节[0] === 0xff && 字节[1] === 0xd8 && 字节[2] === 0xff) return 'image/jpeg'
   } catch (error) {}
-  return 'image/jpeg'
+  return ''
 }
 
-/** 从 OneBot 的图片段里把字节抠出来：url → file(本地/base64://) 依次试 */
+/** 从 OneBot 的图片段里把字节抠出来：URL（保留原鉴权参数，限时重试一次）→ file(本地/base64://) */
 async function 取图字节(数据) {
   const d = 数据 || {}
   const url = typeof d.url === 'string' ? d.url.trim() : ''
@@ -180,34 +181,53 @@ async function 取图字节(数据) {
     if (url.startsWith('file://')) {
       try { return readFileSync(new URL(url)) } catch (error) {}
     } else if (/^https?:/i.test(url)) {
+      const ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 QQ/9.9.9.9'
+      const ctl = new AbortController()
+      const timeout = setTimeout(() => ctl.abort(), 15000)
+      let 失败因 = '无响应'
+      let 尝试数 = 0
       try {
-        const ctl70 = new AbortController()
-        const 毒70 = setTimeout(() => ctl70.abort(), 15000)
-        let r = null
-        try {
-          r = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 QQ/9.9.9.9' }, signal: ctl70.signal })
-          const b70 = Buffer.from(await r.arrayBuffer())
-          if (!r.ok || b70.length < 400) {
-            const u70 = new URL(url); u70.searchParams.set('rkey', '')
-            r = await fetch(u70.toString(), { headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 QQ/9.9.9.9' }, signal: ctl70.signal })
+        for (let i = 0; i < 2; i++) {
+          尝试数 += 1
+          try {
+            // QQ CDN 的 rkey 是图片访问凭据；任何重试都必须原样保留整条 URL。
+            const r = await fetch(url, { headers: { 'user-agent': ua }, signal: ctl.signal })
+            const 类型 = String(r.headers.get('content-type') || '').split(';')[0].trim().toLowerCase()
+            if (!r.ok) {
+              失败因 = `HTTP ${r.status}${类型 ? `/${类型}` : ''}`
+              try { await r.body?.cancel() } catch (error) {}
+            } else {
+              const buf = Buffer.from(await r.arrayBuffer())
+              if (看图类(buf)) return buf
+              失败因 = `响应不是可识别图片${类型 ? `/${类型}` : ''}/${buf.length}B`
+            }
+          } catch (error) {
+            const cause = error && error.cause
+            失败因 = error && error.name === 'AbortError'
+              ? '请求超时'
+              : String((cause && cause.code) || (error && error.name) || '请求失败').slice(0, 48)
+            if (ctl.signal.aborted) break
           }
-          return Buffer.from(await r.arrayBuffer())
-        } finally { clearTimeout(毒70) }
-      } catch (e70) { return null }
-      /* 原裸fetch封板: */
-      try {
-        const r = await fetch(url)
-        if (r.ok) return Buffer.from(await r.arrayBuffer())
-      } catch (error) {}
+          if (i === 0 && !ctl.signal.aborted) await new Promise((resolve) => setTimeout(resolve, 350))
+        }
+      } finally {
+        clearTimeout(timeout)
+      }
+      记账(`QQ 图 URL 拉取失败（${尝试数} 次）：${失败因}`)
     }
   }
   const f = typeof d.file === 'string' ? d.file.trim() : ''
   if (f.startsWith('base64://')) {
     try { return Buffer.from(f.slice('base64://'.length), 'base64') } catch (error) {}
   }
+  if (f.startsWith('file://')) {
+    try { return readFileSync(new URL(f)) } catch (error) {}
+  }
   if (f && (f.includes('\\') || f.includes('/'))) {
     try { return readFileSync(f) } catch (error) {}
   }
+  if (f) 记账('图片段只有裸文件名，宿主没有可直接读取的本地路径')
+  else if (!url) 记账('图片段没有可用的 URL 或 file 字段')
   return null
 }
 
@@ -935,6 +955,7 @@ export function apply(ctx) {
         if (!buf || !buf.length) { 记账(`第 ${序} 张图下载失败，跳过`); continue }
         if (buf.length > 最大) { 记账(`第 ${序} 张图太大（${Math.round(buf.length / 1048576)}MB），跳过`); continue }
         const 类 = 看图类(buf)
+        if (!类) { 记账(`第 ${序} 张图响应内容不是支持的图片格式，跳过`); continue }
         收下.push({ 类, b64: buf.toString('base64'), 存: 存一张(`${消息id || 'qq'}-${序}`, buf, 类), 字节: buf.length })
       }
     }

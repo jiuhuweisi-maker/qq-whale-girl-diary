@@ -284,3 +284,10 @@ DSH，**在桥的私聊轮询里就被截胡**（发送者本来就必须是主�
 - `Promise.race` 到 25 秒只会让等待方超时，不会取消仍在跑的 `转入一条`。批次随后重试时，原 followup 若晚到仍可能和重试重复。建议下一轮给桥接批次加消息 ID 幂等记录，并确认 DSH `agent.followup` 的完成语义后再调整重试窗口。
 - DSH 服务重启后，目标会话没有自动恢复；需要在网页里打开配置中的确切会话。本次已确认 QQ 桥恢复并打开了该会话。`watchdog.sh` 目前只会重启 DSH，后续可让它检查目标会话恢复结果并明确报警。
 - 本次启动日志提示 `dsh-ops` bundle 无法解析，但 DSH 服务和 QQ 桥路由仍正常。需确认该 bundle 是否仍被预期使用，再决定是否安装修复。
+
+## patch74 — QQ 图片下载失败不再静默丢图（2026-10-25）
+
+- 线上复盘：10-25 18:30—18:37 有三条群图片在交给 DSH 前下载失败。SnowLuma 的历史接口返回 `url` 为 `multimedia.nt.qq.com.cn` 图片 CDN，`file` 是裸文件名（不是本地路径）；同一张失败图片稍后用 Range GET 和 Node fetch 均成功，排除持续性的 DNS/TLS/CDN 不通。
+- 根因：图片获取异常被 `catch { return null }` 吞掉；后续 `file` 回退因此不可达，且 SnowLuma 的裸文件名也不能在 DSH 宿主直接 `readFileSync`。另一个错误分支会清空 URL 的 `rkey` 后重试，并把非图片错误响应直接当图片字节返回。
+- 修复：保留完整 CDN URL 与 `rkey`，总计限时 15 秒并对可重试失败最多重试一次；校验 HTTP 成功和 PNG/GIF/WebP/JPEG 文件签名；将错误类别写入桥接日志但不写 URL 或 `rkey`；URL 失败后继续尝试真正的本地路径或 base64 `file`。
+- 名称澄清：配置项沿用旧名 `NapCat`，当前运行的不是 NapCat 客户端；主机 `127.0.0.1:3000` 是 `whale-relay.service`，转发到 SnowLuma 的 OneBot 兼容 API（3002）。
