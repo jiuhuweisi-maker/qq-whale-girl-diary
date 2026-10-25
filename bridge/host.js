@@ -601,7 +601,7 @@ export function apply(ctx) {
         const 体 = 群消息体(段们[i])
         体.group_id = Number(配置.群号)
         if (i === 0 && 路.艾特) 体.message.unshift({ type: 'at', data: { qq: String(路.艾特) } })
-        const 带引G = i === 0 && 路.mid && 路.mid !== 'qq' && Array.isArray(体.message) && (路.艾特 ? true : Math.random() < 0.4) // patch65 回@必引闲话掷骰
+        const 带引G = i === 0 && 路.mid && 路.mid !== 'qq' && Array.isArray(体.message) && (路.艾特 ? true : Math.random() < 0.25) // patch65 回@必引闲话掷骰
         if (带引G) 体.message.unshift({ type: 'reply', data: { id: String(路.mid) } })
         let 果G = await 发一个(配置.NapCat, 'send_group_msg', 体)
         if (!果G.ok && 带引G) { 体.message.shift(); 果G = await 发一个(配置.NapCat, 'send_group_msg', 体) }
