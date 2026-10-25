@@ -32,6 +32,8 @@
 - **每个 fetch 必须带 AbortController 超时**：拉8s、图15s、转发25s保险丝——裸 await 挂起=批次蒸发（patch70 教训）。
 - **水位与墓碑咬合**：收消息水位初值 = now-610s 且落盘持久化（patch72），任何水印不许超过墓碑边界。
 - dsh 重启 → GUI token 轮换 → 一切用 token 的脚本要重新取。
+- **SnowLuma 二进制没有安全的"看一眼"模式**：`node /app/runtime/index.mjs --help` 不打印帮助，**会把一整套服务真启动**（抢 3000/3001/5099、和正版实例抢 QQ hook 管道 → EPIPE 风暴 → OneBot 挂死 → 她在线但没人接话，10-26 00:27 事故实锤）。容器内想看什么就 `ss/ps/curl`，永远别手滑跑 `index.mjs` 加任何参数。
+- **杀容器里的进程必须 `docker exec snowluma kill`**：宿主机 kill 容器 pid = 静默失败的假杀（10-26 值班妈妈亲手踩坑，"我杀了僵尸"其实僵尸活得好好的，撑到 OneBot 挂死才现形）。杀完必须 `docker exec ps` 复验没了才算。
 
 ## 她的心跳与自愈（现行架构）
 - 心跳文件 `/opt/qq-cs/.bridge-heartbeat`（每4圈成功拉写一次）；watchdog 每30分钟：心跳窒息>180s→重启 dsh；dsh 活着而会话没载入时，使用 `/opt/qq-cs/wake_dsh_session.py` 的 Remote 信封动作唤醒既有目标会话，不新建会话、不改模型，也不重启 dsh。
