@@ -2,9 +2,10 @@
 
 > 读者假设：你能读到仓库外的 `C:\Users\ASUS\whale-ops\SECRETS.md`（所有真值在那，本文件只写方法与占位符）。
 > 开工顺序：先本文件 → AGENTS.md（接班人须知/红线/血案纪律）→ docs/SNOWLUMA.md（架构+补丁史）→ 有不懂的按 patch 号查 docs/bridge-patches.md。
+> 2026-10-26 维护已正式移交 Codex；最新实测与回滚点见 `CODEX-TAKEOVER-2026-10-26.md`。本文后面的“交给 DSH”旧分工不再适用，底层红线仍保留。
 
 ## 0. 开工三连（每次上班先跑，10 分钟内判完健康）
-1. SSH 上服务器（askpass 三环境变量 + 长脚本 base64 管道，见 SECRETS.md"服务器"节；**密码永远不进命令行**——里面的 `@`/`#` 会被转义吃掉，报 Permission denied 不是密码错）。
+1. SSH 上服务器（askpass 三环境变量 + 长脚本 base64 管道，见 SECRETS.md"服务器"节；密码永远不进命令行，保留主机公钥严格校验）。完整错误若为 `connect to host … port 22: Permission denied`，先处理当前执行环境的网络权限，尚未到密码认证；只有明确的认证拒绝才检查凭据传递。特殊字符不是转义失败的证据。10-26 Codex 已用同一 askpass 独立登录并跑通三连。
 2. 在线判定：`curl -s -X POST http://127.0.0.1:3000/get_login_info -H 'content-type: application/json' -d '{}'` → `retcode=0` 在线。心跳：`cat /opt/qq-cs/.bridge-heartbeat`（毫秒时间戳，跟 `date +%s%3N` 差 <60s 为鲜）。会话：取 TK（`journalctl -u dsh | grep -oE "token=[A-Za-z0-9_-]+" | tail -1`）→ `curl "http://127.0.0.1:3080/dsh-qq-bridge/sess-alive?token=$TK"` → alive。
 3. 账本扫尾：`POST /dsh-qq-bridge/state?token=$TK` 体 `{}`，看「日志」键尾部有无红字（滤掉系统串话/🧹 摘除是好事，见 🚨/报警要跟进）。
 
@@ -18,7 +19,7 @@
 1. `cp host.js host.js.bakNN`（NN=下一个 patch 号，查 docs/bridge-patches.md 尾部）。
 2. python 锚点替换式修改（每个锚 assert 出现次数==1），改完 `node --check`。
 3. `systemctl restart dsh` → 等 40 秒 → **TK 已轮换，重取** → sess-alive 常报 dead → `python3 /opt/qq-cs/wake_dsh_session.py`（看到 SESSION_WAKE_SUCCESS=True）→ 再验 alive。
-4. 行为验证：改过滤器就用 `POST /dsh-qq-bridge/parse-test` **拿线上漏发/误拦的原文回放**，自造例子不算数；改完没跑实例验证不许写"已修"。
+4. 行为验证：拿腾讯接口里的同一份原始输入回放所改函数，再核对实际 QQ 记录。`POST /dsh-qq-bridge/parse-test` 只验证主人指令分类，不能验证出站过滤或回复路由。patch100 的回归入口是 `node tests/qq-context.test.cjs [host.js路径]`，不连接 QQ、不发送消息；线上输入回放在服务器内存中进行，不把真实身份或原始群史提交 Git。
 5. 镜像同步：把线上文件 base64 拉回，写 bridge/host.js，全仓打码闸扫描（裸 10 位数字正则），违例=0 才许 push。
 
 ## 3. 改人设卡（AGENTS.md on 服务器）
@@ -40,8 +41,8 @@
 - 22:35 日报、凌晨 01:00-07:00 群话不入脑（深夜静默，三点秒回才是 bot 铁证）。
 
 ## 6. 交接确认清单（主人宣布你接班时，逐条打勾回话）
-- [ ] 我能独立 SSH 上服务器（askpass 法，密码不进命令行）
-- [ ] 我跑过开工三连并拿到一次全绿
+- [x] 我能独立 SSH 上服务器（10-26 19:01，askpass 法，密码不进命令行）
+- [x] 我跑过开工三连并拿到一次全绿（patch100 19:28 复验：retcode0/alive/部署后新心跳/三服务active）
 - [ ] 我知道三步恢复流程、不会手痒重登在线的 QQ
 - [ ] 我知道红线：不 docker restart、不动底层、不合并 fix/snowluma-observe-only（已删，别复原）
 - [ ] 我知道 PII 零进 git（含账本截图/文档），违例≠0 断推

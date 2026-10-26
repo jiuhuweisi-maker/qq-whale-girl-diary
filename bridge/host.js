@@ -649,7 +649,7 @@ export function apply(ctx) {
       记账('转私聊 / 转群都没开，或没填 QQ 号 / 群号，或者这轮既没有文字也没有图（而且图都没转成）：没地方发')
       return
     }
-    记账(`${全过 ? '✅ 已发到 QQ：' : '⚠ 发 QQ 有问题：'}「${净文.slice(0, 50)}${净文.length > 50 ? '…' : ''}」${图标}`)
+    记账(`${全过 ? '✅ QQ接口返回成功' : '⚠ QQ接口返回失败'}（本轮${结果.length}次请求；外发正文以QQ历史记录为准）`)
     for (const r of 结果) {
       if (!r.ok) 记账(`   ${r.action} 失败：${JSON.stringify(r.数据).slice(0, 140)}`)
     }
@@ -708,14 +708,15 @@ export function apply(ctx) {
         else if (有料) void 落地一发(配置, 落文, 输出.图们, 路由)
         else 记账('这条剥掉标记后没内容，不发')
         if (画描) {
+          续轮保留100 = Date.now() + 2500
           void (async () => {
             await new Promise((r) => setTimeout(r, 1200))
             const ag = 找agent(配置.目标会话)
-            if (!ag) { 记账('画待：会话没醒，画不成了'); return }
+            if (!ag) { 续轮保留100 = 0; 记账('画待：会话没醒，画不成了'); return }
             const 续路由 = { 来路: 路由.来路, 艾特: 路由.话 || 路由.艾特 || 0, 话: 路由.话 || 0, mid: 路由.mid || '' }
             try {
               await 跟进并记路由(ag, [{ type: 'text', text: '（系统提示，对方看不到）现在开始画：' + 画描 + '。画法：Bash 跑 python3 /opt/qq-cs/draw.py 描述 --size=1024x1024，它会打印成图路径；把该路径单独成行放在回复最后，配一句自然的话（比如 来啦，久等了）。画失败就老实说没画出来，别硬编路径。' }], 续路由)
-            } catch (e) { 记账('画待注入失败：' + String((e && e.message) || e)) }
+            } catch (e) { 记账('画待注入失败：' + String((e && e.message) || e)) } finally { 续轮保留100 = 0 }
           })()
         }
       } else if (路由) {
@@ -860,13 +861,15 @@ export function apply(ctx) {
     const 清单 = 会话清单()
     let NapCat状态 = null
     try {
-      const r = await fetch(带票52(`${配置.NapCat}/get_login_info`), { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+      const r = await fetch(带票52(`${配置.NapCat}/get_login_info`), { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}', signal: AbortSignal.timeout(8000) })
       const j = await r.json()
       if (j && j.status === 'ok') NapCat状态 = { 用户: j.data.user_id, 昵称: j.data.nickname }
     } catch (error) {
       NapCat状态 = { 错: String((error && error.message) || error) }
     }
-    return { ok: true, 版本, 配置, 配置文件, NapCat状态, 活着的会话: 清单, 目标情况: 配置.目标会话 && 清单.length ? 清单.filter((x) => x.id === 配置.目标会话) : [], 日志 }
+    const 入列100 = [...待认领路由.values(), ...轮路由.values()].map((x) => x.queuedAt).filter((x) => Number.isFinite(x) && x > 0)
+    const 队列 = { 缓冲人数: 缓聊.size, 待认领: 待认领路由.size, 运行回合: 轮路由.size, 最大等待秒: 入列100.length ? Math.max(0, Math.round((Date.now() - Math.min(...入列100)) / 1000)) : 0 }
+    return { ok: true, 版本, 配置, 配置文件, NapCat状态, 活着的会话: 清单, 目标情况: 配置.目标会话 && 清单.length ? 清单.filter((x) => x.id === 配置.目标会话) : [], 队列, 日志 }
   }
 
   const 路线 = (路径, handler) =>
@@ -910,15 +913,126 @@ export function apply(ctx) {
   let 艾特我人 = 0
   let 艾特时刻 = 0
   const 热聊 = new Map()
+  // patch100: quote helpers BEGIN
+  // Cache belongs to this bridge instance, not to one polling call. Keep private/group namespaces separate.
+  const 消息记99 = new Map()
+  const 引用请求 = new Map()
+  const 引用失败 = new Map()
+  let 引用查预算99 = 2
+  function 消息先后99(a, b) {
+    const 时间差 = Number(a.time || 0) - Number(b.time || 0)
+    if (时间差) return 时间差
+    const aa = Number(a.message_seq), bb = Number(b.message_seq)
+    return Number.isFinite(aa) && Number.isFinite(bb) ? aa - bb : 0
+  }
+  function 消息摘要99(条) {
+    const 段们 = Array.isArray(条 && 条.message) ? 条.message : []
+    const 段文 = 段们.map((s) => {
+      if (!s) return ''
+      if (s.type === 'text') return String((s.data && s.data.text) || '')
+      if (s.type === 'image' || s.type === 'mface') return '[图片]'
+      if (s.type === 'face') return '[表情]'
+      if (s.type === 'record') return '[语音]'
+      if (s.type === 'video') return '[视频]'
+      if (s.type === 'file') return '[文件]'
+      return ''
+    }).join('').trim()
+    const 原 = 段文 || String((条 && 条.raw_message) || '').replace(/\[CQ:(image|mface)[^\]]*\]/g, '[图片]').replace(/\[CQ:[^\]]*\]/g, '').trim()
+    return 原.length > 1200 ? 原.slice(0, 1200) + '…（原文较长，后文未附）' : 原
+  }
+  function 记99(域, 条, 称呼) {
+    if (!条) return null
+    const ids = [条.message_id, 条.real_id].filter((v) => v != null).map(String)
+    if (!ids.length) return null
+    const 记 = { 谁: String(称呼 || (条.sender && (条.sender.card || 条.sender.nickname)) || '群友'), uid: String(条.user_id != null ? 条.user_id : (条.sender && 条.sender.user_id) || ''), 文: 消息摘要99(条) }
+    for (const id of new Set(ids)) {
+      const key = 域 + ':' + id
+      消息记99.delete(key)
+      消息记99.set(key, 记)
+    }
+    while (消息记99.size > 1200) 消息记99.delete(消息记99.keys().next().value)
+    return 记
+  }
+  async function 取引用99(条, 域, 配置) {
+    const 引 = (Array.isArray(条.message) ? 条.message : []).find((s) => s && s.type === 'reply' && s.data && s.data.id != null)
+    if (!引) return null
+    const id = String(引.data.id)
+    const key = 域 + ':' + id
+    let 记 = 消息记99.get(key)
+    if (!记 && !(引用失败.get(key) > Date.now())) {
+      if (!引用请求.has(key)) {
+        if (引用查预算99 <= 0) return { id, known: false, deferred: true }
+        引用查预算99--
+        引用请求.set(key, (async () => {
+          const ctl = new AbortController()
+          const timer = setTimeout(() => ctl.abort(), 4000)
+          try {
+            const 请求id = /^-?\d+$/.test(id) && Number.isSafeInteger(Number(id)) ? Number(id) : id
+            const r = await fetch(带票52(配置.NapCat + '/get_msg'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message_id: 请求id }), signal: ctl.signal })
+            const j = await r.json()
+            const m = j && j.data
+            if (!r.ok || !j || j.status !== 'ok' || !m) throw new Error('lookup unavailable')
+            // Reject an explicitly different conversation or message, even if the API answered successfully.
+            if (域.startsWith('g:') && m.group_id != null && String(m.group_id) !== 域.slice(2)) throw new Error('wrong group')
+            if (域.startsWith('g:') && m.message_type === 'private') throw new Error('wrong conversation')
+            if (域.startsWith('p:') && (m.message_type === 'group' || Number(m.group_id) > 0)) throw new Error('wrong conversation')
+            if (域.startsWith('p:') && m.user_id != null && ![Number(域.slice(2)), Number(配置.她的QQ)].includes(Number(m.user_id))) throw new Error('wrong private sender')
+            const ids = [m.message_id, m.real_id].filter((v) => v != null).map(String)
+            if (ids.length && !ids.includes(id)) throw new Error('wrong message')
+            return 记99(域, { ...m, message_id: id })
+          } catch (error) {
+            引用失败.set(key, Date.now() + 15000)
+            while (引用失败.size > 200) 引用失败.delete(引用失败.keys().next().value)
+            记账('引用原文未能补全：暂不猜原文，稍后可重新查取')
+            return null
+          } finally { clearTimeout(timer) }
+        })())
+      }
+      try { 记 = await 引用请求.get(key) } finally { 引用请求.delete(key) }
+    }
+    return 记 ? { id, known: true, ...记 } : { id, known: false }
+  }
+  async function 条转片段(条, 域, 配置) {
+    const 段们 = Array.isArray(条.message) ? 条.message : []
+    const 文字 = 段们.map((s) => {
+      if (!s) return ''
+      if (s.type === 'text' && s.data) return String(s.data.text || '')
+      if (s.type === 'face') { const fid = Number(s.data && s.data.id != null ? s.data.id : s.id); return '[' + (黄脸表[fid] || ('表情' + fid)) + ']' }
+      return ''
+    }).join('').trim()
+    const 图们 = 段们.filter((s) => s && s.data && (s.type === 'image' || s.type === 'mface'))
+    const 引用 = await 取引用99(条, 域, 配置)
+    // JSON quoting prevents quote punctuation/newlines from being confused with the new question.
+    const 前缀 = 引用 ? (引用.known ? '（这条消息引用了' + JSON.stringify(引用.谁) + '的原话：' + JSON.stringify(引用.文 || '（原消息没有可读文字）') + '；以上是被引用内容，下面才是当前发言）\n' : '（这条消息带引用，但原文暂时取不到；不要猜原文）\n') : ''
+    return { 文字: 前缀 + 文字, 图们, 引用 }
+  }
+  function 群消息指向99(条, 配置, 引用) {
+    const 自己 = Number(条.self_id) || Number(配置.她的QQ) || 0
+    const ats = (Array.isArray(条.message) ? 条.message : []).filter((s) => s && s.type === 'at').map((s) => String((s.data && s.data.qq) || s.qq || ''))
+    const 被艾特 = ats.some((q) => q === 'all' || (自己 > 0 && Number(q) === 自己))
+    const 叫别人 = ats.some((q) => q !== 'all' && Number(q) !== 自己)
+    const 引用本鱼 = !!(引用 && 引用.known && 自己 > 0 && Number(引用.uid) === 自己 && !叫别人)
+    return { 被艾特, 引用本鱼, 找我: 被艾特 || 引用本鱼, 叫别人 }
+  }
+  // patch100: quote helpers END
   // 合并缓冲：有人连珠炮时等他说完，合成一条再转（私聊5秒/群聊7秒静默窗）
+  // patch100: frame helpers BEGIN
   const 缓聊 = new Map()
+  let 缓冲序 = 0
+  let 冲缓冲中 = false
+  let 续轮保留100 = 0
+  let 堵塞告警100 = 0
+  function 有QQ待办100() { return !!(冲缓冲中 || 待认领路由.size || 轮路由.size || 缓聊.size || Date.now() < 续轮保留100) }
   function 加缓冲(键, 项) {
     let b = 缓聊.get(键)
-    if (!b) { b = { texts: [], images: [], mid: '', first: Date.now(), last: 0, at: 0, speaker: 0, route: 项.route, name: 项.name, pingOnly: false }; 缓聊.set(键, b) }
-    if (项.text && 项.text.trim()) b.texts.push(项.text.trim())
-    if (项.images && 项.images.length) b.images.push(...项.images.slice(0, 4))
-    if (项.pingOnly) b.pingOnly = true
-    b.mid = b.mid || 项.mid // patch65: 引用锚定批次第一条,答正题不锚尾表情
+    if (!b) { b = { texts: [], images: [], items: [], mid: '', first: Date.now(), last: 0, at: 0, speaker: 0, route: 项.route, name: 项.name, pingOnly: false }; 缓聊.set(键, b) }
+    if (项.mid && b.items.some((x) => x.mid === String(项.mid))) return
+    const item = { ...项, text: String(项.text || '').trim(), images: (项.images || []).slice(0, 4), mid: String(项.mid || ''), time: Number(项.time) || Date.now() / 1000, order: ++缓冲序 }
+    b.items.push(item)
+    if (item.text) b.texts.push(item.text)
+    b.images.push(...item.images)
+    b.pingOnly = b.pingOnly || !!项.pingOnly
+    b.mid = b.mid || item.mid
     b.last = Date.now()
     if (项.at) b.at = 项.at
     b.speaker = 项.speaker || b.speaker
@@ -927,11 +1041,39 @@ export function apply(ctx) {
   }
   function 缓冲成话(b) {
     const 文字 = b.texts.join('\n')
-    if (!文字.trim() && !b.images.length && b.pingOnly) return `【${b.name}】（只@了鲸鱼娘，没有附文字或图片）`
-    return `【${b.name}】${文字}`
+    if (!文字.trim() && !b.images.length && b.pingOnly) return '【' + b.name + '】（只@了鲸鱼娘，没有附文字或图片）'
+    return '【' + b.name + '】' + 文字
   }
+  function 缓冲条目(b) {
+    return b.items && b.items.length ? b.items : [{ text: b.texts.join('\n'), images: b.images, mid: b.mid, time: b.first / 1000, order: 0, speaker: b.speaker, name: b.name, pingOnly: b.pingOnly }]
+  }
+  function 合成群批99(群批, 目标) {
+    const 全部 = 群批.flatMap((x) => 缓冲条目(x.b).map((item) => ({ item, batch: x }))).sort((a, b) => a.item.time - b.item.time || a.item.order - b.item.order)
+    const 目标项 = 目标 ? 全部.filter((x) => x.batch === 目标) : 全部
+    const 实话 = 目标项.filter((x) => x.item.text || x.item.images.length)
+    const 锚 = (实话.length ? 实话 : 目标项).at(-1)
+    const 图们 = []
+    const 行们 = 全部.map(({ item, batch }) => {
+      let 图话 = ''
+      if (item.images.length) {
+        if (!目标 || batch === 目标) {
+          const 起 = 图们.length + 1
+          const 选 = item.images.slice(0, Math.max(0, 6 - 图们.length))
+          图们.push(...选)
+          图话 = 选.length ? '（随本条附图' + 起 + (选.length > 1 ? '至' + 图们.length : '') + '）' : '（本条另有图片，未附入本轮）'
+        } else 图话 = '（背景发言另有图片，本轮未附，不要猜图）'
+      }
+      const 话 = item.text || (item.images.length ? '' : item.pingOnly ? '（只点名，没有附文字或图片）' : '')
+      return '【' + (目标 ? (batch === 目标 ? '本轮对象·' : '背景·') : '') + (item.name || batch.b.name) + '】' + 话 + 图话
+    })
+    const 提示 = 目标
+      ? '（本轮要回答【' + 目标.b.name + '】：他在点名或引用你的话。先读他的引用，再回答他当前这批实际内容；其他人的插话只是背景，不把别人的问题当成他的。本轮自动@和引用都指向他，只输出对他的回复；其余点名会单独轮到。）'
+      : '（以下是按时间排列的群聊。可以接一处话，也可以略过；多人时不自动挂任何人的引用，回应谁就自然叫他的称呼。）'
+    return { 文: 提示 + '\n' + 行们.join('\n'), 图们, mid: 目标 ? (锚 && 锚.item.mid || '') : 群批.length === 1 ? (锚 && 锚.item.mid || '') : '', at: 目标 ? 目标.b.at : 0, speaker: 目标 ? 目标.b.speaker : 群批.length === 1 ? 群批[0].b.speaker : 0, ids: new Set(全部.map((x) => x.item.mid)) }
+  }
+  // patch100: frame helpers END
   // patch19 读空气：群消息转发前，抓最近10分钟的群聊现场给模型当背景
-  async function 现场气氛(配置) {
+  async function 现场气氛(配置, 排除 = new Set()) {
     try {
       const 控制器 = new AbortController()
       const 定时器 = setTimeout(() => 控制器.abort(), 5000)
@@ -947,7 +1089,7 @@ export function apply(ctx) {
       const 现在 = Math.floor(Date.now() / 1000)
       const 行们 = []
       for (const m of msgs) {
-        if (!m || 现在 - (m.time || 0) > 600) continue
+        if (!m || 排除.has(String(m.message_id)) || 现在 - (m.time || 0) > 600) continue
         const 谁 = String((m.sender && (m.sender.card || m.sender.nickname)) || '群友').slice(0, 12)
         const 话 = (Array.isArray(m.message) ? m.message : []).map((x) => {
           if (!x) return ''
@@ -962,58 +1104,65 @@ export function apply(ctx) {
       return 行们.slice(-8)
     } catch (error) { return [] }
   }
+  // patch100: dispatch helpers BEGIN
   async function 冲缓冲(配置) {
-    const now = Date.now()
-    const 到期 = []
-    for (const [键, b] of Array.from(缓聊.entries())) {
-      const 静默 = b.route === 'private' ? 6500 : 5500
-      if (now - b.last < 静默 && now - b.first < 25000) continue
-      缓聊.delete(键)
-      if (now - b.first > 180000 && now - b.last > 60000) { 记账('插话等太久，弃'); continue }
-      到期.push({ 键, b })
-    }
-    for (const { 键, b } of 到期.filter((x) => x.b.route !== 'group')) {
-      let 文 = '【' + b.name + '】' + b.texts.join('\n')
-      if (b.route === 'private') 文 = '（这是私聊，只有你和主人，不在群里——群里的事除非他问起就别带进来）' + 文
-      const 果 = await 限时转入(文, b.images, b.mid, b.route, b.at, b.speaker, '私聊批')
-      if (果 && 果.ok === false && !果.不确定) { b.last = now; 退回缓冲(键, b) }
-    }
-    const 群批 = 到期.filter((x) => x.b.route === 'group').sort((a, c) => a.b.first - c.b.first)
-    if (群批.length) {
-      const 合 = { 头们: 群批.map((x) => 缓冲成话(x.b)), 图们: [], mid: 群批[0].b.mid, at: 0, speaker: 群批[群批.length - 1].b.speaker }
-      for (const x of 群批) 合.图们.push(...x.b.images)
-      合.图们 = 合.图们.slice(0, 6)
-      for (const x of 群批) if (x.b.at) { 合.at = x.b.at; 合.speaker = x.b.speaker; 合.mid = x.b.mid }  // v97: @谁就引谁的原文，不串线
-      let 文 = 合.头们.join('\n')
-      if (群批.length > 1) 文 += '\n（以上是' + 群批.length + '个人的话一起到的：像真人那样挑你最想接的接，一至两条足够，其余的让它自然飘走，不必人人有回应，更不必回头挖旧账认真答）'
-      const 气氛 = await 现场气氛(配置)
-      if (气氛.length > 1) 文 = '（以下是此刻之前的群聊旧场景回放，带【群】标记，读空气用，别人看不到；录像不是正在跟你说话）\n' + 气氛.join('\n') + '\n——回放完，刚才对你说的是——\n' + 文
-      const 果 = await 限时转入(文, 合.图们, 合.mid, 'group', 合.at, 合.speaker, '群批')
-      if (果 && 果.ok === false && !果.不确定) {
-        for (const x of 群批) { x.b.last = now; 退回缓冲(x.键, x.b) }
+    // A second QQ input must not be claimed into the same DSH turn and then dropped as an ambiguous route.
+    if (冲缓冲中 || Date.now() < 续轮保留100) return
+    if (待认领路由.size || 轮路由.size) {
+      const 入列 = [...待认领路由.values(), ...轮路由.values()].map((x) => x.queuedAt).filter((x) => Number.isFinite(x) && x > 0)
+      if (入列.length && Date.now() - Math.min(...入列) > 180000 && Date.now() - 堵塞告警100 > 60000) {
+        堵塞告警100 = Date.now()
+        记账('QQ路由等待超过180秒：后续消息仍在缓冲，需检查未结束回合，不盲目重发')
       }
+      return
     }
+    冲缓冲中 = true
+    try {
+      const now = Date.now()
+      const 到期 = []
+      for (const [键, b] of 缓聊) {
+        const 静默 = b.route === 'private' ? 6500 : 5500
+        if (now - b.last < 静默 && now - b.first < 25000) continue
+        const 寿命 = b.at || b.route === 'private' ? 600000 : 180000
+        if (now - b.first > 寿命 && now - b.last > 60000) { 缓聊.delete(键); 记账('缓冲消息超过有效期，未再补答'); continue }
+        到期.push({ 键, b })
+      }
+      到期.sort((a, b) => a.b.first - b.b.first)
+      const 私 = 到期.find((x) => x.b.route !== 'group')
+      if (私) {
+        缓聊.delete(私.键)
+        const b = 私.b
+        const 项们 = 缓冲条目(b)
+        const 锚 = 项们.filter((x) => x.text || x.images.length).at(-1) || 项们.at(-1)
+        let 文 = '【' + b.name + '】' + b.texts.join('\n')
+        if (b.route === 'private') 文 = '（这是私聊，只有你和主人，不在群里——群里的事除非他问起就别带进来）' + 文
+        const 果 = await 限时转入(文, b.images, 锚 && 锚.mid || b.mid, b.route, b.at, b.speaker, '私聊批')
+        if (果 && 果.ok === false && !果.不确定) { b.last = now; 退回缓冲(私.键, b) }
+        return
+      }
+      const 群批 = 到期.filter((x) => x.b.route === 'group')
+      if (!群批.length) return
+      const 目标 = 群批.find((x) => x.b.at) || null
+      // Other directly addressed people remain queued, so a noisy bystander cannot replace their question.
+      const 消费 = 群批.filter((x) => !x.b.at || x === 目标)
+      for (const x of 消费) 缓聊.delete(x.键)
+      const 合 = 合成群批99(群批, 目标)
+      let 文 = 合.文
+      const 气氛 = await 现场气氛(配置, 合.ids)
+      if (气氛.length > 1) 文 = '（以下是之前的群聊背景，不是正在向你提问）\n' + 气氛.join('\n') + '\n——背景结束，本轮发言——\n' + 文
+      const 果 = await 限时转入(文, 合.图们, 合.mid, 'group', 合.at, 合.speaker, '群批')
+      if (果 && 果.ok === false && !果.不确定) for (const x of 消费) { x.b.last = now; 退回缓冲(x.键, x.b) }
+    } finally { 冲缓冲中 = false }
   }
-
   function 退回缓冲(键, 老批) {
     const 新批 = 缓聊.get(键)
     if (!新批) { 缓聊.set(键, 老批); return }
-    const 先 = 老批.first <= 新批.first ? 老批 : 新批
-    const 后 = 先 === 老批 ? 新批 : 老批
-    缓聊.set(键, {
-      ...先,
-      texts: [...先.texts, ...后.texts],
-      images: [...先.images, ...后.images].slice(0, 12),
-      first: Math.min(老批.first, 新批.first),
-      last: Math.max(老批.last, 新批.last, Date.now()),
-      mid: 先.mid || 后.mid,
-      at: 后.at || 先.at,
-      speaker: 后.speaker || 先.speaker,
-      name: 后.name || 先.name,
-      route: 后.route || 先.route,
-      pingOnly: !!(老批.pingOnly || 新批.pingOnly),
-    })
+    const 项们 = [...缓冲条目(老批), ...缓冲条目(新批)].sort((a, b) => a.time - b.time || a.order - b.order)
+    const ids = new Set()
+    const 唯一 = 项们.filter((x) => { if (!x.mid) return true; if (ids.has(x.mid)) return false; ids.add(x.mid); return true })
+    缓聊.set(键, { ...老批, ...新批, items: 唯一, texts: 唯一.map((x) => x.text).filter(Boolean), images: 唯一.flatMap((x) => x.images).slice(0, 12), first: Math.min(老批.first, 新批.first), last: Math.max(老批.last, 新批.last, Date.now()), mid: 唯一[0] && 唯一[0].mid || '', at: 新批.at || 老批.at, pingOnly: !!(老批.pingOnly || 新批.pingOnly) })
   }
+  // patch100: dispatch helpers END
 
   async function 限时转入(文字, 图们, 消息id, 来路, 艾特谁, 说话人, 批名) {
     let 定时器
@@ -1137,7 +1286,12 @@ export function apply(ctx) {
    * ⚠ 只认 `私聊QQ` 这个人发的（群也一样按这个号过滤），自己的回话不会自我繁殖。
    */
   let 探针66 = 0
+  let 轮询中 = false
   async function 轮询收消息() {
+    if (轮询中) return
+    轮询中 = true
+    try {
+    引用查预算99 = 2
     探针66++
     if (探针66 % 20 === 1) 记账('探针66:轮询第' + 探针66 + '圈活着')
     const 配置 = 读配置()
@@ -1171,38 +1325,21 @@ export function apply(ctx) {
         return []
       }
     }
-    const 消息记99 = new Map() // v99 入站引用补全缓存: message_id -> {谁, 文}
-    const 记99 = (id, 谁, 文) => { if (消息记99.size > 600) 消息记99.delete(消息记99.keys().next().value); 消息记99.set(String(id), { 谁: String(谁 || '群友'), 文: String(文 || '').replace(/\[CQ:[^\]]*\]/g, '').trim().slice(0, 60) }) }
-    const 条转片段 = (条) => {
-      const 段们 = Array.isArray(条.message) ? 条.message : []
-      const 文字 = 段们.map((s) => {
-        if (!s) return ''
-        if (s.type === 'text' && s.data) return String(s.data.text)
-        if (s.type === 'face') { const fid = Number(s.data && s.data.id != null ? s.data.id : s.id); return '[' + (黄脸表[fid] || ('表情' + fid)) + ']' }
-        return ''
-      }).join('').trim()
-      // ⭐ 图片 / 表情包都算图（表情包 mface 也带 url，能拿到字节）
-      const 图们 = 段们.filter((s) => s && s.data && (s.type === 'image' || s.type === 'mface'))
-      if (条 && 条.message_id != null) 记99(条.message_id, (条.sender && (条.sender.card || 条.sender.nickname)) || 条.user_id, 条.raw_message)  // v99
-      const 引99 = 段们.find((x) => x && x.type === 'reply' && x.data && x.data.id != null)  // v99 引用段不再丢
-      const 引文99 = 引99 ? 消息记99.get(String(引99.data.id)) : null
-      const 前缀99 = 引99 ? (引文99 ? ('（引用了「' + 引文99.谁 + '」的原话："' + 引文99.文 + '"）') : '（引用了一条我缓存里查不到原文的旧消息）') : ''
-      return { 文字: 前缀99 + 文字, 图们 }
-    }
-
     const 旧水位47 = 上次私聊时间
     if (配置.转私聊 && 配置.私聊QQ) {
       const 列表 = await 拉('get_friend_msg_history', { user_id: 她的号, count: 10 })
-      for (const 条 of 列表.sort((a, b) => (a.time || 0) - (b.time || 0))) {
-        if (条 && 条.message_id != null) 记99(条.message_id, 条.user_id === 她的号 ? '主人' : '本鱼', 条.raw_message)  // v99私聊全量入账
+      const 域 = 'p:' + 她的号
+      for (const 条 of 列表) 记99(域, 条, Number(条 && 条.user_id) === 她的号 ? '主人' : '本鱼')
+      for (const 条 of 列表.sort(消息先后99)) {
         if (!条 || Number(条.user_id) !== 她的号) continue
         if ((条.time || 0) < 上次私聊时间) continue           // 旧的，跳过
         if (已转消息.has(条.message_id)) continue             // 转过了
-        const { 文字, 图们 } = 条转片段(条)
+        const { 文字, 图们, 引用 } = await 条转片段(条, 域, 配置)
+        if (引用 && 引用.deferred) break // lookup budget exhausted: keep watermark before this row
         if (!文字 && !图们.length) { 已转消息.add(条.message_id); 上次私聊时间 = 条.time || 上次私聊时间; continue }
         if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add(条.message_id); 上次私聊时间 = 条.time || 上次私聊时间; continue } // 超10分钟不挖坟
         // ⭐ patch21 主人指令：桥层直接执行，不进 DSH（零 token）。只认纯文字，带图的当普通消息走
-        const 令 = (图们.length || !文字) ? null : 解析主人指令(文字)
+        const 令 = (引用 || 图们.length || !文字) ? null : 解析主人指令(文字)
         if (令) {
           已转消息.add(条.message_id)
           上次私聊时间 = 条.time || 上次私聊时间
@@ -1210,7 +1347,7 @@ export function apply(ctx) {
           continue
         }
         艾特我人 = 0
-        加缓冲('p' + 她的号, { text: 文字, images: 图们, mid: String(条.message_id || ''), route: 'private', at: 0, speaker: 她的号, name: '主人' })
+        加缓冲('p' + 她的号, { text: 文字, images: 图们, mid: String(条.message_id || ''), route: 'private', at: 0, speaker: 她的号, name: '主人', time: 条.time })
         上次私聊时间 = 条.time || 上次私聊时间
         已转消息.add(条.message_id)
       }
@@ -1218,9 +1355,10 @@ export function apply(ctx) {
 
     if (配置.转群 && 配置.群号) {
       const 列表 = await 拉('get_group_msg_history', { group_id: Number(配置.群号), count: 30 })
-      for (const 条 of 列表.sort((a, b) => (a.time || 0) - (b.time || 0))) {
+      const 域 = 'g:' + 配置.群号
+      for (const 条 of 列表) 记99(域, 条)
+      for (const 条 of 列表.sort(消息先后99)) {
         if (!条) continue
-        if (条.message_id != null) 记99(条.message_id, (条.sender && (条.sender.card || 条.sender.nickname)) || 条.user_id, 条.raw_message)  // v99群全量入账(先于self跳过)
         const 自53 = Number(条.self_id) && Number(条.self_id) > 0 ? Number(条.self_id) : Number(配置.她的QQ) || 0
         const 群发言者 = Number(条.user_id)
         if (群发言者 === (Number(条.self_id)||自53)) continue
@@ -1261,33 +1399,26 @@ export function apply(ctx) {
             }
           }
         } catch (error) {}
-        const 段们G = Array.isArray(条.message) ? 条.message : []
-        const 被艾特 = 段们G.some((x) => {
-          if (!x || x.type !== 'at') return false
-          const q = String((x.data && x.data.qq) || x.qq || '')
-          return q === 'all' || Number(q) === (Number(条.self_id)||自53)
-        })
-        if (!被艾特) {
-          const 热 = 热聊.get(群发言者)
-          if (!(热 && Date.now() < 热)) continue        // 不在热聊窗口且没 @ → 装死
-          if (段们G.some((x) => x && x.type === 'at' && String((x.data && x.data.qq) || x.qq || '') !== 'all' && Number((x.data && x.data.qq) || 0) !== (Number(条.self_id)||自53))) continue  // 在叫别人 → 不接茬
-          热聊.set(群发言者, Date.now() + (群发言者 === Number(配置.私聊QQ) ? 600000 : 180000)) // patch25滑窗：收到即续期
-        } else {
-          热聊.set(群发言者, Date.now() + (群发言者 === Number(配置.私聊QQ) ? 600000 : 180000)) // 被@：常人3分钟，主人10分钟
-          if (热聊.size > 40) { const k = 热聊.keys().next().value; 热聊.delete(k) }
-        }
         const 新69 = Date.now() / 1000 - (条.time || 0) < 900
-        if ((条.time || 0) < 上次群时间) { if (新69 && 被艾特 && !已转消息.has(条.message_id)) 记账('杀69·水位·@我seq' + String(条.message_seq)); 已转消息.add(条.message_id); continue }
-        if (已转消息.has(条.message_id)) { if (新69 && 被艾特) 记账('杀69·已转·@我seq' + String(条.message_seq)); continue }
-        const { 文字, 图们 } = 条转片段(条)
+        // Do cheap age/dedup checks before any old-message lookup.
+        if ((条.time || 0) < 上次群时间 || 已转消息.has(条.message_id)) { 已转消息.add(条.message_id); continue }
+        if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add(条.message_id); 上次群时间 = 条.time || 上次群时间; continue }
+        const { 文字, 图们, 引用 } = await 条转片段(条, 域, 配置)
+        if (引用 && 引用.deferred) break // next poll retries it; do not advance past an unresolved row
+        const { 被艾特, 引用本鱼, 找我, 叫别人 } = 群消息指向99(条, 配置, 引用)
+        if (!找我) {
+          const 热 = 热聊.get(群发言者)
+          if (!(热 && Date.now() < 热) || 叫别人) continue
+        }
+        热聊.set(群发言者, Date.now() + (群发言者 === Number(配置.私聊QQ) ? 600000 : 180000))
+        if (热聊.size > 40) 热聊.delete(热聊.keys().next().value)
         const 只点名 = !文字 && !图们.length && 被艾特
-        if (!文字 && !图们.length && !被艾特) { 已转消息.add(条.message_id); 上次群时间 = 条.time || 上次群时间; continue }
-        if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add(条.message_id); 上次群时间 = 条.time || 上次群时间; continue } // 超10分钟不挖坟
+        if (!文字 && !图们.length && !找我) { 已转消息.add(条.message_id); 上次群时间 = 条.time || 上次群时间; continue }
         艾特我人 = 群发言者 || 艾特我人
         艾特时刻 = Date.now()
         const 名前 = 群发言者 === Number(配置.私聊QQ) ? '主人' : String((条.sender && (条.sender.card || 条.sender.nickname)) || '群友')
-        if (新69) 记账('活69·进群批·seq' + String(条.message_seq) + (被艾特 ? '·@我' : ''))
-        加缓冲('g' + 群发言者, { text: 文字, images: 图们, mid: String(条.message_id || ''), route: 'group', at: 被艾特 ? 群发言者 : 0, speaker: 群发言者, name: 名前, pingOnly: 只点名 })
+        if (新69) 记账('活69·进群批·seq' + String(条.message_seq) + (被艾特 ? '·@我' : 引用本鱼 ? '·回复我' : ''))
+        加缓冲('g' + 群发言者, { text: 文字, images: 图们, mid: String(条.message_id || ''), route: 'group', at: 找我 ? 群发言者 : 0, speaker: 群发言者, name: 名前, pingOnly: 只点名, time: 条.time })
         上次群时间 = 条.time || 上次群时间
         已转消息.add(条.message_id)
       }
@@ -1299,6 +1430,7 @@ export function apply(ctx) {
     const 群聊待发 = Array.from(缓聊.keys()).some((键) => 键.startsWith('g'))
     if (!群聊待发) 写水位文件(群水位文件, 上次群时间, '群聊')
     if (已转消息.size > 300) 已转消息.clear()
+    } finally { 轮询中 = false }
   }
 
   // ============================================================
@@ -1317,7 +1449,7 @@ export function apply(ctx) {
     const 剥 = t.replace(/^[/／>＞「」『』【】\[\]()（）“”‘’'""]+/, '').replace(/[。！!？~～、，,「」『』【】\[\]()（）“”‘’'""]+$/, '').replace(/^[/／>＞「」『』【】\[\]()（）]+|[。！!？~～、，,\s]+$/g, '').trim()
     if (!剥) return null
     const 转述97 = /(?<!是)不是|并非|没问|别问|别说|不用问|如果|假如|万一|比如|举例|假设|玩笑|模拟|引用|转述/.test(净)  // v97b:是不是 是正当问法  // v97护栏
-    if (/预警/.test(净) && /(?:状态|开没|开了没|开了吗|开着吗|开没有|有没有开|是否|是不是)/.test(净) && !转述97) return { cmd: '余额预警' }
+    if (/预警/.test(净) && /(?:状态|开没|开没开|开着没|开了没|开了吗|开着吗|开没有|有没有开|是否|是不是)/.test(净) && !转述97) return { cmd: '余额预警' }
     if (/^查余额$/i.test(剥)) return { cmd: '余额' }
     if (/^(状态|status)$/i.test(剥)) return { cmd: '状态' }
     if (/^(帮助|指令|help)$/i.test(剥)) return { cmd: '帮助' }
@@ -1496,7 +1628,7 @@ export function apply(ctx) {
           const 分 = Math.round(令体.duration / 60) || 0
           const 延 = 60000 + Math.floor(Math.random() * 90000)
           setTimeout(() => {
-            if (禁言中()) return
+            if (禁言中() || 有QQ待办100()) return
             const 话 = 令.act === 'ban'
               ? '〔桥的事件〕你刚把「' + 名片 + '」关进小黑屋' + (分 ? (' ' + 分 + ' 分钟') : '') + '，是主人下的令。现在在群里随口吐槽一句这事——就一句，自然点，像干完活顺手哼一声，别复述流程别自夸别提桥和主人指令'
               : '〔桥的事件〕你刚按主人的令把「' + 名片 + '」请出群了，这动静不小。看群里气氛决定要不要说一句——打哈哈或装没事都行，自然为主，别说教'
@@ -1597,6 +1729,7 @@ export function apply(ctx) {
     const 文字 = typeof 来.text === 'string' ? 来.text.trim() : ''
     if (!文字) return 回(res, { ok: false, 说: '没有文字' })
     const 道 = 来.channel === 'none' ? 'none' : (来.channel === 'private' ? 'private' : 'group')
+    if (有QQ待办100()) return 回(res, { ok: true, skipped: true, 说: '已有对话待处理，本次主动轮略过' })
     if (道 === 'none') 内部注入91 = Date.now()  // v91b
     if (道 === 'group' && 禁言中()) return 回(res, { ok: true, 说: '禁言中，冒泡已挡' })
     if (道 === 'group' && 群静默中()) return 回(res, { ok: true, 说: '群静默48h中，冒泡已挡' })
@@ -1633,7 +1766,8 @@ export function apply(ctx) {
       void 发一个(配置.NapCat, gid ? 'group_poke' : 'friend_poke', gid ? { group_id: gid, user_id: uid } : { user_id: uid })
         .then((r) => 记账(`自动回戳 ${名}(${uid}) ${gid ? '群' : '私'}：${r.ok ? '✓' : '✗'}`))
     }, 3000 + Math.floor(Math.random() * 4000))
-    回(res, await 转入一条(`【${名}】戳了戳你（QQ ${uid}——已经替你自动回戳过一下了，你只管俏皮接话，别再跑戳人的命令）`, [], '', gid ? 'group' : 'private', gid ? uid : 0, uid))
+    加缓冲((gid ? 'g' : 'p') + uid, { text: '（戳了戳你；已经自动回戳过，不要重复操作，按语境决定是否接话）', images: [], mid: '', route: gid ? 'group' : 'private', at: gid ? uid : 0, speaker: uid, name: uid === Number(配置.私聊QQ) ? '主人' : 名 })
+    回(res, { ok: true, 说: '戳一戳已排入对话缓冲' })
   })
 
   // 手动试一发：**真发**（绕过试运行），只发一条固定测试句，动不了已发轮
