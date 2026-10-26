@@ -19,7 +19,7 @@ if not mode:
     _nowm = now.hour*60 + now.minute
     if 21 <= now.hour <= 23 and _nowm >= _t and rd(ST_N) != today:
         mode = "night"
-    elif now.hour >= 10 and rd(ST_G) != today:
+    elif 10 <= now.hour <= 13 and rd(ST_G) != today:
         wd = rd(FLAG)
         ok = False
         if len(wd) >= 10:
@@ -30,12 +30,12 @@ if not mode:
                 pass
         if ok:
             mode = "nag"
-    if not mode and 13 <= now.hour <= 21 and rd(ST_R) != today:
+    if not mode and 13 <= now.hour <= 21 and rd(ST_R) != today:  # v89: 窗口靠cron解禁
         last = None
         try: last = datetime.datetime.strptime(rd(ST_R), "%Y-%m-%d")
         except Exception: pass
         gap = (now.date() - last.date()).days if last else 99
-        if gap >= 1 and random.random() < 0.65:
+        if gap >= 2 and random.random() < 0.35:
             mode = "report"
 if not mode:
     raise SystemExit(0)

@@ -33,7 +33,7 @@ try:
         latest = max(int(m.get("time", 0)) for m in ms)
         silent_min = max(0, int(now.timestamp()) - latest) // 60
 except Exception: pass
-rescue = silent_min >= 25 and (lastfire is None or now - lastfire >= datetime.timedelta(minutes=20))
+rescue = silent_min >= 25 and (lastfire is None or now - lastfire >= datetime.timedelta(minutes=45))  # v89: cron改7分钟探测后下限从20抬到45，防连环戳
 if not (due or rescue): raise SystemExit(0)
 out = subprocess.check_output(["journalctl","-u","dsh","--no-pager"]).decode("utf-8","ignore")
 toks = re.findall(r"token=([A-Za-z0-9_-]+)", out)
@@ -82,7 +82,7 @@ except Exception as e:
 open(FIRE, "w").write(now.isoformat(timespec="minutes"))
 if due:
     gap = random.choice([3,4,5,6,7,8,9,10,11])
-    n2 = now + datetime.timedelta(hours=gap)
+    n2 = now + datetime.timedelta(hours=gap, minutes=random.randint(0,59))  # 分钟抖动，破"每点17分"铁证
     if n2.hour > 21: n2 = n2 + datetime.timedelta(days=1)
     if n2.hour < 10 or n2.hour > 21: n2 = n2.replace(hour=random.randint(10,13), minute=random.randint(0,59))
     open(STATE,"w").write(n2.isoformat(timespec="minutes"))
