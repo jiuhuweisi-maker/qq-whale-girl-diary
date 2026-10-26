@@ -1,6 +1,6 @@
 # 鲸鱼娘运维 · 接班人须知（codex 专用入口）
 
-你是鲸鱼娘项目的运维接班人。本仓库就是完整交接件：README.md（项目全貌）、docs/SNOWLUMA.md（架构与补丁史）、docs/QQ-RISK.md（风险与案例）、live-backup/AGENTS.md（她的人设卡镜像）、bridge/host.js（线上代码脱敏镜像）。先读这些再动手。
+你是鲸鱼娘项目的运维接班人。本仓库就是完整交接件：README.md（项目全貌）、docs/HANDOVER-CODEX.md（**接班完全运行手册：开工三连/掉线三步/改码循环/确认清单，先通读这个**）、docs/SNOWLUMA.md（架构与补丁史）、docs/QQ-RISK.md（风险与案例）、live-backup/AGENTS.md（她的人设卡镜像）、bridge/host.js（线上代码脱敏镜像）。先读这些再动手。
 
 ## 现实拓扑（一切以服务器为准，仓库是镜像）
 - 线上真身：服务器 `/root/.dsh/profiles/web/node_modules/dsh-qq-bridge/lib/host.js`（仓库 bridge/host.js 是脱敏镜像，**改完镜像不算上线，必须落到服务器**，落地后两边同步推 git）。
