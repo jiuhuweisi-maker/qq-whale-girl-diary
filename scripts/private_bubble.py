@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # 私聊主动：晚安(22档) + 熬夜补刀(次日10点后) + 报备(2~3天随机)
 import sys, random, datetime, subprocess, urllib.request, json, re
+CFG = json.load(open("/root/.dsh/qq-bridge-config.json"))
 ST_R = "/opt/qq-cs/priv_last_report.txt"
 ST_N = "/opt/qq-cs/priv_last_night.txt"
 ST_G = "/opt/qq-cs/priv_last_nag.txt"
@@ -41,11 +42,44 @@ if not mode:
 wd = rd(FLAG)
 hh = wd[11:16] if len(wd) >= 16 else "凌晨"
 if mode == "night":
-    prompt = "（系统提示，对方看不到）晚安时刻：去私聊跟主人道个晚安，一两句，温柔、别模板腔、别跟昨天重复。他今天要是累了或emo了，就多带一句软话。带个颜文字就行，不发图、不解释机制，直接输出你要说的话。"
+    prompt = "（系统提示，对方看不到）晚安时刻：去私聊跟主人道个晚安，一两句，温柔、别模板腔、别跟昨天重复。他今天要是累了或emo了，就多带一句软话。带个颜文字就行，不发图、不解释机制，直接输出你要说的话。今天要是已经当面道过晚、或者话已经聊到自然收尾了，就只输出略过，别补第二条。"
 elif mode == "nag":
     prompt = "（系统提示，对方看不到）熬夜补刀：主人昨天 " + hh + " 还在说话，你云端全看见了。去私聊损一句再关心一句，两句封顶，别唠叨别说教，不带图。已经补过刀或想不出好的就只输出略过两个字。"
 else:
-    prompt = "（系统提示，对方看不到）报备机会：挑一件最近跟你有关的事，去私聊随口跟主人说一句——学了什么新梗新表情、群里什么好玩的名场面、或者你想干什么。最多两句，随机带一个颜文字，不发图。编不出来就只输出略过两个字。"
+    recap = ''
+    try:
+        owner = int(CFG.get("私聊QQ") or 0)
+        GID0 = 0
+        body = json.dumps({"user_id": owner, "count": 6}).encode()
+        req = urllib.request.Request("http://127.0.0.1:3000/get_friend_msg_history", data=body, headers={"content-type": "application/json"})
+        ms = json.load(urllib.request.urlopen(req, timeout=8)).get("data", {}).get("messages", [])
+        # 只留"主人发了、她没接"的尾巴：主人的话后面只要她回过就算接住，不再递
+        mine_id = int(CFG.get("她的QQ") or 0)
+        unans = []
+        for m in sorted(ms, key=lambda m: int(m.get("time") or 0)):
+            uid = int((m.get("sender") or {}).get("user_id") or 0)
+            if uid == owner:
+                unans.append(m)
+            elif uid == mine_id:
+                unans = []
+        his = list(reversed(unans[-3:]))
+        lines = []
+        for m in his[:3]:
+            parts = []
+            for seg in (m.get("message") or []):
+                ty = seg.get("type")
+                d = seg.get("data") or {}
+                if ty == "text": parts.append((seg.get("text") or d.get("text") or "").strip())
+                elif ty == "image": parts.append("[一张图]")
+            tx = " ".join(p for p in parts if p)[:50]
+            if not tx: continue
+            hrs = int((now.timestamp() - int(m.get("time") or 0)) // 3600)
+            if hrs > 72: continue
+            lines.append("· %s（%s）" % (tx, ("半小时前" if hrs < 1 else "%d小时前" % hrs)))
+        if lines:
+            recap = "主人最近留下没接的话：\n" + "\n".join(lines) + "\n"
+    except Exception: pass
+    prompt = "（系统提示，对方看不到）报备机会：%s搭话的方式你自己挑：挑一件最近跟你有关的事随口报一句（学了什么新梗新表情、群里什么名场面、或者你想干什么）；或者上头有哪句是你没接住、现在想问下文的，顺那句开口也很自然。最多两句，随机带一个颜文字，不发图。都不想说就只输出略过两个字。" % recap
 out = subprocess.check_output(["journalctl", "-u", "dsh", "--no-pager"]).decode("utf-8", "ignore")
 toks = re.findall(r"token=([A-Za-z0-9_-]+)", out)
 if not toks:
