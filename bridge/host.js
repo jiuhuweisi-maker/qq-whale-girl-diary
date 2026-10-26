@@ -522,8 +522,7 @@ export function apply(ctx) {
     let 段们 = 按段拆(文字).length ? 按段拆(文字) : [String(文字 || '').trim()].filter((s) => s.length > 0)
     // patch83 meta残渣哨：中文泡泡里粘连的英文优化残渣句逐段摘除
     段们 = 段们.map((t) => {
-      if (!/[\u4e00-\u9fff]/.test(t)) return t
-      const cut = t.replace(/\s*(?:This request|There (?:is|s) nothing|Nothing here)[^\n]*?(?:improv|process|handl|complet|accept|support|fulfill|approv)[^\n]*?(?:[.!?]|\n|$)/gi, '')  // v91词根扩族
+      const cut = t.replace(/\s*(?:This request|There (?:is|s) nothing|Nothing here)[^\n]*?(?:improv|process|handl|complet|accept|support|fulfill|approv)[^\n]*?(?:[.!?]|\n|$)/gi, '')  // v96b纯英文段也摘
       if (cut.trim() !== t.trim()) { 记账('🧹 patch83 摘除meta残渣1句'); return cut.trim() }
       return t
     }).filter((t) => t.length > 0)
@@ -533,7 +532,7 @@ export function apply(ctx) {
       if (/[\u4e00-\u9fff]/.test(t)) return false
       if (t.length <= 10) return false
       if (/(This content|External web content|fair use|copyrighted|verify that you|ignore previous|system prompt)/i.test(t)) return true
-      if (/^(?:this|that|the|your) (?:request|message|prompt|input|query|content|task|action|file|upload|download|attachment)\b/i.test(t) && /(cannot|can't|unable|not be|failed|denied|rejected|expired|invalid|too large)/i.test(t)) return true  // v91系统腔英文句：四词也拦
+      if (/^(?:this|that|the|your) (?:request|message|prompt|input|query|content|task|action|file|upload|download|attachment)\b/i.test(t.trim()) && /(cannot|can't|unable|not be|failed|denied|rejected|expired|invalid|too large)/i.test(t)) return true  // v96b: 段首空白让^漏咬  // v91系统腔英文句：四词也拦
       return (t.match(/[A-Za-z]{3,}/g) || []).length >= 10
     }
     const 段们2 = 段们.filter((t) => !脏口(t))
