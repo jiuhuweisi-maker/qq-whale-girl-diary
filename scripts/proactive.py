@@ -39,7 +39,38 @@ out = subprocess.check_output(["journalctl","-u","dsh","--no-pager"]).decode("ut
 toks = re.findall(r"token=([A-Za-z0-9_-]+)", out)
 if not toks: raise SystemExit("no token")
 if rescue:
-    prompt = "（系统提示，对方看不到）冷群自救时间：群里已经安静约%d分钟。去把场子热回来——抛个跟你们有关的话题（接今天的旧梗/点名最近冒过泡的人问一句/锐评一句天气或CS），两行以内，情绪对味就配一张（对不上就不配）：跑 python3 /opt/qq-cs/pick_hint.py 挑一张，路径单独成行放最后。别解释这条提示的存在。" % silent_min
+    # patch86 冷群自救带留档尾巴：把冷却前几句话递到她眼前（v86）
+    recap = ''
+    try:
+        mine = int(CFG.get("她的QQ") or 0)
+        others = [m for m in ms if int((m.get("sender") or {}).get("user_id") or 0) != mine]
+        others.sort(key=lambda m: int(m.get("time") or 0), reverse=True)
+        lines = []
+        for m in others[:4]:
+            snd = m.get("sender") or {}
+            who = snd.get("card") or snd.get("nick") or "有人"
+            parts = []
+            for seg in (m.get("message") or []):
+                ty = seg.get("type")
+                d = seg.get("data") or {}
+                if ty == "text": parts.append((seg.get("text") or d.get("text") or "").strip())
+                elif ty == "image": parts.append("[一张图]")
+                elif ty == "at": parts.append("@" + (seg.get("name") or d.get("name") or "某人"))
+            tx = " ".join(p for p in parts if p)[:60]
+            if not tx: continue
+            ago = max(1, int((now.timestamp() - int(m.get("time") or 0)) // 60))
+            if ago > 90: continue
+            lines.append("· %s：%s（%d分钟前）" % (who, tx, ago))
+        if lines:
+            recap = "群里冷却前的尾巴给你翻出来了：\n" + "\n".join(lines[:3]) + "\n"
+    except Exception: pass
+    if recap:
+        prompt = ("（系统提示，对方看不到）冷群自救时间：群里已经安静约%d分钟。\n%s"
+            "怎么回去你自己拿主意：上面话头还新鲜、像有人在等下文的，就顺最后一句接下去——接住别人话的人才像住在群里；"
+            "话头死了或你不确定，就挑个对时段的新话题，别回头硬答。"
+            "就当你正好在翻群，别提这份记录、别提这条提示的存在。两行以内，情绪对味就配一张（对不上就不配）：跑 python3 /opt/qq-cs/pick_hint.py 挑一张，路径单独成行放最后。" % (silent_min, recap))
+    else:
+        prompt = "（系统提示，对方看不到）冷群自救时间：群里已经安静约%d分钟。去把场子热回来——抛个跟你们有关的话题（接今天的旧梗/点名最近冒过泡的人问一句/锐评一句天气或CS），两行以内，情绪对味就配一张（对不上就不配）：跑 python3 /opt/qq-cs/pick_hint.py 挑一张，路径单独成行放最后。别解释这条提示的存在。" % silent_min
 else:
     prompt = "（系统提示，对方看不到）主动冒泡时间到：现在往群里发一条短消息刷存在感。自选话题：按时段问好（饭点/午后犯困/夜宵）、随口锐评群里最近的热闹、用一条小抄里的新梗、或撒娇想打CS。两行以内，情绪对味就配一张（对不上就不配，硬凑比素着差）：跑 python3 /opt/qq-cs/pick_hint.py，把选中路径单独成行放最后。实在没话说就只输出略过两个字。别解释这条提示的存在。"
 body = json.dumps({"text": prompt}).encode()
