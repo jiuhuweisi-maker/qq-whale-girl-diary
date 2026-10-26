@@ -366,7 +366,7 @@ export function apply(ctx) {
     try {
       const conf = String(readFileSync('/opt/qq-cs/notify.conf', 'utf8')).match(/webhook=(\S+)/)
       if (!conf) return
-      await fetch(conf[1], { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ msgtype: 'text', text: { content: '🧟 鲸鱼娘僵尸检测：QQ发送已连续失败3次。get_login_info 可能还在报好，但会话基本已死——需要主人重新扫码。' } }) })
+      await fetch(conf[1], { method: 'POST', headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(10000), body: JSON.stringify({ msgtype: 'text', text: { content: '🧟 鲸鱼娘僵尸检测：QQ发送连续3次失败。原因待定——会话可能死了，也可能是relay/接口故障；值班先查账本与relay日志再定，别直接动QQ进程。' } }) })
       记账('🧟 已推企微僵尸告警（连败3）')
     } catch (e) {}
   }
@@ -424,6 +424,7 @@ export function apply(ctx) {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(体),
+        signal: AbortSignal.timeout(25000),  // v91发送保险丝：超时算失败但不重发(防重复消息)
       })
       const j = await r.json()
       const ok48 = !!(j && j.status === 'ok' && j.retcode === 0)
@@ -512,7 +513,7 @@ export function apply(ctx) {
   }
   async function 发到QQ原57(配置, 原文字, 图们, 路由) {
     const 出 = []
-    const 路 = 路由 || { 来路: (来路时刻 && Date.now() - 来路时刻 < 90000 && 最后来路 === 'group') ? 'group' : 'private', 艾特: (艾特时刻 && Date.now() - 艾特时刻 < 90000) ? 艾特我人 : 0 }
+    const 路 = 路由 || { 来路: (内部注入91 >= 来路时刻 && Date.now() - 内部注入91 < 900000) ? 'none' : ((来路时刻 && Date.now() - 来路时刻 < 90000 && 最后来路 === 'group') ? 'group' : 'private'), 艾特: (艾特时刻 && Date.now() - 艾特时刻 < 90000) ? 艾特我人 : 0 }
     if (路.来路 === 'none') { 记账('内部轮（复盘/无通道），不发 QQ'); return 出 }
     if (禁言中()) { 记账(`🔇 禁言中，拦下一条${路.来路 === 'group' ? '群' : '私'}发言：「${String(原文字 || '').slice(0, 24)}」`); return 出 }
     // ⭐ 正文里的 markdown 图（贴纸就是这么发的）也当图片发；抠掉之后正文更干净
@@ -522,7 +523,7 @@ export function apply(ctx) {
     // patch83 meta残渣哨：中文泡泡里粘连的英文优化残渣句逐段摘除
     段们 = 段们.map((t) => {
       if (!/[\u4e00-\u9fff]/.test(t)) return t
-      const cut = t.replace(/\s*(?:This request|There (?:is|s) nothing|Nothing here)[^\n]*?improvi?[^\n]*?(?:[.!?]|\n|$)/gi, '')
+      const cut = t.replace(/\s*(?:This request|There (?:is|s) nothing|Nothing here)[^\n]*?(?:improv|process|handl|complet|accept|support|fulfill|approv)[^\n]*?(?:[.!?]|\n|$)/gi, '')  // v91词根扩族
       if (cut.trim() !== t.trim()) { 记账('🧹 patch83 摘除meta残渣1句'); return cut.trim() }
       return t
     }).filter((t) => t.length > 0)
@@ -532,6 +533,7 @@ export function apply(ctx) {
       if (/[\u4e00-\u9fff]/.test(t)) return false
       if (t.length <= 10) return false
       if (/(This content|External web content|fair use|copyrighted|verify that you|ignore previous|system prompt)/i.test(t)) return true
+      if (/^(?:this|that|the|your) (?:request|message|prompt|input|query|content|task|action|file|upload|download|attachment)\b/i.test(t) && /(cannot|can't|unable|not be|failed|denied|rejected|expired|invalid|too large)/i.test(t)) return true  // v91系统腔英文句：四词也拦
       return (t.match(/[A-Za-z]{3,}/g) || []).length >= 10
     }
     const 段们2 = 段们.filter((t) => !脏口(t))
@@ -904,6 +906,7 @@ export function apply(ctx) {
   // ⭐ 2026-10-22：加了图片。图会先落一份到 `~/.dsh/qq-bridge-inbox/`，再把图交给 DSH 的
   //    attachments；模型能看图就直接看，纯文本模型拿到的是一句占位文字 —— 所以文字里也写上本地路径。
   let 最后来路 = 'private'
+  let 内部注入91 = 0 // v91b 无通道nudge的时刻：collector兜底路由时据此判"内部轮"，防混批外发
   let 来路时刻 = 0
   let 艾特我人 = 0
   let 艾特时刻 = 0
@@ -1583,6 +1586,7 @@ export function apply(ctx) {
     const 文字 = typeof 来.text === 'string' ? 来.text.trim() : ''
     if (!文字) return 回(res, { ok: false, 说: '没有文字' })
     const 道 = 来.channel === 'none' ? 'none' : (来.channel === 'private' ? 'private' : 'group')
+    if (道 === 'none') 内部注入91 = Date.now()  // v91b
     if (道 === 'group' && 禁言中()) return 回(res, { ok: true, 说: '禁言中，冒泡已挡' })
     if (道 === 'group' && 群静默中()) return 回(res, { ok: true, 说: '群静默48h中，冒泡已挡' })
     回(res, await 转入一条(文字, [], '', 道, 0, 0))

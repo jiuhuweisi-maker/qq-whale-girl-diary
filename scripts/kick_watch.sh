@@ -1,4 +1,6 @@
 #!/bin/bash
+# ⚠️ v93(2026-10-26)退役：本哨 retcode!=0 即喊"扫码重登"，把 relay 鉴权故障当掉线误报。
+# 掉线/鉴权/挂起三态判定与报警已归 snowluma-guard v3(v92/v93补全报警)。线上 cron 已注释本行，文件留存备查。
 # 踢线哨兵：每5分钟一趟，离线即webhook通知主人；恢复即清标记重报
 FLAG=/opt/qq-cs/.napcat-risk-paused
 NOTI=/opt/qq-cs/.kick_notified

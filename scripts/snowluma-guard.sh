@@ -1,4 +1,7 @@
 #!/bin/bash
+# v92 单实例锁
+exec 200>/opt/qq-cs/.guard.lock
+flock -n 200 || exit 0
 # snowluma-guard v3 值班妈妈 10-26：三态判诊+拉停滞兆哨。绝不restart容器；空回包≠掉线。
 STATE=/opt/qq-cs/.snowluma-alive
 RETRY=/opt/qq-cs/.snowluma-retry
@@ -36,35 +39,51 @@ if [ "${BADCNT:-0}" -ge 3 ]; then
   fi
 fi
 # --- 三态判诊 ---
-if echo "$R" | grep -q '"retcode":0'; then
+if echo "$R" | grep -qE '"retcode"[[:space:]]*:[[:space:]]*0'; then
   VERDICT=alive
 elif echo "$R" | grep -qE 'relay fail HTTP Error 40(1|3)|"retcode":1401|unauthorized'; then
   echo "$(date '+%m-%d %H:%M') 鉴权故障：不重启QQ，检查票同步" >> $LOGF
+  # v93 接管旧kick_watch的报警职责：状态迁移才报，不误报掉线
+  if [ "$(cat $STATE 2>/dev/null || echo unknown)" != "autherr" ]; then
+    echo autherr > $STATE
+    say "🎫 relay鉴权故障(401/403)：这是票的问题不是掉线——她还在线，别动QQ。请核对 relay 与 SnowLuma 的票是否一致。"
+    echo "$(date '+%m-%d %H:%M') 鉴权故障→已报警(状态迁移)" >> $LOGF
+  fi
   exit 0
 elif [ -z "$R" ] || echo "$R" | grep -qE 'relay fail|Errno 1(04|11)|Connection'; then
   # relay/OneBot 挂死或无回包：QQ可能登录得好好的，绝不动它
   echo "$(date '+%m-%d %H:%M') 无回包/relay故障：判挂起非掉线，不动QQ" >> $LOGF
+  if [ "$(cat $STATE 2>/dev/null || echo unknown)" != "hang" ]; then
+    echo hang > $STATE
+    say "🕳 relay/OneBot 无应答(挂起)：QQ会话多半好好的，别动它，也别连环重启dsh(病根不在dsh)。值班请查 whale-relay 服务与容器内 OneBot 进程。"
+    echo "$(date '+%m-%d %H:%M') 挂起→已报警(状态迁移)" >> $LOGF
+  fi
   exit 0
 else
-  KICK=$(docker logs snowluma --since 3m 2>&1 | grep -acE "Kicked|踢下线" || echo 0)
-  if [ "${KICK:-0}" -gt 0 ] || echo "$R" | grep -qE '"retcode":140[0-9]|logged.?out|offline'; then
+  KICK=$(docker logs snowluma --since 3m 2>&1 | grep -cE "Kicked|踢下线")
+KICK=${KICK:-0}
+  if [ "${KICK:-0}" -gt 0 ] || echo "$R" | grep -qE 'logged.?out|"retcode":1401[0-9]*.*offline'; then  # v92:140x不再单独定罪，需踢线/offline实证
     VERDICT=dead
   else
-    echo "$(date '+%m-%d %H:%M') 判读不明($R 前60字:${R:0:60})：宁不动手" >> $LOGF
+    echo "$(date '+%m-%d %H:%M') 判读不明(${R:0:60})：宁不动手" >> $LOGF
     exit 0
   fi
 fi
 OLD=$(cat $STATE 2>/dev/null || echo unknown)
-if [ "$VERDICT" = dead ] && [ "$OLD" != dead ]; then
+if [ "$VERDICT" = dead ]; then
   MARK=$(cat $RETRY 2>/dev/null || echo 0)
   if [ $((NOW-MARK)) -gt 900 ]; then
     echo $NOW > $RETRY
-    docker exec snowluma supervisorctl restart qq >/dev/null 2>&1
-    echo "$(date '+%m-%d %H:%M') 真掉线→已试进程级重连(有自动登录)" >> $LOGF
-  else
+    if docker exec snowluma supervisorctl restart qq >/dev/null 2>&1; then
+      echo "$(date '+%m-%d %H:%M') 真掉线→重连指令已下达(待下圈验证登录态)" >> $LOGF
+    else
+      echo "$(date '+%m-%d %H:%M') 真掉线→重连指令执行失败(supervisorctl非0)" >> $LOGF
+    fi
+  fi
+  if [ "$OLD" != dead ]; then
     echo dead > $STATE
-    say "🧟‍♀️ 鲸鱼娘真掉线(踢下线)，自动重连冷却中救不回。请主人开 noVNC 远程桌面重登：http://<服务器IP>:6081/vnc.html?autoconnect=true 密码见 SECRETS.md。规矩：绝不重启容器。"
-    echo "$(date '+%m-%d %H:%M') 重连无效→报警" >> $LOGF
+    say "🧟‍♀️ 鲸鱼娘真掉线(有踢线/offline实证)，guard每15分钟试一次进程级重登；连救两轮不回的请主人开 noVNC 远程桌面重登一次。规矩：绝不重启容器。"
+    echo "$(date '+%m-%d %H:%M') 首次判dead→已报警" >> $LOGF
   fi
 elif [ "$VERDICT" = alive ] && [ "$OLD" != alive ]; then
   echo alive > $STATE

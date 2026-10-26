@@ -1,8 +1,7 @@
 #!/bin/bash
-QQ_RISK_PAUSE=/opt/qq-cs/.napcat-risk-paused
-if [ -e "$QQ_RISK_PAUSE" ]; then
-  echo "$(date '+%F %T') QQ风险暂停，跳过自动拉起" >> /opt/qq-cs/watchdog.log
-  exit 0
+# v93: 旧NapCat风险旗不再整体短路看门狗(本脚本无QQ进程动作，掉线判定归guard v3)；旗在则仅记痕
+if [ -e "/opt/qq-cs/.napcat-risk-paused" ]; then
+  echo "$(date '+%F %T') 注意：历史遗留风险旗存在(不影响本看门狗职责)" >> /opt/qq-cs/watchdog.log
 fi
 # 自愈看门狗：挂了自动拉起；拉不起来才私聊主人报警（1小时内不重复报）
 CFG=/root/.dsh/qq-bridge-config.json
@@ -27,6 +26,19 @@ else
 fi
 tail -c 1048576 /opt/qq-cs/watchdog.log > /tmp/wd && mv /tmp/wd /opt/qq-cs/watchdog.log 2>/dev/null || true
 python3 /opt/qq-cs/balance_warn.py >/dev/null 2>&1 || true
+# v93 心跳探针：host.js成功拉取才刷心跳；心跳窒息>10分钟而桥面还能答=拉取环死了(装睡)→重启dsh(冷却1h)
+HB=/opt/qq-cs/.bridge-heartbeat
+if [ -f "$HB" ]; then
+  HBA=$(( $(date +%s) - $(stat -c %Y "$HB") ))
+  if [ $HBA -gt 600 ] && curl -s -m 6 "http://127.0.0.1:3080/dsh-qq-bridge/poke?token=${T}" -d '{}' -H 'content-type: application/json' | grep -qE '"ok"|uid'; then
+    if [ ! -f /opt/qq-cs/.hb_mark ] || [ $(( $(date +%s) - $(stat -c %Y /opt/qq-cs/.hb_mark) )) -gt 3600 ]; then
+      touch /opt/qq-cs/.hb_mark
+      systemctl restart dsh
+      echo "$(date '+%F %T') 心跳窒息${HBA}s但桥面能答→判拉取环死，已重启dsh" >> /opt/qq-cs/watchdog.log
+      exit 0
+    fi
+  fi
+fi
 TK=$(journalctl -u dsh --no-pager 2>/dev/null | grep -oE "token=[A-Za-z0-9_-]+" | tail -1 | cut -d= -f2); ALIVE=$(curl -s -m 10 -X POST "http://127.0.0.1:3080/dsh-qq-bridge/sess-alive?token=$TK" -H 'content-type: application/json' -d '{}')
 echo "$(date +%H:%M) $ALIVE" >> /opt/qq-cs/sess_alive.log
 if echo "$ALIVE" | grep -q '"ok":true'; then

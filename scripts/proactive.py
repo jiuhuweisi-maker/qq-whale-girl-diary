@@ -9,7 +9,7 @@ GID = int(CFG.get("群号") or 0)
 now = datetime.datetime.now()
 def rd(p):
     try:
-        t = open(p).read().strip()
+        t = open(p).read().strip().split()[0]
         try:
             return datetime.datetime.fromisoformat(t)
         except Exception:
@@ -35,6 +35,17 @@ try:
 except Exception: pass
 rescue = silent_min >= 25 and (lastfire is None or now - lastfire >= datetime.timedelta(minutes=45))  # v89: cron改7分钟探测后下限从20抬到45，防连环戳
 if not (due or rescue): raise SystemExit(0)
+# v93b 救场递进退避：上轮已是救场喊话且距今<90分钟(=没人搭理)，别连喊——顺延60~150分钟
+try:
+    _lf = open(FIRE).read().strip().split()
+    fm_prev = _lf[1] if len(_lf) > 1 else ''
+except Exception:
+    fm_prev = ''
+if rescue and fm_prev == 'rescue' and (now - lastfire) < datetime.timedelta(minutes=90):
+    n4 = now + datetime.timedelta(minutes=random.randint(60, 150))
+    open(STATE, "w").write(n4.isoformat(timespec="minutes"))
+    open(LOG, "a").write("%s 救场退避%d分钟(上轮没人搭理)\n" % (now.strftime("%m-%d %H:%M"), (n4-now).seconds//60))
+    raise SystemExit(0)
 # v90 抖动保险丝：条件全满足也不保证这圈开口——随机顺延6~25分钟，把注入分钟彻底带离钟面刻度
 if random.random() < 0.35:
     n3 = now + datetime.timedelta(minutes=random.randint(6, 25))
@@ -78,16 +89,17 @@ if rescue:
             "不值得接就换个新话题，或者这轮只输出略过不开口——默默围观冷群也是人的常态，不许硬救；但别永远装看不见，连着翻过去两三次，下次最好冒一次头。"
             "就当你正好在翻群，别提这份记录、别提这条提示的存在。两行以内，情绪对味就配一张（对不上就不配）：跑 python3 /opt/qq-cs/pick_hint.py 挑一张，路径单独成行放最后。" % (silent_min, recap))
     else:
-        prompt = "（系统提示，对方看不到）冷群自救时间：群里已经安静约%d分钟。想救就救——抛个跟你们有关的话题（接今天的旧梗/点名最近冒过泡的人问一句/锐评一句天气或CS）；不想说就只输出略过，不硬性救场，但连着几轮都装看不见就不像住在这群里的。两行以内，情绪对味就配一张（对不上就不配）：跑 python3 /opt/qq-cs/pick_hint.py 挑一张，路径单独成行放最后。别解释这条提示的存在。" % silent_min
+        prompt = "（系统提示，对方看不到）冷群自救时间：群里已经安静约%d分钟。想救就救——抛个跟你们有关的话题（接今天的旧梗/点名最近冒过泡的人问一句/锐评一句天气或CS）；不想说就只输出略过，不硬性救场，但连着几轮都装看不见就不像住在这群里的。两行以内，情绪对味就配一张（对不上就不配）：跑 python3 /opt/qq-cs/pick_hint.py 挑一张，路径单独成行放最后。但注意：别喊「还有活人吗」「群里安静得能听见水声」这类话——那不是话题是讨回应；没有具体新内容就只输出略过。别解释这条提示的存在。" % silent_min
 else:
-    prompt = "（系统提示，对方看不到）主动冒泡时间到：现在往群里发一条短消息刷存在感。自选话题：按时段问好（饭点/午后犯困/夜宵）、随口锐评群里最近的热闹、用一条小抄里的新梗、或撒娇想打CS。两行以内，情绪对味就配一张（对不上就不配，硬凑比素着差）：跑 python3 /opt/qq-cs/pick_hint.py，把选中路径单独成行放最后。实在没话说就只输出略过两个字。别解释这条提示的存在。"
+    prompt = "（系统提示，对方看不到）主动冒泡时间到：现在往群里发一条短消息刷存在感。自选话题：按时段问好（饭点/午后犯困/夜宵）、随口锐评群里最近的热闹、用一条小抄里的新梗、或撒娇想打CS。两行以内，情绪对味就配一张（对不上就不配，硬凑比素着差）：跑 python3 /opt/qq-cs/pick_hint.py，把选中路径单独成行放最后。实在没话说就只输出略过两个字。但注意：别喊「还有活人吗」「群里安静得能听见水声」这类话——那不是话题是讨回应；没有具体新内容就只输出略过。别解释这条提示的存在。"
+pmode = "rescue" if rescue else "bubble"
 body = json.dumps({"text": prompt}).encode()
 req = urllib.request.Request("http://127.0.0.1:3080/dsh-qq-bridge/nudge?token=" + toks[-1], data=body, headers={"content-type":"application/json"})
 try:
     r = json.load(urllib.request.urlopen(req, timeout=20))
 except Exception as e:
     raise SystemExit("nudge fail: %s" % e)
-open(FIRE, "w").write(now.isoformat(timespec="minutes"))
+open(FIRE, "w").write(now.isoformat(timespec="minutes") + " " + pmode)
 if due:
     gap = random.choice([3,4,5,6,7,8,9,10,11])
     n2 = now + datetime.timedelta(hours=gap, minutes=random.randint(0,59))  # 分钟抖动，破"每点17分"铁证

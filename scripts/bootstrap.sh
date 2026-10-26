@@ -1,4 +1,6 @@
 #!/bin/bash
+# ⚠️ 历史遗留(NapCat时代安装器)：会拉NapCat容器、改Docker自启策略。当前新家=SnowLuma+DSH桥，
+#    严禁在本机运行本脚本(同号双客户端会互踢)。重建流程看 docs/SNOWLUMA.md 与 docs/REBUILD.md。(v93注,10-26)
 # 鲸鱼娘新机一键落位：把本仓库的脚本/配置模板放到老服务器同款位置
 # 用法（在克隆好的仓库根目录）：
 #   QQ_BOT=1664xxxx MASTER_QQ=247xxxxx GROUP_QQ=72xxxxxxx NAPCAT_TOKEN=xxxx bash scripts/bootstrap.sh

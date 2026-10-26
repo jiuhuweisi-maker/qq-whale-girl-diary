@@ -1,14 +1,17 @@
-39 */6 * * * /usr/bin/python3 /opt/qq-cs/learn_memes.py >> /opt/qq-cs/cron.log 2>&1
-17 10-21 * * * python3 /opt/qq-cs/proactive.py >> /opt/qq-cs/cron.log 2>&1
+# v93(10-26)对齐线上实况。行为窗口与调度窗口必须对表；注入类任务已带随机相位(见bridge-patches patch89/90)
+*/6 * * * * /usr/bin/python3 /opt/qq-cs/learn_memes.py >> /opt/qq-cs/cron.log 2>&1
+*/5 10-21 * * * python3 /opt/qq-cs/proactive.py >> /opt/qq-cs/cron.log 2>&1
 7 20-23 * * * /usr/bin/python3 /opt/qq-cs/cs.py >> /opt/qq-cs/cron.log 2>&1
 33 22 * * * /usr/bin/python3 /opt/qq-cs/reflect.py >> /opt/qq-cs/cron.log 2>&1
-29 10-22 * * * python3 /opt/qq-cs/private_bubble.py >> /opt/qq-cs/cron.log 2>&1
+*/7 10-23 * * * python3 /opt/qq-cs/private_bubble.py >> /opt/qq-cs/cron.log 2>&1
 40 12,22 * * * bash /opt/qq-cs/live_backup.sh
 5,35 * * * * python3 /opt/qq-cs/memory_store.py >> /opt/qq-cs/cron.log 2>&1
 35 22 * * * python3 /opt/qq-cs/daily_report.py >> /opt/qq-cs/cron.log 2>&1
 17,47 * * * * bash /opt/qq-cs/watchdog.sh
 38 22 * * 0 /usr/bin/python3 /opt/qq-cs/weekly_report.py >> /opt/qq-cs/weekly.log 2>&1
 5 20 * * * /usr/bin/python3 /opt/qq-cs/whale_lottery.py >> /opt/qq-cs/lottery.log 2>&1
-12 9 * * 1 /usr/bin/python3 /opt/qq-cs/bili_trends.py >> /opt/qq-cs/bili_trends.log 2>&1
-*/5 * * * * /opt/qq-cs/kick_watch.sh >> /opt/qq-cs/kick_watch.log 2>&1
+12 9 * * 1 /usr/bin/python3 /opt/qq-cs/bili_trends.py >> /opt/qq-cs/cron.log 2>&1
 3 */2 * * * /opt/qq-cs/keep_brain.sh
+*/2 * * * * /opt/qq-cs/snowluma-guard.sh
+20 12 * * * /opt/qq-cs/version_check.sh
+# v93退役：kick_watch.sh(retcode!=0即喊扫码，鉴权故障会误报掉线)——报警职责移交 snowluma-guard v3 三态(鉴权/挂起/真掉线)
