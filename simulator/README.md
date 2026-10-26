@@ -36,7 +36,24 @@ node simulator/tools-matrix.cjs /private/snapshot /private/tool-results /private
 - 硬测试覆盖生成中纠正、旧回合晚到、重复完成、远端已收到但回包超时、多入口竞态、进程重启、群私相同ID、过期待办、英文技术错误、正常引用降级及同名成员。
 - `guard-lab.cjs` 用本地 Git Bash 执行审查过的守护脚本副本，curl、Docker、通知全部截获，绝对路径只改到测试目录。确认掉线和15分钟重连冷却真实走原分支。使用新的输出目录保留每次证据。
 - `scheduler-lab.py` 以虚拟文件、时钟、HTTP和进程模块执行实际 Python 调度脚本与脱敏 cron 计划。繁忙/冷场各模拟28天，没有真实睡眠或消息发送。
-- `propose.cjs` 只生成独立候选文件，**不改生产源码、不部署、不重启服务**。目前持久收件箱/发件箱与图片冷却恢复仍未解决。
+- `propose.cjs` 只生成独立候选文件，拒绝覆盖输入源码，**不改生产源码、不部署、不重启服务**。候选已补齐持久收件箱/发件箱与图片冷却恢复；不确定的提交/发送保留对账，禁止盲目重投。2026-10-27 本地验证见 [RESULTS-2026-10-27.md](RESULTS-2026-10-27.md)。
+
+## 从本地断点继续（2026-10-27）
+
+```sh
+node simulator/propose.cjs /private/production_bridge.mjs /private/candidate/host.mjs
+node simulator/resume-tests.cjs /private/production_bridge.mjs /private/resume-report.json
+node simulator/context-tests.cjs /private/production_bridge.mjs /private/context-report.json
+node simulator/run.cjs --plan --cases 08,13,18 --modes chain --max-calls 3
+```
+
+`--style` 和 `--persona` 可指定**独立的本地候选**，默认仍读原始快照；不覆盖实际人设/提供器配置。候选聊天偏好和人设补充在 `drafts/`，真实人设全文只留私有目录。先宣布调用预算，再用 `--live`；本地回放无需模型。
+
+`replay.cjs 原记录 候选源码 快照目录 输出目录 [候选style] [候选persona]` 会逐字节核对完整模型上下文及系统提示，任何变化都拒绝借用旧答案。未完成工具轮次、输出截断标为测试无效，不触发模拟完成/发送，也不算模型不理人。
+
+持久账本假设**同一桥只有一个写入进程**，按机器人、目标会话和群私接收配置隔离，使用双槽校验、文件同步、原子替换和目录同步。要求目标 Linux 文件系统支持这些操作；当前验证使用可控虚拟文件系统，不能替代部署前实际文件系统核验。已有文件损坏或写盘失败会暂停收发并记账，不触发 QQ 重登。未交给宿主的有效消息可恢复；已交给宿主的只恢复原消息/回合路由；发送结果不确定时不自动重放。严格分布式“恰好一次”和不确定发件的自动对账仍不作承诺。
+
+候选上下文使用稳定内部成员标识和仅限本轮对象的引用标签。模型选中的标签会在发送前验证并移除；多条候选却没选标签时省略引用，避免猜最后一条。**这只能校验路由归属，不能证明模型正文理解正确**，仍须独立软评。
 
 ## 结果与判定
 

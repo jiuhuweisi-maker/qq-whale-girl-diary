@@ -1,6 +1,7 @@
-const fs = require('node:fs'), path = require('node:path'), cp = require('node:child_process'), crypto = require('node:crypto');
+const fs = require('node:fs'), path = require('node:path'), crypto = require('node:crypto');
 function buildCandidate(sourcePath, destination) {
-  const baseline = fs.readFileSync(sourcePath, 'utf8'); let s = baseline; const changes = [];
+  if (path.resolve(sourcePath) === path.resolve(destination) || (fs.existsSync(destination) && fs.realpathSync(sourcePath) === fs.realpathSync(destination))) throw new Error('candidate must not overwrite its source');
+  const baseline = fs.readFileSync(sourcePath, 'utf8'); let s = baseline.replace(/\r\n/g, '\n'); const changes = [];
   const edit = (before, after, why) => { if (s.split(before).length !== 2) throw new Error('candidate anchor changed: ' + why); s = s.replace(before, after); changes.push(why); };
   edit("图们.push(...recent.图们)\n        文件们.push(...recent.文件们.map(f => ({ ...f, origin: '同一发言者两分钟内最近的附件，仅作上下文' })))", "const 附图上下文 = recent.图们.length ? candidates.filter(v => v.图们.length).slice(0, 2).reverse() : [recent]\n        for (const old of 附图上下文) 图们.push(...old.图们)\n        文件们.push(...recent.文件们.map(f => ({ ...f, origin: '同一发言者两分钟内最近的附件，仅作上下文' })))", '同人前两张图片按时间附回，避免上图丢失');
   edit("return { action, ok: false, 数据: { 错: String((error && error.message) || error) } }", "return { action, ok: false, 不确定: true, 数据: { 错: String((error && error.message) || error) } }", '网络异常标记结果不确定');
@@ -15,8 +16,10 @@ function buildCandidate(sourcePath, destination) {
   const scoped = (text, ns) => text.replaceAll('已转消息.has(条.message_id)', '已转消息.has(' + ns + ')').replaceAll('已转消息.add(条.message_id)', '已转消息.add(' + ns + ')');
   s = s.slice(0, start) + scoped(s.slice(start, middle), "'p:' + 她的号 + ':' + String(条.message_id)") + scoped(s.slice(middle, end), "'g:' + 配置.群号 + ':' + String(条.message_id)") + s.slice(end);
   changes.push('消息去重按群/私域隔离，保留同号消息');
+  require('./lib/resume-patch.cjs').resumePatch(edit);
+  require('./lib/context-patch.cjs').contextPatch(edit);
   fs.mkdirSync(path.dirname(destination), { recursive: true }); fs.writeFileSync(destination, s);
-  return { baselineSHA256: crypto.createHash('sha256').update(baseline).digest('hex'), candidateSHA256: crypto.createHash('sha256').update(s).digest('hex'), changes, productionModified: false, unresolved: ['重启后的持久去重/待办恢复，需要持久收件箱与不确定发送状态；未用简单写水位代替事务语义'] };
+  return { baselineSHA256: crypto.createHash('sha256').update(baseline).digest('hex'), candidateSHA256: crypto.createHash('sha256').update(s).digest('hex'), changes, productionModified: false, unresolved: ['提交/发送结果不确定时保留账目，等待对账，不自动重放；不承诺分布式严格恰好一次', '正文选择/引用归属及语气另行离线验证'] };
 }
 if (require.main === module) {
   const source = process.argv[2], dest = process.argv[3], r = buildCandidate(source, dest); fs.writeFileSync(dest + '.proposal.json', JSON.stringify(r, null, 2)); console.log(JSON.stringify(r, null, 2));

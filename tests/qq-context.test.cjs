@@ -9,6 +9,9 @@ function block(a, b) {
   return source.slice(start + a.length, end);
 }
 const helpers = block('// patch102: file helpers BEGIN', '// patch102: file helpers END') + '\n' + ['quote', 'frame', 'dispatch'].map((kind) => block('// patch100: ' + kind + ' helpers BEGIN', '// patch100: ' + kind + ' helpers END')).join('\n');
+// A candidate adds a real state dependency. Load that implementation too; only
+// its filesystem boundary is virtual, as with the full-chain simulator.
+const durability = source.includes('// candidate: durability BEGIN') ? block('// candidate: durability BEGIN', '// candidate: durability END') : '';
 const pollStart = source.indexOf('  let 探针66 = 0');
 const pollEnd = source.indexOf('  // ============================================================', pollStart);
 const poll = source.slice(pollStart, pollEnd);
@@ -23,6 +26,7 @@ function runtime() {
   class Clock extends Date { constructor(...args) { super(...(args.length ? args : [now])); } static now() { return now; } getHours() { return 17; } }
   const config = { 转群: true, 转私聊: false, 群号: '7', 她的QQ: 900, 私聊QQ: '100', 总开关: true, 目标会话: 'existing', NapCat: 'http://mock.invalid' };
   const calls = [], logs = [], lookups = [];
+  const disk = new Map(), fds = new Map(); let fd = 10;
   const sandbox = {
     Date: Clock, Set, Map, JSON, Number, String, Array, Math, Promise, URL, TextDecoder, Buffer, AbortController, setTimeout, clearTimeout,
     待认领路由: new Map(), 轮路由: new Map(), 黄脸表: [], 已转消息: new Set(), 热聊: new Map(),
@@ -35,7 +39,14 @@ function runtime() {
     读体: async req => req, 回: (res, value) => { res.value = value; return value; },
     路线: (name, handler) => { sandbox.routes.set(name, handler); }, 新id: (() => { let id = 0; return () => 'test-' + ++id; })(),
     提取正文: m => m.text || '', 提取图块: () => [], 落地一发: async (cfg, body, images, route) => { sandbox.delivered.push({ body, route }); }, delivered: [],
+    目录: '/virtual', join: path.posix.join, createHash: require('node:crypto').createHash,
+    readFileSync: p => { if (!disk.has(String(p))) throw new Error('virtual file absent'); return disk.get(String(p)); },
+    writeFileSync: (p, text) => disk.set(fds.get(p) || String(p), String(text)),
+    openSync: (p, mode) => { const id=++fd; fds.set(id,String(p)); if(mode==='w')disk.set(String(p),''); return id; },
+    fsyncSync: () => {}, closeSync: id => fds.delete(id),
+    renameSync: (a,b) => { disk.set(String(b),disk.get(String(a)));disk.delete(String(a)); },
   };
+  if (durability) sandbox.existsSync = p => disk.has(String(p));
   let history = [], lookup = async () => { throw new Error('not found'); }, result = { ok: true }, onSend = null;
   sandbox.fetch = async (url, options) => {
     if (url.endsWith('/get_group_msg_history') || url.endsWith('/get_friend_msg_history')) return { ok: true, status: 200, json: async () => ({ status: 'ok', data: { messages: history } }) };
@@ -51,7 +62,7 @@ function runtime() {
     return result;
   };
   vm.createContext(sandbox);
-  vm.runInContext(helpers + '\n' + poll + '\n' + lifecycle + '\n' + events + '\n' + nudges + '\n' + pokes + '\n globalThis.api = {记99, 取引用99, 条转片段, 群消息指向99, 消息先后99, 加缓冲, 缓冲条目, 合成群批99, 退回缓冲, 冲缓冲, 轮询收消息, 缓聊, 消息记99, 有QQ待办100, 跟进并记路由, 收到认领, 收到事件, 收到丢弃};', sandbox);
+  vm.runInContext(durability + '\n' + helpers + '\n' + poll + '\n' + lifecycle + '\n' + events + '\n' + nudges + '\n' + pokes + '\n globalThis.api = {记99, 取引用99, 条转片段, 群消息指向99, 消息先后99, 加缓冲, 缓冲条目, 合成群批99, 退回缓冲, 冲缓冲, 轮询收消息, 缓聊, 消息记99, 有QQ待办100, 跟进并记路由, 收到认领, 收到事件, 收到丢弃};', sandbox);
   return { api: sandbox.api, config, sandbox, calls, logs, lookups, advance: (ms) => { now += ms; }, now: () => now, setHistory: (h) => { history = h; }, lookup: (fn) => { lookup = fn; }, result: (r) => { result = r; }, onSend: (fn) => { onSend = fn; }, clearBusy: () => { sandbox.待认领路由.clear(); sandbox.轮路由.clear(); } };
 }
 const text = (s) => ({ type: 'text', data: { text: s } });
@@ -125,8 +136,8 @@ async function run() {
     add(r, 200, '-21', '我会煮泡面，这算下厨吗', false, t + 1);
     r.advance(7000); await r.api.冲缓冲(r.config);
     assert.equal(r.calls.length, 1); assert.equal(r.calls[0].mid, '-20'); assert.equal(r.calls[0].at, 100);
-    assert(r.calls[0].text.includes('【本轮对象·主人】'));
-    assert(r.calls[0].text.includes('【背景·用户200】我会煮泡面'));
+    assert(/【本轮对象·主人(?:\|[^】]+)?】/.test(r.calls[0].text));
+    assert(/【背景·用户200(?:\|[^】]+)?】我会煮泡面/.test(r.calls[0].text));
     assert(r.calls[0].text.includes('不把别人的问题当成他的'));
   });
   await test('A1 B1 A2 retains original chronology instead of A1 A2 B1', async () => {

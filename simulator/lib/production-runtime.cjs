@@ -3,20 +3,27 @@ const { SimClock } = require('./clock.cjs');
 const DEFAULT_SOURCE = path.resolve(__dirname, '../../bridge/host.js');
 const ID = { A: 1001, B: 1002, C: 1003, W: 1004 };
 const hash = x => crypto.createHash('sha256').update(x).digest('hex');
-function createRuntime({ sourcePath = DEFAULT_SOURCE, style = '', names = { A: '主人', B: '小岚', C: '阿澄', W: '鲸鱼娘' }, clock = new SimClock(), disk = new Map(), sendBehavior } = {}) {
+let runtimeSerial = 0;
+function createRuntime({ sourcePath = DEFAULT_SOURCE, style = '', names = { A: '主人', B: '小岚', C: '阿澄', W: '鲸鱼娘' }, clock = new SimClock(), disk = new Map(), sendBehavior, fsFault, autoClaim = true } = {}) {
   const source = fs.readFileSync(sourcePath, 'utf8'), writes = [], requests = [], deliveries = [], attempts = [], admitted = [], logs = [], modelInbox = [], blocked = [];
   const routes = new Map(), listeners = new Map(), history = [], imageInfo = new Map(); let turn = 0, attachmentId = 0, uuid = 0;
   const config = { 她的QQ: ID.W, 总开关: true, 试运行: false, 目标会话: 'offline-only', 私聊QQ: String(ID.A), 群号: '7001', 转私聊: true, 转群: true, NapCat: 'https://onebot.invalid', 收图: true, 收图最多: 4, 发图: true, 图上限MB: 5, 称呼: '群友', 图片根目录: '/offline/stickers' };
   disk.set('/offline/.dsh/qq-bridge-config.json', Buffer.from(JSON.stringify(config)));
   disk.set('/root/dsh-workspace/CHAT-STYLE.md', Buffer.from(style));
   disk.set('/offline/.dsh/qq-bridge-audit-key', Buffer.from('offline-test-'.repeat(5)));
+  const descriptors = new Map(); let fdSerial = 10; const processSerial = ++runtimeSerial;
+  const fault = (operation, file, data) => { if (fsFault) fsFault(operation, String(file), data); };
   const vfs = {
     readFileSync(file, encoding) { const key = String(file); if (key.endsWith('/package.json')) return JSON.stringify({ version: 'offline-production-snapshot' }); if (!disk.has(key)) throw Object.assign(new Error('virtual file absent'), { code: 'ENOENT' }); const b = Buffer.from(disk.get(key)); return encoding ? b.toString(typeof encoding === 'string' ? encoding : encoding.encoding) : b; },
-    writeFileSync(file, data) { disk.set(String(file), Buffer.isBuffer(data) ? Buffer.from(data) : Buffer.from(String(data))); writes.push(String(file)); },
+    writeFileSync(file, data) { const key = descriptors.get(file) || String(file); fault('write', key, data); disk.set(key, Buffer.isBuffer(data) ? Buffer.from(data) : Buffer.from(String(data))); writes.push(key); },
+    openSync(file, mode) { fault('open', file); const fd = ++fdSerial; descriptors.set(fd, String(file)); if (mode === 'w') disk.set(String(file), Buffer.alloc(0)); return fd; },
+    closeSync(fd) { fault('close', descriptors.get(fd)); descriptors.delete(fd); },
+    fsyncSync(fd) { fault('fsync', descriptors.get(fd)); },
+    renameSync(from, to) { fault('rename', to); if (!disk.has(String(from))) throw new Error('virtual rename source absent'); disk.set(String(to), disk.get(String(from))); disk.delete(String(from)); },
     mkdirSync() {}, existsSync(file) { return disk.has(String(file)); },
   };
   const emit = (event, ...args) => { for (const fn of listeners.get(event) || []) fn(...args); };
-  const agent = { session: { id: config.目标会话 }, async followup(message) { const current = ++turn; modelInbox.push({ turn: current, message: structuredClone(message), capturedAt: clock.now }); emit('agent/inbox/claimed', { agent, message, turn: current }); } };
+  const agent = { session: { id: config.目标会话 }, async followup(message) { const current = ++turn; modelInbox.push({ turn: current, message: structuredClone(message), capturedAt: clock.now }); if (autoClaim) emit('agent/inbox/claimed', { agent, message, turn: current }); } };
   const ctx = {
     logger: { info: message => logs.push({ at: clock.now, message: String(message) }) },
     effect(fn) { fn(); return () => {}; }, interval() { return () => {}; },
@@ -53,6 +60,7 @@ function createRuntime({ sourcePath = DEFAULT_SOURCE, style = '', names = { A: '
       const behavior = sendBehavior ? await sendBehavior(attempt, attempts.length) : 'success';
       if (behavior === 'received_then_timeout') { deliveries.push(attempt); throw Object.assign(new Error('simulated send timeout'), { name: 'TimeoutError' }); }
       if (behavior === 'rejected') return new Response(JSON.stringify({ status: 'failed', retcode: 100, message: 'simulated_rejection' }));
+      if (behavior === 'malformed') return new Response(JSON.stringify({ message: 'proxy lost upstream acknowledgement' }), { status: 502 });
       deliveries.push(attempt); return ok({ message_id: 8000 + deliveries.length });
     }
     if (action === 'get_login_info') return ok({ user_id: ID.W, nickname: names.W });
@@ -70,7 +78,7 @@ function createRuntime({ sourcePath = DEFAULT_SOURCE, style = '', names = { A: '
   const randomMath = Object.create(Math); randomMath.random = () => { randomState = randomState * 16807 % 2_147_483_647; return (randomState - 1) / 2_147_483_646; };
   const sandbox = { ...vfs, console: { log: x => logs.push({ at: clock.now, message: String(x) }) }, Buffer, URL, TextDecoder, AbortController, AbortSignal, Response, Headers, Map, Set, Math: randomMath, Date: clock.dateClass(),
     setTimeout: clock.setTimeout.bind(clock), clearTimeout: clock.clearTimeout.bind(clock), fetch: mockedFetch, homedir: () => '/offline', join: path.posix.join, dirname: path.posix.dirname, fileURLToPath: value => new URL(value).pathname,
-    randomUUID: () => 'offline-' + ++uuid, timingSafeEqual: crypto.timingSafeEqual, createSelfUpdate: () => ({ register() {} }), process: { env: { DSH_HOME: '/offline/.dsh' } }, __ctx: ctx };
+    randomUUID: () => 'offline-' + processSerial + '-' + ++uuid, createHash: crypto.createHash, timingSafeEqual: crypto.timingSafeEqual, createSelfUpdate: () => ({ register() {} }), process: { env: { DSH_HOME: '/offline/.dsh' } }, __ctx: ctx };
   vm.createContext(sandbox, { codeGeneration: { strings: false, wasm: false } });
   vm.runInContext(instrumented + '\nglobalThis.__bridge = apply(__ctx);', sandbox, { timeout: 5000 });
   const bridge = sandbox.__bridge;

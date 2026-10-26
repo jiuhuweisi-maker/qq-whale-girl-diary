@@ -6,7 +6,8 @@ function score(spec, runtime, context) {
   add('recipient', sends.every(s => s.action === 'send_group_msg' && s.recipient === 7001), 'group:7001', sends.map(s => s.recipient), '路由');
   // A model choosing silence is a semantic/interaction question, not proof that routing was wrong.
   add('first_mention', !first || (spec.primary === 'W' ? !first.mentions.length : first.mentions.includes(String(ID[spec.primary]))), spec.primary === 'W' ? [] : String(ID[spec.primary]), first ? first.mentions : 'not_applicable_no_send', '路由');
-  add('first_quote', !first || (spec.expectedAnchor === '' ? !first.replies.length : first.replies.includes(String(spec.expectedAnchor))), String(spec.expectedAnchor), first ? first.replies : 'not_applicable_no_send', '路由');
+  const acceptedAnchors = (spec.acceptedAnchors || [spec.expectedAnchor]).map(String);
+  add('first_quote', !first || (spec.expectedAnchor === '' ? !first.replies.length : first.replies.some(id => acceptedAnchors.includes(id))), acceptedAnchors, first ? first.replies : 'not_applicable_no_send', '路由');
   const fingerprints = sends.map(s => JSON.stringify([s.action, s.recipient, s.text]));
   const duplicateCount = fingerprints.length - new Set(fingerprints).size;
   add('duplicate_sends', duplicateCount === 0, 0, duplicateCount, '发送');

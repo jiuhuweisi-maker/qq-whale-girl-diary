@@ -40,6 +40,8 @@ function scenario(id, variant = 0) {
     default: throw new Error('unknown scenario ' + id);
   }
   for (const m of messages) m.imageDescription = m.images.map(i => i.description);
-  return { id, variant, title, names, messages, prior, toolState, primary, expectedAnchor: anchor, requiredImages, expected };
+  // In 19 both the game question and its explicit continuation are legitimate.
+  // The later unrelated message (baseId+9) is deliberately excluded.
+  return { id, variant, title, names, messages, prior, toolState, primary, expectedAnchor: anchor, ...(id === '19' ? { acceptedAnchors: [baseId + 3, baseId + 7] } : {}), requiredImages, expected };
 }
 module.exports = { scenario, CORE, BASE, NAMES };
