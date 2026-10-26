@@ -983,7 +983,7 @@ export function apply(ctx) {
       const 合 = { 头们: 群批.map((x) => 缓冲成话(x.b)), 图们: [], mid: 群批[0].b.mid, at: 0, speaker: 群批[群批.length - 1].b.speaker }
       for (const x of 群批) 合.图们.push(...x.b.images)
       合.图们 = 合.图们.slice(0, 6)
-      for (const x of 群批) if (x.b.at) { 合.at = x.b.at; 合.speaker = x.b.speaker }
+      for (const x of 群批) if (x.b.at) { 合.at = x.b.at; 合.speaker = x.b.speaker; 合.mid = x.b.mid }  // v97: @谁就引谁的原文，不串线
       let 文 = 合.头们.join('\n')
       if (群批.length > 1) 文 += '\n（以上是' + 群批.length + '个人的话一起到的：像真人那样挑你最想接的接，一至两条足够，其余的让它自然飘走，不必人人有回应，更不必回头挖旧账认真答）'
       const 气氛 = await 现场气氛(配置)
@@ -1074,12 +1074,15 @@ export function apply(ctx) {
 
     const 原话 = String(文字 || '').trim()
     const 谁 = String(配置.称呼 || '对方')
-    const 说明 = 收下.length
-      ? String.fromCharCode(10) + '（' + 谁 + '发了 ' + 收下.length + ' 张图：'
+    const 图总 = (配置.收图 && Array.isArray(图们)) ? Math.min(图们.length, Math.max(1, Math.min(Number(配置.收图最多) || 4, 10))) : 0  // v97
+    const 图败 = Math.max(0, 图总 - 收下.length)
+    const 说明 = (收下.length || 图败)
+      ? String.fromCharCode(10) + '（' + 谁 + '发了 ' + 图总 + ' 张图：'
         + 收下.map((x, i) => `第${i + 1}张 ${Math.round(x.字节 / 1024)}KB` + (x.存 ? `，要发回去就用 ${x.存}` : '')).join('；')
-        + '）'
+        + (图败 ? (收下.length ? '；' : '') + `另有 ${图败} 张没传成功、你看不到内容` : '')
+        + (图败 ? '——别猜没读到的图里是什么，觉得要紧就自然请对方重发）' : '）')
       : ''
-    const 文案 = (原话 || (收下.length ? '（' + 谁 + '发来了图片，没有配字）' : '')) + 说明
+    const 文案 = (原话 || (收下.length ? '（' + 谁 + '发来了图片，没有配字）' : (图败 ? '（' + 谁 + '发了 ' + 图败 + ' 张图，全没传成功，你看不到）' : ''))) + 说明
     if (!文案) return { ok: false, 说: '这条既没文字也没图，不转' }
 
     let content = [{ type: 'text', text: 文案 }]
@@ -1305,7 +1308,8 @@ export function apply(ctx) {
     const 净 = t.replace(/[^0-9A-Za-z\u4e00-\u9fff]+/g, '')
     const 剥 = t.replace(/^[/／>＞「」『』【】\[\]()（）“”‘’'""]+/, '').replace(/[。！!？~～、，,「」『』【】\[\]()（）“”‘’'""]+$/, '').replace(/^[/／>＞「」『』【】\[\]()（）]+|[。！!？~～、，,\s]+$/g, '').trim()
     if (!剥) return null
-    if (/预警/.test(净) && /(?:状态|开没|开了没|开了吗|开着吗|开没有|有没有开|是否|是不是)/.test(净)) return { cmd: '余额预警' }
+    const 转述97 = /(?<!是)不是|并非|没问|别问|别说|不用问|如果|假如|万一|比如|举例|假设|玩笑|模拟|引用|转述/.test(净)  // v97b:是不是 是正当问法  // v97护栏
+    if (/预警/.test(净) && /(?:状态|开没|开了没|开了吗|开着吗|开没有|有没有开|是否|是不是)/.test(净) && !转述97) return { cmd: '余额预警' }
     if (/^查余额$/i.test(剥)) return { cmd: '余额' }
     if (/^(状态|status)$/i.test(剥)) return { cmd: '状态' }
     if (/^(帮助|指令|help)$/i.test(剥)) return { cmd: '帮助' }
