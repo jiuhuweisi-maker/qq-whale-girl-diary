@@ -1171,6 +1171,8 @@ export function apply(ctx) {
         return []
       }
     }
+    const 消息记99 = new Map() // v99 入站引用补全缓存: message_id -> {谁, 文}
+    const 记99 = (id, 谁, 文) => { if (消息记99.size > 600) 消息记99.delete(消息记99.keys().next().value); 消息记99.set(String(id), { 谁: String(谁 || '群友'), 文: String(文 || '').replace(/\[CQ:[^\]]*\]/g, '').trim().slice(0, 60) }) }
     const 条转片段 = (条) => {
       const 段们 = Array.isArray(条.message) ? 条.message : []
       const 文字 = 段们.map((s) => {
@@ -1181,13 +1183,18 @@ export function apply(ctx) {
       }).join('').trim()
       // ⭐ 图片 / 表情包都算图（表情包 mface 也带 url，能拿到字节）
       const 图们 = 段们.filter((s) => s && s.data && (s.type === 'image' || s.type === 'mface'))
-      return { 文字, 图们 }
+      if (条 && 条.message_id != null) 记99(条.message_id, (条.sender && (条.sender.card || 条.sender.nickname)) || 条.user_id, 条.raw_message)  // v99
+      const 引99 = 段们.find((x) => x && x.type === 'reply' && x.data && x.data.id != null)  // v99 引用段不再丢
+      const 引文99 = 引99 ? 消息记99.get(String(引99.data.id)) : null
+      const 前缀99 = 引99 ? (引文99 ? ('（引用了「' + 引文99.谁 + '」的原话："' + 引文99.文 + '"）') : '（引用了一条我缓存里查不到原文的旧消息）') : ''
+      return { 文字: 前缀99 + 文字, 图们 }
     }
 
     const 旧水位47 = 上次私聊时间
     if (配置.转私聊 && 配置.私聊QQ) {
       const 列表 = await 拉('get_friend_msg_history', { user_id: 她的号, count: 10 })
       for (const 条 of 列表.sort((a, b) => (a.time || 0) - (b.time || 0))) {
+        if (条 && 条.message_id != null) 记99(条.message_id, 条.user_id === 她的号 ? '主人' : '本鱼', 条.raw_message)  // v99私聊全量入账
         if (!条 || Number(条.user_id) !== 她的号) continue
         if ((条.time || 0) < 上次私聊时间) continue           // 旧的，跳过
         if (已转消息.has(条.message_id)) continue             // 转过了
@@ -1213,6 +1220,7 @@ export function apply(ctx) {
       const 列表 = await 拉('get_group_msg_history', { group_id: Number(配置.群号), count: 30 })
       for (const 条 of 列表.sort((a, b) => (a.time || 0) - (b.time || 0))) {
         if (!条) continue
+        if (条.message_id != null) 记99(条.message_id, (条.sender && (条.sender.card || 条.sender.nickname)) || 条.user_id, 条.raw_message)  // v99群全量入账(先于self跳过)
         const 自53 = Number(条.self_id) && Number(条.self_id) > 0 ? Number(条.self_id) : Number(配置.她的QQ) || 0
         const 群发言者 = Number(条.user_id)
         if (群发言者 === (Number(条.self_id)||自53)) continue
