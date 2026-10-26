@@ -8,7 +8,7 @@ function block(a, b) {
   assert(start >= 0 && end > start, 'test extracts the candidate, not a reimplementation');
   return source.slice(start + a.length, end);
 }
-const helpers = ['quote', 'frame', 'dispatch'].map((kind) => block('// patch100: ' + kind + ' helpers BEGIN', '// patch100: ' + kind + ' helpers END')).join('\n');
+const helpers = block('// patch102: file helpers BEGIN', '// patch102: file helpers END') + '\n' + ['quote', 'frame', 'dispatch'].map((kind) => block('// patch100: ' + kind + ' helpers BEGIN', '// patch100: ' + kind + ' helpers END')).join('\n');
 const pollStart = source.indexOf('  let 探针66 = 0');
 const pollEnd = source.indexOf('  // ============================================================', pollStart);
 const poll = source.slice(pollStart, pollEnd);
@@ -24,7 +24,7 @@ function runtime() {
   const config = { 转群: true, 转私聊: false, 群号: '7', 她的QQ: 900, 私聊QQ: '100', 总开关: true, 目标会话: 'existing', NapCat: 'http://mock.invalid' };
   const calls = [], logs = [], lookups = [];
   const sandbox = {
-    Date: Clock, Set, Map, JSON, Number, String, Array, Math, Promise, AbortController, setTimeout, clearTimeout,
+    Date: Clock, Set, Map, JSON, Number, String, Array, Math, Promise, URL, TextDecoder, Buffer, AbortController, setTimeout, clearTimeout,
     待认领路由: new Map(), 轮路由: new Map(), 黄脸表: [], 已转消息: new Set(), 热聊: new Map(),
     上次群时间: now / 1000 - 600, 上次私聊时间: now / 1000 - 600, 拉败69: 0,
     读配置: () => config, 群静默中: () => false, 禁言中: () => false, existsSync: () => false,
@@ -44,8 +44,8 @@ function runtime() {
     lookups.push(id);
     return lookup(id, options);
   };
-  sandbox.限时转入 = async (text, images, mid, route, at, speaker) => {
-    calls.push({ text, images, mid, route, at, speaker });
+  sandbox.限时转入 = async (text, images, mid, route, at, speaker, batch, files = []) => {
+    calls.push({ text, images, mid, route, at, speaker, files });
     if (onSend) await onSend();
     if (result.ok) sandbox.待认领路由.set('call-' + calls.length, { 来路: route });
     return result;
@@ -64,7 +64,7 @@ function add(r, uid, mid, body, signal, seconds) {
 const checks = [];
 async function test(name, fn) { await fn(); checks.push(name); process.stdout.write('PASS ' + name + '\n'); }
 
-(async () => {
+async function run() {
   await test('quote survives a later poll whose history no longer contains the original', async () => {
     const r = runtime(), t = r.now() / 1000;
     r.setHistory([msg(-1, 900, [text('有下厨的自己冒个头')], t - 60)]);
@@ -257,4 +257,6 @@ async function test(name, fn) { await fn(); checks.push(name); process.stdout.wr
   });
   process.stdout.write('PASS_ALL ' + checks.length + '\n');
   if (process.env.WHALE_TEST_REPORT) fs.writeFileSync(process.env.WHALE_TEST_REPORT, JSON.stringify({ testedAt: new Date().toISOString(), candidateSHA256: require('node:crypto').createHash('sha256').update(source).digest('hex'), passed: checks, limits: ['No server or QQ calls; all OneBot responses mocked', 'No claim of LLM response quality or deployed fix'] }, null, 2));
-})().catch((error) => { console.error(error); process.exitCode = 1; });
+}
+if (require.main === module) run().catch((error) => { console.error(error); process.exitCode = 1; });
+module.exports = { runtime, text, reply, at, msg, source };
