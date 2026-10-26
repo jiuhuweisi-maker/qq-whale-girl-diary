@@ -342,3 +342,10 @@ DSH，**在桥的私聊轮询里就被截胡**（发送者本来就必须是主�
 - 动因：主人裁定"就按你的来"；40% 引用密度在她自己的聊天纪律里属于"作秀"（回@必引不变，闲话掷骰从 0.4 降到 0.25），趁静默时段上线。
 - 落地：服务器 host.js 第 604 行 `带引G` 掷骰常数 0.4→0.25（备份 bak82，`node --check` 过，95262→95263 字节）；`systemctl restart dsh` 生效；**wake_dsh_session.py 首战实录：`SESSION_WAKE_SUCCESS=True`**，重启后无需人肉点卡片。
 - 活体验收：sess-alive `alive`、心跳年龄 2 秒、`get_login_info` retcode=0（鲸戒在线）。私聊引用率 0.15 不动（本就克制）。
+
+## patch83 — meta 残渣哨：英文优化残句不再混进 QQ（2026-10-26 午）
+
+- 事故：10:17 群聊泡泡「上午好…早饭记得吃」尾巴上粘了一句 `This request appears to contain nothing that can be improved.` 发到群里。定罪：09:12 桥注入「每周搜梗」任务（主人特批，明写不用回QQ），她做完台账后模型收尾吐出一句提示词优化残渣，与下一轮聊天回复粘连，出站时被旧脏口网放行（网只管纯英文长段，中文粘连英文句漏网）。
+- 修复：出站逐段过滤，`This request/There is nothing/Nothing here …improvi…` 英文残句摘除并记账「🧹 摘除meta残渣」；中文正文一字不动。第一版正则贪吃把粘连中文一起砍（单元测试当场抓住），改保守版四案例全过。
+- 顺手两笔：① 值班妈妈自己的祸——她的会话卡片输入框里存着 00:38 预填未清的"交接班"草稿，已删（真实按键清空+复验）；② 服务器 /opt/qq-cs/*.bak79/80 十个文件里躺着的 v0/v1 明文旧票全部 REDACTED（现役脚本本就干净），有效票面收敛到配置+relay+SECRETS 三处。
+- 部署与验收：备份 bak83；`node --check` 过；restart dsh → wake 脚本 `SESSION_ALREADY_ALIVE=True` → sess-alive alive → retcode=0。

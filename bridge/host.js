@@ -518,7 +518,15 @@ export function apply(ctx) {
     // ⭐ 正文里的 markdown 图（贴纸就是这么发的）也当图片发；抠掉之后正文更干净
     const 抠过 = 配置.发图 ? 抠正文图(原文字) : { 净文字: String(原文字 || ''), 图: [] }
     const 文字 = 抠过.净文字
-    const 段们 = 按段拆(文字).length ? 按段拆(文字) : [String(文字 || '').trim()].filter((s) => s.length > 0)
+    let 段们 = 按段拆(文字).length ? 按段拆(文字) : [String(文字 || '').trim()].filter((s) => s.length > 0)
+    // patch83 meta残渣哨：中文泡泡里粘连的英文优化残渣句逐段摘除
+    段们 = 段们.map((t) => {
+      if (!/[\u4e00-\u9fff]/.test(t)) return t
+      const cut = t.replace(/\s*(?:This request|There (?:is|s) nothing|Nothing here)[^\n]*?improvi?[^\n]*?(?:[.!?]|\n|$)/gi, '')
+      if (cut.trim() !== t.trim()) { 记账('🧹 patch83 摘除meta残渣1句'); return cut.trim() }
+      return t
+    }).filter((t) => t.length > 0)
+
     // patch61 脏口滤网：系统小字不是她的话
     const 脏口 = (t) => {
       if (/[\u4e00-\u9fff]/.test(t)) return false

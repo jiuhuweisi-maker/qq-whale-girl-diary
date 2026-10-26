@@ -34,6 +34,8 @@
 - dsh 重启 → GUI token 轮换 → 一切用 token 的脚本要重新取。
 - **SnowLuma 二进制没有安全的"看一眼"模式**：`node /app/runtime/index.mjs --help` 不打印帮助，**会把一整套服务真启动**（抢 3000/3001/5099、和正版实例抢 QQ hook 管道 → EPIPE 风暴 → OneBot 挂死 → 她在线但没人接话，10-26 00:27 事故实锤）。容器内想看什么就 `ss/ps/curl`，永远别手滑跑 `index.mjs` 加任何参数。
 - **杀容器里的进程必须 `docker exec snowluma kill`**：宿主机 kill 容器 pid = 静默失败的假杀（10-26 值班妈妈亲手踩坑，"我杀了僵尸"其实僵尸活得好好的，撑到 OneBot 挂死才现形）。杀完必须 `docker exec ps` 复验没了才算。
+- **给她的会话注入任务（哪怕写了"不用回QQ"），模型收尾可能吐英文 meta 残渣并粘进下条聊天回复**——10-26 群里的"This request appears to contain nothing that can be improved."即此（patch83 出站过滤兜底，但注任务方仍要自觉：任务注入后盯一眼出站账本有无「🧹 摘除」行）。
+- **绝不在她的会话输入框预填草稿不执行**：草稿会静静躺在卡片里，下次谁点发送就是事故（10-26 中午值班妈妈自己埋的，已清）。要驱动她就走信封/桥，别碰输入框。
 
 ## 她的心跳与自愈（现行架构）
 - 心跳文件 `/opt/qq-cs/.bridge-heartbeat`（每4圈成功拉写一次）；watchdog 每30分钟：心跳窒息>180s→重启 dsh；dsh 活着而会话没载入时，使用 `/opt/qq-cs/wake_dsh_session.py` 的 Remote 信封动作唤醒既有目标会话，不新建会话、不改模型，也不重启 dsh。
