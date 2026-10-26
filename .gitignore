@@ -1,0 +1,4 @@
+simulator/.private/
+simulator/runs/
+simulator/*.local.json
+simulator/transports/
