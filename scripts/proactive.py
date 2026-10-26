@@ -35,6 +35,14 @@ try:
 except Exception: pass
 rescue = silent_min >= 25 and (lastfire is None or now - lastfire >= datetime.timedelta(minutes=45))  # v89: cron改7分钟探测后下限从20抬到45，防连环戳
 if not (due or rescue): raise SystemExit(0)
+# v90 抖动保险丝：条件全满足也不保证这圈开口——随机顺延6~25分钟，把注入分钟彻底带离钟面刻度
+if random.random() < 0.35:
+    n3 = now + datetime.timedelta(minutes=random.randint(6, 25))
+    open(STATE, "w").write(n3.isoformat(timespec="minutes"))
+    open(LOG, "a").write("%s proactive 抖动顺延%d分钟\n" % (now.strftime("%m-%d %H:%M"), (n3-now).seconds//60))
+    raise SystemExit(0)
+import time as _tm
+_tm.sleep(random.randint(0, 280))  # v90b 注入前随机睡0~4.7分钟，落地分钟不再卡探测刻度
 out = subprocess.check_output(["journalctl","-u","dsh","--no-pager"]).decode("utf-8","ignore")
 toks = re.findall(r"token=([A-Za-z0-9_-]+)", out)
 if not toks: raise SystemExit("no token")
