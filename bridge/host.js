@@ -12,7 +12,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, timingSafeEqual } from 'node:crypto'
 import { createSelfUpdate } from './selfupdate.mjs'
 
 export const name = 'qq-bridge'
@@ -245,6 +245,14 @@ function 存一张(名字, 字节, 类) {
 
 // patch102: file helpers BEGIN
 // Attachment names and bodies are user data, never workspace instructions or executable paths.
+function 允许附件审计102(req) {
+  try {
+    const key = readFileSync(join(目录, 'qq-bridge-audit-key'), 'utf8').trim()
+    if (!/^[A-Za-z0-9_-]{40,100}$/.test(key)) return false
+    const expected = Buffer.from('Bearer ' + key), actual = Buffer.from(String(req.headers && req.headers.authorization || ''))
+    return actual.length === expected.length && timingSafeEqual(actual, expected)
+  } catch { return false }
+}
 function 文件元信息102(段) {
   const d = 段 && 段.data || {}
   const name = String(d.name || d.file_name || d.file || '未命名文件').split(/[\\/]/).at(-1).replace(/[\x00-\x1f\x7f]/g, '').slice(0, 180) || '未命名文件'
@@ -1016,6 +1024,7 @@ export function apply(ctx) {
 
   // Admin-only replay through the same resolver/store, with no agent turn or QQ send.
   路线(`${路由前缀}/attachment-audit`, async (req, res) => {
+    if (!允许附件审计102(req)) { res.statusCode = 403; return 回(res, { ok: false, reason: 'unauthorized' }) }
     const body = await 读体(req), 配置 = 读配置()
     const 私 = body && body.channel === 'private', 域 = 私 ? 'p:' + 配置.私聊QQ : 'g:' + 配置.群号
     const ids = Array.isArray(body && body.message_ids) ? body.message_ids.slice(0, 3).map(String) : []

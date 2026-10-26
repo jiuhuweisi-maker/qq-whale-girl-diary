@@ -5,7 +5,7 @@ const image = () => ({ type: 'image', data: { url: 'https://multimedia.nt.qq.com
 const section = (a, b) => source.slice(source.indexOf(a) + a.length, source.indexOf(b));
 function fileRuntime() {
   const requests = [], saved = [], sent = [], logs = [];
-  const sandbox = { Buffer, URL, TextDecoder, Map, Set, Date, Math, Number, String, Array, JSON, Promise, AbortController, setTimeout, clearTimeout,
+  const sandbox = { Buffer, URL, TextDecoder, Map, Set, Date, Math, Number, String, Array, JSON, Promise, AbortController, setTimeout, clearTimeout, join: path.join, 目录: '/test', timingSafeEqual: require('node:crypto').timingSafeEqual,
     fetch: async (url, opts) => { requests.push(url); return sandbox.respond(url, opts); },
     respond: () => new Response(Buffer.from('# 附件\n保留🙂（挥手）'), { status: 200 }),
     readFileSync: () => '保留原本的可爱口吻，emoji、颜文字和小括号动作照常用。', 记账: x => logs.push(x),
@@ -158,18 +158,21 @@ async function check(name, fn) { await fn(); console.log('PASS ' + name); passed
     const r = fileRuntime(), items = ['a.md', 'b.md', 'c.md'].map(n => ({ name: n, size: 0, url: '' }));
     const out = await r.api.入文件102(items, r.sandbox.ctx.attachments); assert(out.text.includes('c.md')); assert(out.text.includes('最多接收两个'));
   });
-  await check('audit uses real resolver/store without a model turn and rejects another group', async () => {
+  await check('audit authenticates before reading, rejects another group, and never starts a model turn', async () => {
     const r = fileRuntime(), routes = new Map();
     const auditStart = source.indexOf('  // Admin-only replay through the same resolver/store');
     const auditEnd = source.indexOf('  路线(`${路由前缀}/save`', auditStart);
     Object.assign(r.sandbox, { 路线: (key, handler) => routes.set(key, handler), 路由前缀: '/bridge', 读体: async req => req, 回: (res, value) => { res.value = value; }, 黄脸表: [], 带票52: value => value,
-      读配置: () => ({ NapCat: 'http://mock.invalid', 群号: '7', 私聊QQ: '100', 她的QQ: 900 }) });
+      readFileSync: () => 'A'.repeat(48), 读配置: () => ({ NapCat: 'http://mock.invalid', 群号: '7', 私聊QQ: '100', 她的QQ: 900 }) });
     vm.runInContext(section('// patch100: quote helpers BEGIN', '// patch100: quote helpers END') + '\n' + source.slice(auditStart, auditEnd), r.sandbox);
     let group = 7;
     r.sandbox.respond = url => url.endsWith('/get_msg') ? new Response(JSON.stringify({ status: 'ok', data: msg(-900, 100, [file('memo.md', '# 附件\n保留🙂（挥手）')], 1, { group_id: group }) }), { status: 200 }) : new Response(Buffer.from('# 附件\n保留🙂（挥手）'));
-    const yes = {}; await routes.get('/bridge/attachment-audit')({ message_ids: [-900] }, yes);
+    const unauth = {}; await routes.get('/bridge/attachment-audit')({ message_ids: [-900] }, unauth); assert.equal(unauth.statusCode, 403); assert.equal(r.requests.length, 0);
+    const wrong = {}; await routes.get('/bridge/attachment-audit')({ message_ids: [-900], headers: { authorization: 'Bearer ' + 'B'.repeat(48) } }, wrong); assert.equal(wrong.statusCode, 403); assert.equal(r.requests.length, 0);
+    const headers = { authorization: 'Bearer ' + 'A'.repeat(48) };
+    const yes = {}; await routes.get('/bridge/attachment-audit')({ message_ids: [-900], headers }, yes);
     assert(yes.value.ok); assert(yes.value.noAgentTurn); assert(yes.value.noQQSend); assert.equal(yes.value.results[0].fileParts, 1); assert.equal(r.sent.length, 0);
-    group = 8; const no = {}; await routes.get('/bridge/attachment-audit')({ message_ids: [-900] }, no); assert(!no.value.ok); assert.equal(r.sent.length, 0);
+    group = 8; const no = {}; await routes.get('/bridge/attachment-audit')({ message_ids: [-900], headers }, no); assert(!no.value.ok); assert.equal(r.sent.length, 0);
   });
   console.log('PASS_ALL ' + passed);
 })().catch(e => { console.error(e); process.exitCode = 1; });
