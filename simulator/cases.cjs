@@ -42,6 +42,6 @@ function scenario(id, variant = 0) {
   for (const m of messages) m.imageDescription = m.images.map(i => i.description);
   // In 19 both the game question and its explicit continuation are legitimate.
   // The later unrelated message (baseId+9) is deliberately excluded.
-  return { id, variant, title, names, messages, prior, toolState, primary, expectedAnchor: anchor, ...(id === '19' ? { acceptedAnchors: [baseId + 3, baseId + 7] } : {}), requiredImages, expected };
+  return { id, variant, title, names, messages, prior, toolState, primary, expectedAnchor: anchor, ...(id === '19' ? { acceptedAnchors: [baseId + 3, baseId + 7] } : id === '10' ? { acceptedAnchors: [baseId + 2, baseId + 3] } : {}), requiredImages, expected };
 }
 module.exports = { scenario, CORE, BASE, NAMES };

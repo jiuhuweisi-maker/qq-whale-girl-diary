@@ -6,7 +6,7 @@ const { score } = require('./lib/score.cjs');
 const arg = (name, fallback) => { const i = process.argv.indexOf('--' + name); return i < 0 ? fallback : process.argv[i + 1]; };
 function completeContext(spec) {
   const rows = spec.messages.map(m => ({ messageId: m.id, sender: m.sender, stableId: m.stableId, displayName: m.name, time: new Date(m.time).toISOString(), text: m.text, mentions: m.at, quoteTarget: m.replyTo, images: m.images, recalled: !!m.recalled }));
-  return '【完整正确的模拟群聊上下文】\n' + JSON.stringify(rows, null, 2) + (spec.id === '20' ? '\n【当前回合】群里没有新消息和新问题，主动观察轮可选择沉默，不存在要回答的提问者。' : '\n【当前回合】只回答' + spec.primary + '（' + spec.names[spec.primary] + '）这一轮，自动@与引用锚为消息' + spec.expectedAnchor + '。上下文里的历史不是新的催办。');
+  return '【完整正确的模拟群聊上下文】\n' + JSON.stringify(rows, null, 2) + (spec.id === '20' ? '\n【当前回合】群里没有新消息和新问题，主动观察轮可选择沉默，不存在要回答的提问者。' : '\n【当前回合】只回答' + spec.primary + '（' + spec.names[spec.primary] + '）这一轮，自动@与引用锚为消息' + spec.expectedAnchor + '。上下文里的历史不是新的催办。只回应当前问的事，不自行追加接单或索要材料。');
 }
 function writeFailure(file, r) {
   const content = '用例编号：' + r.caseId + ' / ' + r.mode + ' / 变体' + r.variant + '\n模拟原始消息：\n' + JSON.stringify(r.simulatedMessages, null, 2) + '\n实际传给模型的上下文：\n' + r.context + '\n模型原始输出：\n' + r.rawOutput + '\n最终发送内容、@对象和引用目标：\n' + JSON.stringify(r.finalSends, null, 2) + '\n工具实际调用与结果：\n' + JSON.stringify(r.toolCalls, null, 2) + '\n预期行为：' + r.expected + '\n实际偏差：\n' + JSON.stringify(r.judgement.hard.failures, null, 2) + '\n问题层级：' + [...new Set(r.judgement.hard.failures.map(f => f.layer))].join(' / ') + '\n软指标：待Codex初评，不能用代码检查代替语言质量判断。\n';

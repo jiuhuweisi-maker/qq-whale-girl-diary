@@ -48,5 +48,15 @@ const first=(r,type)=>r.deliveries[0]?.body.message.find(x=>x.type===type)?.data
   await check('cold nudge contains verified scene without inventing current requests',async()=>{
     const r=createRuntime({sourcePath:candidate});await r.requestRoute('nudge',{text:'有新话就说，没话略过',channel:'group'});const text=r.modelText(r.modelInbox[0]);assert(text.includes('没有当前新点名'));assert(text.includes('没有可核实的群聊文字'));await r.finish(r.modelInbox[0],'略过');assert.equal(r.deliveries.length,0);r.assertIsolated();
   });
+  for(const variant of [0,1,2,3])await check('clarification v'+variant+' cannot reopen another member task',async()=>{
+    const{r,inbox,route}=await fixture('09',variant);assert(route.clarificationOnly);await r.finish(inbox,'【回复:q1】那句是我说得含糊，我收回🙂\n你要是真想找歌，把歌名给我，我去找');
+    const text=r.deliveries.map(d=>d.body.message.filter(x=>x.type==='text').map(x=>x.data.text).join('')).join('\n');assert(text.includes('含糊'));assert(text.includes('🙂'));assert(!text.includes('歌名给我'));
+  });
+  await check('ordinary explicit search request is never cut by clarification guard',async()=>{
+    const{r,inbox,route}=await fixture('11');assert(!route.clarificationOnly);const text='你给我歌名我就能帮你确认🙂';await r.finish(inbox,text);assert.equal(first(r,'text').text,text);
+  });
+  await check('negated invitation and cute expression survive clarification guard',async()=>{
+    const{r,inbox}=await fixture('09');await r.finish(inbox,'【回复:q1】不用再给我材料，我刚才说含糊了（挠头）');assert.equal(first(r,'text').text,'不用再给我材料，我刚才说含糊了（挠头）');
+  });
   const report={modelCalls:0,realQQConnections:0,passed:results.filter(x=>x.passed).length,failed:results.filter(x=>!x.passed).length,results};if(process.argv[3])fs.writeFileSync(process.argv[3],JSON.stringify(report,null,2));console.log(JSON.stringify({passed:report.passed,failed:report.failed,modelCalls:0}));if(report.failed)process.exitCode=1;
 })().catch(e=>{console.error(e);process.exitCode=1;});

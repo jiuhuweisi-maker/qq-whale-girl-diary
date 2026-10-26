@@ -8,11 +8,11 @@
 //
 // ⚠ 安全默认：总开关 = false、试运行 = true —— 不手动打开，一句都不会真的发到 QQ。
 
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, fsyncSync, renameSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { randomUUID, timingSafeEqual } from 'node:crypto'
+import { randomUUID, timingSafeEqual, createHash } from 'node:crypto'
 import { createSelfUpdate } from './selfupdate.mjs'
 
 export const name = 'qq-bridge'
@@ -439,7 +439,199 @@ export function apply(ctx) {
   const 待认领路由 = new Map()
   const 轮路由 = new Map()
   const 已发轮 = new Set()
-  const 已转消息 = new Set() // 已经转发进 DSH 的 QQ 消息 id（防重复转）
+
+  // candidate: durability BEGIN
+  function createDeliveryState({ fs, hash, basePath, namespace, now, diag }) {
+  let healthy = true;
+  const fresh = () => ({ inbox: {}, outbox: {}, pictures: {}, groupPictureAt: 0 });
+  let data = fresh(), revision = 0;
+  const fail = error => {
+    healthy = false;
+    diag('持久消息账本不可用，暂停收发；不会自动重登：' + String(error.message || error).slice(0, 100));
+    return false;
+  };
+  try {
+    const slots = [];
+    for (const slot of [0, 1]) {
+      const file = basePath + '.' + slot;
+      if (!fs.existsSync(file)) continue;
+      const record = JSON.parse(fs.readFileSync(file, 'utf8'));
+      const { checksum, ...payload } = record;
+      if (payload.version !== 1 || payload.namespace !== namespace || !Number.isSafeInteger(payload.revision) || payload.revision < 1 || checksum !== hash(JSON.stringify(payload))) throw new Error('state format/checksum mismatch');
+      const d = payload.data;
+      if (!d || !['inbox', 'outbox', 'pictures'].every(k => d[k] && typeof d[k] === 'object' && !Array.isArray(d[k])) || !Number.isFinite(d.groupPictureAt)) throw new Error('invalid state data');
+      if (Object.values(d.inbox).some(r => !r || !Number.isFinite(r.at) || !Number.isFinite(r.expiresAt) || !['buffered', 'submitting', 'queued', 'claimed', 'completed', 'skipped', 'expired', 'uncertain'].includes(r.stage))) throw new Error('invalid inbox');
+      if (Object.values(d.outbox).some(r => !r || !Number.isFinite(r.at) || !Array.isArray(r.attempts) || !['sending', 'sent', 'suppressed', 'rejected', 'uncertain'].includes(r.status))) throw new Error('invalid outbox');
+      if (Object.values(d.pictures).some(t => !Number.isFinite(t))) throw new Error('invalid picture state');
+      slots.push(payload);
+    }
+    slots.sort((a, b) => b.revision - a.revision);
+    if (slots.length) { data = slots[0].data; revision = slots[0].revision; }
+  } catch (error) { fail(error); }
+  function change(edit) {
+    if (!healthy) return false;
+    try {
+      const next = JSON.parse(JSON.stringify(data));
+      const t = now();
+      for (const [key, r] of Object.entries(next.inbox)) {
+        if (['completed', 'skipped', 'expired'].includes(r.stage) && t - r.at > 86400000) delete next.inbox[key];
+      }
+      for (const [key, r] of Object.entries(next.outbox)) {
+        if (['sent', 'suppressed', 'rejected'].includes(r.status) && t - r.at > 86400000) delete next.outbox[key];
+      }
+      for (const [key, t0] of Object.entries(next.pictures)) if (t - t0 >= 86400000) delete next.pictures[key];
+      edit(next);
+      // Never evict fresh or uncertain deliveries to make room for another one.
+      if (Object.keys(next.inbox).length > 20000 || Object.keys(next.outbox).length > 20000) throw new Error('state capacity reached; reconciliation required');
+      const payload = { version: 1, namespace, revision: revision + 1, data: next };
+      const file = basePath + '.' + (payload.revision % 2), temp = file + '.tmp';
+      const serialized = JSON.stringify({ ...payload, checksum: hash(JSON.stringify(payload)) });
+      let fd;
+      try { fd = fs.openSync(temp, 'w', 0o600); fs.writeFileSync(fd, serialized); fs.fsyncSync(fd); }
+      finally { if (fd !== undefined) fs.closeSync(fd); }
+      fs.renameSync(temp, file);
+      // Directory sync is required for the rename to survive a host crash on Linux.
+      let dirfd;
+      try { dirfd = fs.openSync(basePath.slice(0, basePath.lastIndexOf('/')), 'r'); fs.fsyncSync(dirfd); }
+      finally { if (dirfd !== undefined) fs.closeSync(dirfd); }
+      data = next; revision = payload.revision;
+      return true;
+    } catch (error) { return fail(error); }
+  }
+  return { get healthy() { return healthy; }, get data() { return data; }, change };
+}
+  function createReconciler({ store, namespace, now, probe, send, diag, interval = 60000 }) {
+  let running = false;
+  async function tick() {
+    if (running || !store.healthy) return { skipped: true };
+    running = true;
+    const result = { confirmed: 0, retried: 0, unresolved: 0, expired: 0 };
+    try {
+      for (const [batchId, batch] of Object.entries(store.data.outbox)) {
+        if (batch.status !== 'uncertain' || now() < (batch.nextCheckAt || 0)) continue;
+        const index = batch.attempts.findIndex(a => a.status === 'uncertain');
+        if (index < 0) continue;
+        const attempt = batch.attempts[index];
+        let evidence;
+        try { evidence = await probe({ namespace, batchId, index, attempt: JSON.parse(JSON.stringify(attempt)) }); }
+        catch { evidence = null; }
+        const correlated = evidence && evidence.namespace === namespace && evidence.requestId === attempt.requestId && evidence.digest === attempt.digest && evidence.action === attempt.action && String(evidence.recipient) === String(attempt.recipient);
+        const commit = edit => store.change(s => edit(s.outbox[batchId], s));
+        const settle = (out, s, status) => {
+          out.status = status;
+          for (const key of out.keys || []) if (s.inbox[key]) s.inbox[key].stage = 'completed';
+        };
+        if (correlated && evidence.status === 'delivered' && evidence.messageId != null) {
+          if (!commit((out, s) => { out.attempts[index].status = 'sent'; out.attempts[index].messageId = String(evidence.messageId); out.reconciledAt = now(); settle(out, s, out.attempts.every(a => a.status !== 'uncertain') ? 'sent' : 'uncertain'); })) break;
+          result.confirmed++;
+        } else if (correlated && evidence.status === 'not_delivered' && evidence.authoritative === true && evidence.proof === 'request-status' && typeof evidence.receiptId === 'string' && evidence.receiptId) {
+          const expired = batch.deadline && now() >= batch.deadline;
+          if (expired || !attempt.body || (attempt.retries || 0) >= 1) {
+            if (!commit((out, s) => { out.attempts[index].status = 'rejected'; out.resolution = expired ? 'expired_without_retry' : 'no_safe_retry_payload_or_limit'; settle(out, s, 'rejected'); })) break;
+            result.expired += Number(!!expired);
+            continue;
+          }
+          // Persist the retry intent before the network boundary. A crash now
+          // must not make another restart replay this request again.
+          if (!commit(out => { out.attempts[index].retries = 1; out.attempts[index].retryReceipt = evidence.receiptId; out.attempts[index].retryStartedAt = now(); out.nextCheckAt = now() + interval; })) break;
+          let sent;
+          try { sent = await send(attempt.action, JSON.parse(JSON.stringify(attempt.body))); }
+          catch { sent = { ok: false, 不确定: true }; }
+          if (!commit((out, s) => {
+            out.attempts[index].status = sent.不确定 ? 'uncertain' : sent.ok ? 'sent' : 'rejected';
+            if (sent.数据?.data?.message_id != null) out.attempts[index].messageId = String(sent.数据.data.message_id);
+            if (!sent.不确定) settle(out, s, sent.ok ? 'sent' : 'rejected');
+          })) break;
+          result.retried++;
+        } else {
+          if (!commit(out => { out.nextCheckAt = now() + interval; out.resolution = 'awaiting_correlated_evidence'; })) break;
+          result.unresolved++;
+        }
+      }
+    } finally { running = false; }
+    if (result.confirmed || result.retried) diag('发件对账完成：确认' + result.confirmed + '，有凭据重试' + result.retried);
+    return result;
+  }
+  return { tick };
+}
+  const 账摘要 = value => createHash('sha256').update(value).digest('hex')
+  const 账配置 = 读配置()
+  const 取账域 = c => JSON.stringify([c.她的QQ, c.目标会话, c.群号, c.私聊QQ])
+  const 账域 = 取账域(账配置)
+  const 消息账 = createDeliveryState({ fs: { readFileSync, writeFileSync, existsSync, openSync, closeSync, fsyncSync, renameSync }, hash: 账摘要, basePath: join(目录, 'qq-delivery-' + 账摘要(账域).slice(0, 20)), namespace: 账域, now: () => Date.now(), diag: 记账 })
+  const 账可用 = () => 消息账.healthy && 取账域(读配置()) === 账域
+  const 恢复候选路由 = new Map()
+  const 对账器 = createReconciler({ store: 消息账, namespace: 账域, now: () => Date.now(), probe: 查发件凭据, send: (action, body) => 发一个(读配置().NapCat, action, body), diag: 记账 })
+  function 发件摘要(body) {
+    return JSON.stringify((body.message || []).map(s => s.type === 'text' ? ['text', String(s.data?.text || '')] : s.type === 'at' ? ['at', String(s.data?.qq || '')] : s.type === 'reply' ? ['reply', String(s.data?.id || '')] : [s.type, 'unmatchable']))
+  }
+  async function 查发件凭据(query) {
+    if (!账可用()) return null
+    if (ctx.qqDeliveryReceipts && typeof ctx.qqDeliveryReceipts.probe === 'function') return ctx.qqDeliveryReceipts.probe(query)
+    const a = query.attempt
+    if (!a.body || a.body.message.some(s => !['text', 'at', 'reply'].includes(s.type))) return null
+    // Text history can positively confirm a unique own-message match. Missing
+    // results, history gaps and API errors never permit an automatic retry.
+    const config = 读配置(), group = a.action === 'send_group_msg'
+    const response = await fetch(带票52(config.NapCat + (group ? '/get_group_msg_history' : '/get_friend_msg_history')), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(group ? { group_id: a.recipient, count: 80 } : { user_id: a.recipient, count: 80 }), signal: AbortSignal.timeout(8000) })
+    const payload = await response.json()
+    if (!response.ok || payload.status !== 'ok' || !Array.isArray(payload.data?.messages)) return null
+    const matches = payload.data.messages.filter(m => Number(m.user_id) === Number(config.她的QQ) && Math.abs(Number(m.time) * 1000 - a.at) < 30000 && (!group || m.group_id == null || String(m.group_id) === String(a.recipient)) && 发件摘要({ message: m.message }) === 发件摘要(a.body))
+    const collisions = Object.entries(消息账.data.outbox).some(([id, out]) => id !== query.batchId && out.attempts.some(old => old.digest === a.digest && Math.abs(old.at - a.at) < 60000))
+    return !collisions && matches.length === 1 ? { namespace: query.namespace, requestId: a.requestId, digest: a.digest, action: a.action, recipient: a.recipient, status: 'delivered', messageId: matches[0].message_id } : null
+  }
+  function 账键(item) {
+    return (item.route === 'private' ? 'p:' + 读配置().私聊QQ : 'g:' + 读配置().群号) + ':' + String(item.mid)
+  }
+  function 账批(项目) { return 项目.map(x => x.ledgerKey || 账键(x)).filter(k => 消息账.data.inbox[k]) }
+  function 账阶段(keys, stage, extra = {}) {
+    if (!keys || !keys.length) return 消息账.healthy
+    return 消息账.change(s => { for (const key of keys) if (s.inbox[key]) Object.assign(s.inbox[key], { stage }, extra) })
+  }
+  class 持久墓碑 extends Set {
+    has(key) { return super.has(key) || !!消息账.data.inbox[key] }
+    add(key) {
+      if (!消息账.data.inbox[key] && !消息账.change(s => { s.inbox[key] = { stage: 'skipped', at: Date.now(), expiresAt: Date.now() + 600000 } })) throw new Error('durable inbox unavailable')
+      super.add(key); return this
+    }
+  }
+  const 已转消息 = new 持久墓碑()
+  function 恢复消息账() {
+    if (!消息账.healthy) return
+    if (!消息账.change(s => {
+      for (const r of Object.values(s.inbox)) {
+        if (r.stage === 'submitting') r.stage = 'uncertain'
+        if (['buffered', 'queued', 'claimed'].includes(r.stage) && Date.now() >= r.expiresAt) r.stage = 'expired'
+      }
+      for (const r of Object.values(s.outbox)) {
+        if (r.status === 'sending') r.status = 'uncertain'
+        for (const key of r.keys || []) if (s.inbox[key]) s.inbox[key].stage = r.status === 'uncertain' ? 'uncertain' : 'completed'
+      }
+    })) return
+    for (const [key, r] of Object.entries(消息账.data.inbox)) {
+      if (r.stage === 'buffered' && r.item) 加缓冲(r.bufferKey, { ...r.item, ledgerKey: key, restoring: true })
+      // The host may renumber turns after restart. Only a fresh claim with the
+      // original durable message ID can bind a recovered reply to a new turn.
+      if (['queued', 'claimed'].includes(r.stage) && r.requestId && r.route) 恢复候选路由.set(r.requestId, r.route)
+    }
+  }
+  function 清过期账路由() {
+    for (const map of [待认领路由, 轮路由, 恢复候选路由]) for (const [id, route] of map) {
+      if (route.ledgerKeys?.length && route.ledgerKeys.every(k => Date.now() >= (消息账.data.inbox[k]?.expiresAt || 0))) {
+        if (账阶段(route.ledgerKeys, 'expired')) map.delete(id)
+      }
+    }
+  }
+  async function 账本发一个(id, base, action, body) {
+    const attempt = { action, recipient: body.group_id || body.user_id, digest: 账摘要(JSON.stringify(body)), requestId: id + ':' + 消息账.data.outbox[id].attempts.length, at: Date.now(), status: 'uncertain', body: JSON.stringify(body).length < 65536 ? body : null }
+    if (!消息账.change(s => s.outbox[id].attempts.push(attempt))) return { ok: false, 不确定: true }
+    const index = 消息账.data.outbox[id].attempts.length - 1
+    const result = await 发一个(base, action, body)
+    const saved = 消息账.change(s => Object.assign(s.outbox[id].attempts[index], { status: result.不确定 ? 'uncertain' : result.ok ? 'sent' : 'rejected', messageId: result.数据?.data?.message_id || null }))
+    return saved ? result : { ...result, ok: false, 不确定: true }
+  }
+  // candidate: durability END
+
   // patch101: style helper BEGIN
   let 上次日常口吻101 = null
   let 口吻读取失败101 = false
@@ -482,7 +674,7 @@ export function apply(ctx) {
   }
   const 读私水位 = () => {
     const n = Math.floor(Date.now() / 1000)
-    try { const v = Number(readFileSync(私水位文件, 'utf8').trim()) || 0; if (!v || n - v > 600) return n; return v } catch (e) { return n }
+    try { const v = Number(readFileSync(私水位文件, 'utf8').trim()) || 0; if (!v || n - v > 600) return n - 610; return v } catch (e) { return n - 610 }
   }
   let 上次私聊时间 = 读私水位()
   let 上次群时间 = Math.floor(Date.now() / 1000) - 610 // patch72: 初值让位于墓碑线,重启漏接的10分钟内消息补得上,不陪葬
@@ -557,11 +749,11 @@ export function apply(ctx) {
       const ok48 = !!(j && j.status === 'ok' && j.retcode === 0)
       if (ok48) 连败48 = 0
       else { 连败48++; if (连败48 === 3) void 报僵尸() }
-      return { action, ok: ok48, 数据: j }
+      return { action, ok: ok48, 不确定: !ok48 && !(r.ok && j?.status === 'failed' && Number.isFinite(j.retcode) && j.retcode !== 0), 数据: j }
     } catch (error) {
       连败48++
       if (连败48 === 3) void 报僵尸()
-      return { action, ok: false, 数据: { 错: String((error && error.message) || error) } }
+      return { action, ok: false, 不确定: true, 数据: { 错: String((error && error.message) || error) } }
     }
   }
 
@@ -626,7 +818,8 @@ export function apply(ctx) {
   }
 
   const 图闸 = new Map() // patch24：文件小写名 -> 上次真发时间戳
-  let 群图最近 = 0
+  let 群图最近 = 消息账.data.groupPictureAt
+  for (const [key, t] of Object.entries(消息账.data.pictures)) 图闸.set(key, t)
   /** 把一句正文发到该发的地方（私聊 / 群）；按空行拆段，一段一条连发。⭐ 末尾再加上图片。 */
   
   // ⭐ patch57 嘴锁：两个大脑回合的回复批不再交叉插队（"你们聊"后马上续聊的错乱感来源）
@@ -636,9 +829,22 @@ export function apply(ctx) {
     let 解57
     嘴锁57 = new Promise((r) => (解57 = r))
     await 前57.catch(() => {})
-    try { return await 发到QQ原57(配置, 原文字, 图们, 路由) } finally { 解57() }
+    try {
+      if (!账可用()) return []
+      const keys = 路由?.ledgerKeys || []
+      if (keys.length && keys.every(k => Date.now() >= (消息账.data.inbox[k]?.expiresAt || 0))) { 账阶段(keys, 'expired'); return [] }
+      const id = 路由?.deliveryId || 新id()
+      if (消息账.data.outbox[id]) { 记账('已登记的发件批次不重复发送'); return [] }
+      if (!消息账.change(s => { s.outbox[id] = { at: Date.now(), status: 'sending', attempts: [], keys, deadline: keys.length ? Math.max(...keys.map(k => s.inbox[k]?.expiresAt || 0)) : Date.now() + 600000 } })) return []
+      try {
+        const results = await 发到QQ原57(配置, 原文字, 图们, 路由, (base, action, body) => 账本发一个(id, base, action, body))
+        const status = results.some(x => x.不确定) ? 'uncertain' : !results.length ? 'suppressed' : results.every(x => x.ok) ? 'sent' : 'rejected'
+        消息账.change(s => { s.outbox[id].status = status; for (const k of keys) if (s.inbox[k]) s.inbox[k].stage = status === 'uncertain' ? 'uncertain' : 'completed' })
+        return results
+      } catch (error) { 消息账.change(s => { s.outbox[id].status = 'uncertain' }); 账阶段(keys, 'uncertain'); 记账('发件批次未确认，不自动重放'); return [] }
+    } finally { 解57() }
   }
-  async function 发到QQ原57(配置, 原文字, 图们, 路由) {
+  async function 发到QQ原57(配置, 原文字, 图们, 路由, 发本轮 = 发一个) {
     const 出 = []
     const 路 = 路由 || { 来路: (内部注入91 >= 来路时刻 && Date.now() - 内部注入91 < 900000) ? 'none' : ((来路时刻 && Date.now() - 来路时刻 < 90000 && 最后来路 === 'group') ? 'group' : 'private'), 艾特: (艾特时刻 && Date.now() - 艾特时刻 < 90000) ? 艾特我人 : 0 }
     if (路.来路 === 'none') { 记账('内部轮（复盘/无通道），不发 QQ'); return 出 }
@@ -656,6 +862,7 @@ export function apply(ctx) {
 
     // patch61 脏口滤网：系统小字不是她的话
     const 脏口 = (t) => {
+      if (/^(?:Internal Server Error\b|Traceback \(most recent call last\)|Error:\s.*(?:upstream|request|timeout))/i.test(t.trim())) return true
       if (/[\u4e00-\u9fff]/.test(t)) return false
       if (t.length <= 10) return false
       if (/(This content|External web content|fair use|copyrighted|verify that you|ignore previous|system prompt)/i.test(t)) return true
@@ -677,10 +884,14 @@ export function apply(ctx) {
         const 上回 = 图闸.get(闸键) || 0
         if (现 - 上回 < 86400000) { 记账(`🚫 图闸拦重复：这张 24 小时内贴过了（${闸键.slice(0, 10)}…）`); return }
         if (路.来路 === 'group' && 现 - 群图最近 < 90000) { 记账('⏳ 图闸按下：群里两张图不到 90 秒'); return }
-        图闸.set(闸键, 现)
-        if (路.来路 === 'group') 群图最近 = 现
+
       }
-      if (源.kind === 'url') { 图数据.push({ url: 源.value }); return }
+      const 记图片 = () => {
+        if (!消息账.change(s => { s.pictures[闸键] = Date.now(); if (路.来路 === 'group') s.groupPictureAt = Date.now() })) return false
+        图闸.set(闸键, Date.now()); if (路.来路 === 'group') 群图最近 = Date.now()
+        return true
+      }
+      if (源.kind === 'url') { if (记图片()) 图数据.push({ url: 源.value }); return }
       let 值 = 源.value
       // ⭐ 伙伴回发时常常照抄 DSH 给的那条「只读副本」路径（webp）——
       //    先反查一次表，能换回我们存的原图就换（GIF 才是动的）
@@ -690,7 +901,7 @@ export function apply(ctx) {
       try {
         const buf = readFileSync(全)
         if (buf.length > 最大) { 记账(`这张图太大（${Math.round(buf.length / 1048576)}MB），跳过`); return }
-        图数据.push({ b64: buf.toString('base64') })
+        if (记图片()) 图数据.push({ b64: buf.toString('base64') })
       } catch (error) {
         记账('读图失败，跳过：' + String((error && error.message) || error))
       }
@@ -722,13 +933,15 @@ export function apply(ctx) {
         体.user_id = Number(配置.私聊QQ)
         const 带引P = i === 0 && 路.mid && 路.mid !== 'qq' && Array.isArray(体.message) && Math.random() < 0.15 // patch65 私聊少引
         if (带引P) 体.message.unshift({ type: 'reply', data: { id: String(路.mid) } })
-        let 果P = await 发一个(配置.NapCat, 'send_private_msg', 体)
-        if (!果P.ok && 带引P) { 体.message.shift(); 果P = await 发一个(配置.NapCat, 'send_private_msg', 体) }
+        let 果P = await 发本轮(配置.NapCat, 'send_private_msg', 体)
+        if (!果P.ok && 带引P && !果P.不确定) { 体.message.shift(); 果P = await 发本轮(配置.NapCat, 'send_private_msg', 体) }
         出.push(果P)
+        if (果P.不确定) return 出
         if (i < 段们.length - 1) await new Promise((r) => setTimeout(r, 发段延迟))
       }
       for (const x of 图数据) {
-        出.push(await 发一个(配置.NapCat, 'send_private_msg', { user_id: Number(配置.私聊QQ), message: [一段图(x)] }))
+        出.push(await 发本轮(配置.NapCat, 'send_private_msg', { user_id: Number(配置.私聊QQ), message: [一段图(x)] }))
+        if (出.at(-1).不确定) return 出
         await new Promise((r) => setTimeout(r, 发段延迟))
       }
     }
@@ -739,13 +952,15 @@ export function apply(ctx) {
         if (i === 0 && 路.艾特) 体.message.unshift({ type: 'at', data: { qq: String(路.艾特) } })
         const 带引G = i === 0 && 路.mid && 路.mid !== 'qq' && Array.isArray(体.message) && (路.艾特 ? true : Math.random() < 0.25) // patch65 回@必引闲话掷骰
         if (带引G) 体.message.unshift({ type: 'reply', data: { id: String(路.mid) } })
-        let 果G = await 发一个(配置.NapCat, 'send_group_msg', 体)
-        if (!果G.ok && 带引G) { 体.message.shift(); 果G = await 发一个(配置.NapCat, 'send_group_msg', 体) }
+        let 果G = await 发本轮(配置.NapCat, 'send_group_msg', 体)
+        if (!果G.ok && 带引G && !果G.不确定) { 体.message.shift(); 果G = await 发本轮(配置.NapCat, 'send_group_msg', 体) }
         出.push(果G)
+        if (果G.不确定) return 出
         if (i < 段们.length - 1) await new Promise((r) => setTimeout(r, 发段延迟))
       }
       for (const x of 图数据) {
-        出.push(await 发一个(配置.NapCat, 'send_group_msg', { group_id: Number(配置.群号), message: (路.艾特 ? [{ type: 'at', data: { qq: String(路.艾特) } }] : []).concat([一段图(x)]) }))
+        出.push(await 发本轮(配置.NapCat, 'send_group_msg', { group_id: Number(配置.群号), message: (路.艾特 ? [{ type: 'at', data: { qq: String(路.艾特) } }] : []).concat([一段图(x)]) }))
+        if (出.at(-1).不确定) return 出
         await new Promise((r) => setTimeout(r, 发段延迟))
       }
     }
@@ -793,6 +1008,7 @@ export function apply(ctx) {
       const 轮号 = Number(d.turn)
       if (!Number.isFinite(轮号)) return
       if (d.interrupted) {
+        账阶段(轮路由.get(轮号)?.ledgerKeys, 'skipped')
         按轮输出.delete(轮号)
         轮路由.delete(轮号)
         return
@@ -814,15 +1030,20 @@ export function apply(ctx) {
       const 输出 = 按轮输出.get(轮号) || { 文本: '', 图们: [] }
       const 路由记录 = 轮路由.get(轮号)
       const 路由冲突 = !!(路由记录 && 路由记录.不确定)
-      const 路由 = 路由冲突 ? null : (路由记录 || null)
+      let 路由 = 路由冲突 ? null : (路由记录 || null)
       按轮输出.delete(轮号)
       轮路由.delete(轮号)
       const 有东西 = 输出.文本 || (输出.图们 && 输出.图们.length)
+      if (路由 && (!完成 || !有东西 || 输出.文本.trim() === '略过')) 账阶段(路由.ledgerKeys, 'skipped')
 
       if (完成 && 路由 && 有东西 && !已发轮.has(轮号)) {
         已发轮.add(轮号)
         if (已发轮.size > 1000) 已发轮.delete(已发轮.values().next().value)
-        let 落文 = String(输出.文本 || '')
+        const 选引 = 解析回复选择(String(输出.文本 || ''), 路由)
+        路由 = 选引.route
+        let 落文 = 收住措辞追问(选引.text, 路由)
+        if (落文 !== 选引.text) 记账('措辞追问：移除未被请求的新接单邀请')
+        if ((!落文 || 落文 === '略过') && !输出.图们.length) 账阶段(路由.ledgerKeys, 'skipped')
         if (落文.indexOf('【收尾】') !== -1) {
           落文 = 落文.replace(/【收尾】/g, '').trim()
           if (路由.话) { 热聊.delete(路由.话); 记账('她收尾了话题，' + 路由.话 + ' 的陪聊窗已关（再@才会理）') }
@@ -909,7 +1130,9 @@ export function apply(ctx) {
   // 把桥送进去的用户消息 ID 记下来；等 DSH 真正认领它时，才知道属于哪一轮。
   async function 跟进并记路由(agent, content, route) {
     const id = 新id()
-    待认领路由.set(id, { ...route, queuedAt: Date.now() })
+    route = { ...route, clarificationOnly: content.some(x => x.type === 'text' && x.text.includes('（当前问的是你自己上一句话的措辞')), queuedAt: Date.now(), deliveryId: id }
+    if (!账阶段(route.ledgerKeys, 'queued', { requestId: id, route })) throw new Error('durable route unavailable')
+    待认领路由.set(id, route)
     while (待认领路由.size > 512) {
       待认领路由.delete(待认领路由.keys().next().value)
       记账('待认领路由积压超过512条，清掉最旧一条，避免内存越堆越多')
@@ -919,6 +1142,7 @@ export function apply(ctx) {
       return id
     } catch (error) {
       待认领路由.delete(id)
+      账阶段(route.ledgerKeys, 'uncertain')
       throw error
     }
   }
@@ -927,8 +1151,9 @@ export function apply(ctx) {
     const 目标 = String(读配置().目标会话 || '')
     if (!目标 || String(agent && agent.session && agent.session.id) !== 目标) return
     const id = String(message && message.id || '')
-    const 路由 = 待认领路由.get(id)
+    const 路由 = 待认领路由.get(id) || 恢复候选路由.get(id)
     if (!路由) return
+    恢复候选路由.delete(id)
     待认领路由.delete(id)
     const 轮号 = Number(turn)
     if (!Number.isFinite(轮号)) { 记账('DSH 认领了 QQ 消息但没有轮次编号，跳过回发以免串台'); return }
@@ -937,6 +1162,7 @@ export function apply(ctx) {
       记账('同一轮认领到多条 QQ 消息，跳过回发以免串台')
       return
     }
+    if (!账阶段(路由.ledgerKeys, 'claimed', { turn: 轮号, route: 路由 })) return
     轮路由.set(轮号, 路由)
   }
 
@@ -944,6 +1170,9 @@ export function apply(ctx) {
     const 目标 = String(读配置().目标会话 || '')
     if (!目标 || String(agent && agent.session && agent.session.id) !== 目标) return
     const id = String(message && message.id || '')
+    const route = 待认领路由.get(id) || 恢复候选路由.get(id)
+    恢复候选路由.delete(id)
+    if (route) 账阶段(route.ledgerKeys, 'skipped')
     if (待认领路由.delete(id)) 记账('DSH 丢弃了一条还没开始的 QQ 消息，不会误把别的回复发出去')
   }
 
@@ -996,6 +1225,9 @@ export function apply(ctx) {
     }
     const 入列100 = [...待认领路由.values(), ...轮路由.values()].map((x) => x.queuedAt).filter((x) => Number.isFinite(x) && x > 0)
     const 队列 = { 缓冲人数: 缓聊.size, 待认领: 待认领路由.size, 运行回合: 轮路由.size, 最大等待秒: 入列100.length ? Math.max(0, Math.round((Date.now() - Math.min(...入列100)) / 1000)) : 0 }
+    队列.待重认领 = 恢复候选路由.size
+    队列.持久账本健康 = 账可用()
+    队列.待对账 = Object.values(消息账.data.outbox).filter(x => x.status === 'uncertain').length
     const 当前口吻101 = 读日常口吻101()
     const 聊天口吻 = { 已加载: !!当前口吻101, 字数: 当前口吻101.length }
     const 附件功能 = { 文件: true, 文件每轮最多: 2, 文件上限MB: 8, 引用附件: true, 同人附件上下文秒: 120 }
@@ -1171,7 +1403,7 @@ export function apply(ctx) {
     const 文件们 = 段们.filter(s => s && s.type === 'file').map(文件元信息102)
     const 引用 = await 取引用99(条, 域, 配置)
     // JSON quoting prevents quote punctuation/newlines from being confused with the new question.
-    let 前缀 = 引用 ? (引用.known ? '（这条消息引用了' + JSON.stringify(引用.谁) + '的原话：' + JSON.stringify(引用.文 || '（原消息没有可读文字）') + '；以上是被引用内容，下面才是当前发言）\n' : '（这条消息带引用，但原文暂时取不到；不要猜原文）\n') : ''
+    let 前缀 = 引用 ? (引用.known ? '（这条消息引用了' + JSON.stringify(引用.谁) + '（' + 成员标识(引用.uid) + '）的原话：' + JSON.stringify(引用.文 || '（原消息没有可读文字）') + '；以上是被引用内容，下面才是当前发言）\n' : '（这条消息带引用，但原文暂时取不到；不要猜原文）\n') : ''
     if (引用 && 引用.known) {
       图们.push(...(引用.图们 || []))
       文件们.push(...(引用.文件们 || []).map(f => ({ ...f, origin: '本条引用的附件' })))
@@ -1181,7 +1413,8 @@ export function apply(ctx) {
       const candidates = [...new Set([...消息记99.entries()].filter(([key]) => key.startsWith(域 + ':')).map(([, v]) => v))].filter(v => v.uid === String(条.user_id) && v.mid !== String(条.message_id) && (v.图们.length || v.文件们.length) && v.time > 0 && Number(条.time) - v.time >= 0 && Number(条.time) - v.time <= 120 && (v.time < Number(条.time) || (Number.isFinite(v.seq) && Number.isFinite(Number(条.message_seq)) && v.seq < Number(条.message_seq)))).sort((a, b) => b.time - a.time || b.seq - a.seq)
       const recent = candidates[0]
       if (recent) {
-        图们.push(...recent.图们)
+        const 附图上下文 = recent.图们.length ? candidates.filter(v => v.图们.length).slice(0, 2).reverse() : [recent]
+        for (const old of 附图上下文) 图们.push(...old.图们)
         文件们.push(...recent.文件们.map(f => ({ ...f, origin: '同一发言者两分钟内最近的附件，仅作上下文' })))
         前缀 += '（附件背景：同一发言者此前发过' + JSON.stringify(recent.文) + '，随本轮带回。只在当前话题相关时用，不需要对背景图逐张点评；下面才是当前发言）\n'
       }
@@ -1202,6 +1435,7 @@ export function apply(ctx) {
   const 缓聊 = new Map()
   let 缓冲序 = 0
   let 冲缓冲中 = false
+  let 主动入口锁离线 = false
   let 续轮保留100 = 0
   let 堵塞告警100 = 0
   function 有QQ待办100() { return !!(冲缓冲中 || 待认领路由.size || 轮路由.size || 缓聊.size || Date.now() < 续轮保留100) }
@@ -1210,6 +1444,8 @@ export function apply(ctx) {
     if (!b) { b = { texts: [], images: [], files: [], items: [], mid: '', first: Date.now(), last: 0, at: 0, speaker: 0, route: 项.route, name: 项.name, pingOnly: false }; 缓聊.set(键, b) }
     if (项.mid && b.items.some((x) => x.mid === String(项.mid))) return
     const item = { ...项, text: String(项.text || '').trim(), images: (项.images || []).slice(0, 4), files: (项.files || []).slice(0, 2), mid: String(项.mid || ''), time: Number(项.time) || Date.now() / 1000, order: ++缓冲序 }
+    item.ledgerKey = item.ledgerKey || 账键(item)
+    if (!项.restoring && !消息账.change(s => { s.inbox[item.ledgerKey] = { stage: 'buffered', at: Date.now(), expiresAt: item.time * 1000 + (项.at || 项.route === 'private' ? 600000 : 180000), bufferKey: 键, item } })) return
     b.items.push(item)
     if (item.text) b.texts.push(item.text)
     b.images.push(...item.images)
@@ -1230,13 +1466,40 @@ export function apply(ctx) {
   function 缓冲条目(b) {
     return b.items && b.items.length ? b.items : [{ text: b.texts.join('\n'), images: b.images, files: b.files || [], mid: b.mid, time: b.first / 1000, order: 0, speaker: b.speaker, name: b.name, pingOnly: b.pingOnly }]
   }
+  function 成员标识(uid) { return '成员' + 账摘要(账域 + ':actor:' + String(uid)).slice(0, 8) }
+  function 解析回复选择(text, route) {
+    const match = String(text).match(/^\s*【回复[:：]([^】\n]{1,80})】\s*/)
+    const choices = route.replyChoices || []
+    let mid = choices.length > 1 ? '' : route.mid
+    if (match) {
+      const picked = choices.find(c => c.ref === match[1] && Number(c.speaker) === Number(route.话) && route.来路 === 'group')
+      mid = picked ? picked.mid : ''
+      if (!picked) 记账('回复选择不在本轮对象候选中，去掉引用但保留正文')
+    }
+    return { text: String(text).replace(/【回复[:：][^】\n]{1,80}】\s*/g, '').trim(), route: { ...route, mid } }
+  }
+  function 收住措辞追问(text, route) {
+    if (!route.clarificationOnly) return text
+    // Remove only an unsolicited new-work invitation. Do not manufacture a
+    // stock answer, suppress emotion, or rewrite ordinary conversational turns.
+    return String(text).split(/\n+|(?<=[。！？!?])/).filter(line => {
+      const t = line.trim()
+      if (!t || /^(?:不用|不需要|不是要|别再|没有让)/.test(t)) return !!t
+      return !/(?:你.{0,12}(?:给我|把.{0,18}给我)|要不.{0,20}(?:搜|找|查)|要我.{0,12}(?:搜|找|查)|想找.{0,12}(?:你说|给我)|你要.{0,8}我再去)/.test(t)
+    }).join('\n').replace(/没帮你搜/g, '没实际搜').trim()
+  }
+  function 措辞追问提示(items) {
+    const last = items.map(x => String(x.text || '').split('\n').at(-1).trim())
+    const asks = last.some(t => /^(?:什么叫|啥叫|你(?:说|这句|上一句|刚才).{0,30}(?:指什么|指谁|指哪|什么意思|说谁)|[“「].{1,20}[”」].{0,10}(?:哪|什么)|那边.{0,12}(?:啥意思|什么意思|指哪|指什么|是谁)|.{0,15}(?:没会话|没回话).{0,8}(?:什么意思|是啥意思))/.test(t))
+    return asks ? '\n（当前问的是你自己上一句话的措辞，只需解释或纠正该句。原先别人的请求没有转给追问者；本轮不重新接那项工作、不追要材料，也不追加“要不要我做”的接单邀请。解释到位就结束，语气照常。）' : ''
+  }
   function 合成群批99(群批, 目标) {
     const 全部 = 群批.flatMap((x) => 缓冲条目(x.b).map((item) => ({ item, batch: x }))).sort((a, b) => a.item.time - b.item.time || a.item.order - b.item.order)
     const 目标项 = 目标 ? 全部.filter((x) => x.batch === 目标) : 全部
     const 实话 = 目标项.filter((x) => x.item.text || x.item.images.length)
     const 锚 = (实话.length ? 实话 : 目标项).at(-1)
     const 图们 = [], 文件们 = []
-    const 行们 = 全部.map(({ item, batch }) => {
+    const 行们 = 全部.map(({ item, batch }, index) => {
       let 图话 = ''
       if (item.images.length) {
         if (!目标 || batch === 目标) {
@@ -1250,12 +1513,14 @@ export function apply(ctx) {
       if (!目标 || batch === 目标) 文件们.push(...files)
       const 文件话 = files.length ? '（' + (目标 && batch !== 目标 ? '背景附件仅有名称，未附内容：' : '随本条附文件：') + files.map(f => JSON.stringify(f.name)).join('、') + '）' : ''
       const 话 = item.text || (item.images.length || files.length ? '' : item.pingOnly ? '（只点名，没有附文字或图片）' : '')
-      return '【' + (目标 ? (batch === 目标 ? '本轮对象·' : '背景·') : '') + (item.name || batch.b.name) + '】' + 话 + 图话 + 文件话
+      return '【' + (目标 ? (batch === 目标 ? '本轮对象·' : '背景·') : '') + (item.name || batch.b.name) + '|' + 成员标识(item.speaker || batch.b.speaker) + '|q' + (index + 1) + '】' + 话 + 图话 + 文件话
     })
     const 提示 = 目标
       ? '（本轮要回答【' + 目标.b.name + '】：他在点名或引用你的话。先读他的引用，再回答他当前这批实际内容；其他人的插话只是背景，不把别人的问题当成他的。本轮自动@和引用都指向他，只输出对他的回复；其余点名会单独轮到。）'
       : '（以下是按时间排列的群聊。可以接一处话，也可以略过；多人时不自动挂任何人的引用，回应谁就自然叫他的称呼。）'
-    return { 文: 提示 + '\n' + 行们.join('\n'), 图们, 文件们, mid: 目标 ? (锚 && 锚.item.mid || '') : 群批.length === 1 ? (锚 && 锚.item.mid || '') : '', at: 目标 ? 目标.b.at : 0, speaker: 目标 ? 目标.b.speaker : 群批.length === 1 ? 群批[0].b.speaker : 0, ids: new Set(全部.map((x) => x.item.mid)) }
+    const replyChoices = 全部.flatMap(({ item, batch }, i) => (!目标 || batch === 目标) && item.mid ? [{ ref: 'q' + (i + 1), mid: item.mid, speaker: item.speaker || batch.b.speaker }] : [])
+    const 选引提示 = 目标 ? '\n（只接本轮对象这一人的话；同名但成员标识不同的是不同人。引用里的人、警告对象、原请求人不因插话改变。回复第一行先写【回复:q编号】，选你正文真正接的那条本轮消息；标记会被移除，别在正文解释或复述标识。不要选背景消息。）' : ''
+    return { 文: 提示 + 选引提示 + '\n' + 行们.join('\n') + (目标 ? 措辞追问提示(目标项.map(x => x.item)) : ''), replyChoices, 图们, 文件们, mid: 目标 ? (锚 && 锚.item.mid || '') : 群批.length === 1 ? (锚 && 锚.item.mid || '') : '', at: 目标 ? 目标.b.at : 0, speaker: 目标 ? 目标.b.speaker : 群批.length === 1 ? 群批[0].b.speaker : 0, ids: new Set(全部.map((x) => x.item.mid)) }
   }
   // patch100: frame helpers END
   // patch19 读空气：群消息转发前，抓最近10分钟的群聊现场给模型当背景
@@ -1282,17 +1547,19 @@ export function apply(ctx) {
           if (x.type === 'text' && x.data) return String(x.data.text)
           if (x.type === 'image' || x.type === 'mface') return '[图]'
           if (x.type === 'face') return '[小黄脸]'
-          if (x.type === 'at') return '@人'
+          if (x.type === 'at') return '@' + (String(x.data?.qq) === String(配置.她的QQ) ? '本鱼' : 成员标识(x.data?.qq))
           if (x.type === 'file') return '[文件：' + 文件元信息102(x).name + ']'
           return ''
         }).join('').trim().replace(/\s+/g, ' ').slice(0, 40)
-        if (话) 行们.push('【群】' + 谁 + '：' + 话)
+        if (话) 行们.push('【群·旧背景|' + 成员标识(m.user_id) + '】' + JSON.stringify(谁) + '：' + 话)
       }
       return 行们.slice(-8)
     } catch (error) { return [] }
   }
   // patch100: dispatch helpers BEGIN
   async function 冲缓冲(配置) {
+    if (!账可用()) return
+    清过期账路由()
     // A second QQ input must not be claimed into the same DSH turn and then dropped as an ambiguous route.
     if (冲缓冲中 || Date.now() < 续轮保留100) return
     if (待认领路由.size || 轮路由.size) {
@@ -1323,7 +1590,7 @@ export function apply(ctx) {
         const 锚 = 项们.filter((x) => x.text || x.images.length).at(-1) || 项们.at(-1)
         let 文 = '【' + b.name + '】' + b.texts.join('\n')
         if (b.route === 'private') 文 = '（这是私聊，只有你和主人，不在群里——群里的事除非他问起就别带进来）' + 文
-        const 果 = await 限时转入(文, b.images, 锚 && 锚.mid || b.mid, b.route, b.at, b.speaker, '私聊批', b.files)
+        const 果 = await 限时转入(文, b.images, 锚 && 锚.mid || b.mid, b.route, b.at, b.speaker, '私聊批', b.files, 账批(项们))
         if (果 && 果.ok === false && !果.不确定) { b.last = now; 退回缓冲(私.键, b) }
         return
       }
@@ -1337,7 +1604,7 @@ export function apply(ctx) {
       let 文 = 合.文
       const 气氛 = await 现场气氛(配置, 合.ids)
       if (气氛.length > 1) 文 = '（以下是之前的群聊背景，不是正在向你提问）\n' + 气氛.join('\n') + '\n——背景结束，本轮发言——\n' + 文
-      const 果 = await 限时转入(文, 合.图们, 合.mid, 'group', 合.at, 合.speaker, '群批', 合.文件们)
+      const 果 = await 限时转入(文, 合.图们, 合.mid, 'group', 合.at, 合.speaker, '群批', 合.文件们, 账批(消费.flatMap(x => 缓冲条目(x.b))), 合.replyChoices)
       if (果 && 果.ok === false && !果.不确定) for (const x of 消费) { x.b.last = now; 退回缓冲(x.键, x.b) }
     } finally { 冲缓冲中 = false }
   }
@@ -1351,9 +1618,10 @@ export function apply(ctx) {
   }
   // patch100: dispatch helpers END
 
-  async function 限时转入(文字, 图们, 消息id, 来路, 艾特谁, 说话人, 批名, 文件们 = []) {
+  async function 限时转入(文字, 图们, 消息id, 来路, 艾特谁, 说话人, 批名, 文件们 = [], ledgerKeys = [], replyChoices = []) {
     let 定时器
-    const 请求 = Promise.resolve().then(() => 转入一条(文字, 图们, 消息id, 来路, 艾特谁, 说话人, 文件们))
+    if (!账阶段(ledgerKeys, 'submitting')) return { ok: false, 不确定: true }
+    const 请求 = Promise.resolve().then(() => 转入一条(文字, 图们, 消息id, 来路, 艾特谁, 说话人, 文件们, ledgerKeys, replyChoices))
     const 结果Promise = 请求.then(
       (value) => ({ kind: 'done', value }),
       (error) => ({ kind: 'error', error }),
@@ -1375,10 +1643,12 @@ export function apply(ctx) {
       记账(`${批名}失败：${String((结果.error && 结果.error.message) || 结果.error).slice(0, 100)}`)
       return { ok: false, 不确定: true, 说: '转入结果不确定' }
     }
+    if (结果.value?.ok === false && !结果.value.不确定) 账阶段(ledgerKeys, 'buffered')
     return 结果.value
   }
   const 黄脸表 = ['惊讶','撇嘴','色','发呆','得意','流泪','害羞','闭嘴','睡','大哭','尴尬','发怒','调皮','呲牙','惊讶','难过','酷','冷汗','抓狂','吐','偷笑','可爱','白眼','傲慢','饥饿','困','惊恐','流汗','憨笑','大兵','奋斗','咒骂','疑问','嘘','晕','折磨','衰','骷髅','敲打','再见','擦汗','抠鼻','鼓掌','糗大了','坏笑','左哼哼','右哼哼','哈欠','鄙视','委屈','快哭了','阴险','亲亲','吓','可怜','菜刀','西瓜','啤酒','篮球','乒乓','咖啡','饭','玫瑰','凋谢','示爱','爱心','心碎','蛋糕','闪电','炸弹','刀','足球','瓢虫','便便','月亮','太阳','礼物','拥抱','强','弱','握手','胜利','抱拳','勾引','拳头','差劲','爱你','NO','OK','爱情','飞吻','跳跳','发抖','怄火','转圈','磕头','回头','跳绳','挥手','激动','街舞','献吻','左太极','右太极']
-  async function 转入一条(文字, 图们, 消息id, 来路, 艾特谁, 说话人, 文件们 = []) {
+  async function 转入一条(文字, 图们, 消息id, 来路, 艾特谁, 说话人, 文件们 = [], ledgerKeys = [], replyChoices = []) {
+    if (!账可用()) return { ok: false, 不确定: true, 说: '持久账本不可用或通道已变化' }
     图们 = [...new Map((图们 || []).map(s => { const d = s && s.data || s || {}; return [String(d.url || d.file || JSON.stringify(d)), s] })).values()]
     if (来路 && 来路 !== 'none') { 最后来路 = 来路; 来路时刻 = Date.now() }
     // 私聊轮询自己会清 艾特我人，这里不清，免得 /receive 测试误伤
@@ -1454,7 +1724,7 @@ export function apply(ctx) {
       // ⚠⚠ 必须 await：followup 返回 Promise。不接住的话，它 reject 时（会话半死 / agent 已释放）
       //   catch 根本看不到（try 早就退出了）⇒ 未处理的 rejection ⇒ **整个 DSH 宿主退出**
       //   （2026-10-21：speak-up 同一个坑已经被用户报成"装了鱼就死了"，这里一并修）
-      await 跟进并记路由(agent, content, { 来路: 来路 || 最后来路 || 'private', 艾特: Number(艾特谁) || 0, 话: Number(说话人) || 0, mid: String(消息id || '') })
+      await 跟进并记路由(agent, content, { 来路: 来路 || 最后来路 || 'private', 艾特: Number(艾特谁) || 0, 话: Number(说话人) || 0, mid: String(消息id || ''), ledgerKeys, replyChoices })
       try {
         if (ctx.sessions && typeof ctx.sessions.flush === 'function') await ctx.sessions.flush(agent.session)
       } catch (error) {}
@@ -1479,9 +1749,11 @@ export function apply(ctx) {
   let 探针66 = 0
   let 轮询中 = false
   async function 轮询收消息() {
+    if (!账可用()) return
     if (轮询中) return
     轮询中 = true
     try {
+    await 对账器.tick()
     引用查预算99 = 2
     探针66++
     if (探针66 % 20 === 1) 记账('探针66:轮询第' + 探针66 + '圈活着')
@@ -1524,17 +1796,17 @@ export function apply(ctx) {
       for (const 条 of 列表.sort(消息先后99)) {
         if (!条 || Number(条.user_id) !== 她的号) continue
         if ((条.time || 0) < 上次私聊时间) continue           // 旧的，跳过
-        if (已转消息.has(条.message_id)) continue             // 转过了
+        if (已转消息.has('p:' + 她的号 + ':' + String(条.message_id))) continue             // 转过了
         const { 文字, 图们, 文件们, 引用 } = await 条转片段(条, 域, 配置)
         if (引用 && 引用.deferred) break // lookup budget exhausted: keep watermark before this row
-        if (!文字 && !图们.length) { 已转消息.add(条.message_id); 上次私聊时间 = 条.time || 上次私聊时间; continue }
-        if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add(条.message_id); 上次私聊时间 = 条.time || 上次私聊时间; continue } // 超10分钟不挖坟
+        if (!文字 && !图们.length) { 已转消息.add('p:' + 她的号 + ':' + String(条.message_id)); 上次私聊时间 = 条.time || 上次私聊时间; continue }
+        if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add('p:' + 她的号 + ':' + String(条.message_id)); 上次私聊时间 = 条.time || 上次私聊时间; continue } // 超10分钟不挖坟
         // ⭐ patch21 主人指令：桥层直接执行，不进 DSH（零 token）。只认纯文字，带图的当普通消息走
         const 当前段102 = Array.isArray(条.message) ? 条.message : []
         const 仅当前文字102 = 当前段102.length && 当前段102.every(s => s && s.type === 'text') ? 当前段102.map(s => String(s.data && s.data.text || '')).join('') : ''
         const 令 = 仅当前文字102 ? 解析主人指令(仅当前文字102) : null
         if (令) {
-          已转消息.add(条.message_id)
+          已转消息.add('p:' + 她的号 + ':' + String(条.message_id))
           上次私聊时间 = 条.time || 上次私聊时间
           void 执行主人指令(配置, 令, 文字)
           continue
@@ -1542,7 +1814,7 @@ export function apply(ctx) {
         艾特我人 = 0
         加缓冲('p' + 她的号, { text: 文字, images: 图们, files: 文件们, mid: String(条.message_id || ''), route: 'private', at: 0, speaker: 她的号, name: '主人', time: 条.time })
         上次私聊时间 = 条.time || 上次私聊时间
-        已转消息.add(条.message_id)
+        已转消息.add('p:' + 她的号 + ':' + String(条.message_id))
       }
     }
 
@@ -1555,11 +1827,11 @@ export function apply(ctx) {
         const 自53 = Number(条.self_id) && Number(条.self_id) > 0 ? Number(条.self_id) : Number(配置.她的QQ) || 0
         const 群发言者 = Number(条.user_id)
         if (群发言者 === (Number(条.self_id)||自53)) continue
-        if (群静默中()) { 已转消息.add(条.message_id); continue } // patch45 群静默48h养号：群话不入脑
+        if (群静默中()) { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); continue } // patch45 群静默48h养号：群话不入脑
         // ⭐ patch44 深夜静默：01:00-07:00 群里的话不入脑（主人私聊不拦），三点秒回才是bot铁证
         try {
           const 夜时 = new Date().getHours()
-          if (夜时 >= 1 && 夜时 < 7 && 群发言者 !== Number(配置.私聊QQ)) { 已转消息.add(条.message_id); continue }
+          if (夜时 >= 1 && 夜时 < 7 && 群发言者 !== Number(配置.私聊QQ)) { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); continue }
         } catch (error) {}
         // ⭐ patch37 鲸元券兑奖：口令命中→奖品图即发（零token，先到先得）
         try {
@@ -1594,8 +1866,8 @@ export function apply(ctx) {
         } catch (error) {}
         const 新69 = Date.now() / 1000 - (条.time || 0) < 900
         // Do cheap age/dedup checks before any old-message lookup.
-        if ((条.time || 0) < 上次群时间 || 已转消息.has(条.message_id)) { 已转消息.add(条.message_id); continue }
-        if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add(条.message_id); 上次群时间 = 条.time || 上次群时间; continue }
+        if ((条.time || 0) < 上次群时间 || 已转消息.has('g:' + 配置.群号 + ':' + String(条.message_id))) { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); continue }
+        if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); 上次群时间 = 条.time || 上次群时间; continue }
         const { 文字, 图们, 文件们, 引用 } = await 条转片段(条, 域, 配置)
         if (引用 && 引用.deferred) break // next poll retries it; do not advance past an unresolved row
         const { 被艾特, 引用本鱼, 找我, 叫别人 } = 群消息指向99(条, 配置, 引用)
@@ -1606,14 +1878,14 @@ export function apply(ctx) {
         热聊.set(群发言者, Date.now() + (群发言者 === Number(配置.私聊QQ) ? 600000 : 180000))
         if (热聊.size > 40) 热聊.delete(热聊.keys().next().value)
         const 只点名 = !文字 && !图们.length && 被艾特
-        if (!文字 && !图们.length && !找我) { 已转消息.add(条.message_id); 上次群时间 = 条.time || 上次群时间; continue }
+        if (!文字 && !图们.length && !找我) { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); 上次群时间 = 条.time || 上次群时间; continue }
         艾特我人 = 群发言者 || 艾特我人
         艾特时刻 = Date.now()
         const 名前 = 群发言者 === Number(配置.私聊QQ) ? '主人' : String((条.sender && (条.sender.card || 条.sender.nickname)) || '群友')
         if (新69) 记账('活69·进群批·seq' + String(条.message_seq) + (被艾特 ? '·@我' : 引用本鱼 ? '·回复我' : ''))
         加缓冲('g' + 群发言者, { text: 文字, images: 图们, files: 文件们, mid: String(条.message_id || ''), route: 'group', at: 找我 ? 群发言者 : 0, speaker: 群发言者, name: 名前, pingOnly: 只点名, time: 条.time })
         上次群时间 = 条.time || 上次群时间
-        已转消息.add(条.message_id)
+        已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id))
       }
     }
 
@@ -1919,14 +2191,21 @@ export function apply(ctx) {
   // 主动冒泡/复盘：cron 注入提示词；channel=group 发群（默认），channel=none 内部轮不发 QQ
   路线(`${路由前缀}/nudge`, async (req, res) => {
     const 来 = await 读体(req)
-    const 文字 = typeof 来.text === 'string' ? 来.text.trim() : ''
+    let 文字 = typeof 来.text === 'string' ? 来.text.trim() : ''
     if (!文字) return 回(res, { ok: false, 说: '没有文字' })
     const 道 = 来.channel === 'none' ? 'none' : (来.channel === 'private' ? 'private' : 'group')
-    if (有QQ待办100()) return 回(res, { ok: true, skipped: true, 说: '已有对话待处理，本次主动轮略过' })
+    if (主动入口锁离线 || 有QQ待办100()) return 回(res, { ok: true, skipped: true, 说: '已有对话待处理，本次主动轮略过' })
     if (道 === 'none') 内部注入91 = Date.now()  // v91b
     if (道 === 'group' && 禁言中()) return 回(res, { ok: true, 说: '禁言中，冒泡已挡' })
     if (道 === 'group' && 群静默中()) return 回(res, { ok: true, 说: '群静默48h中，冒泡已挡' })
-    回(res, await 转入一条(文字, [], '', 道, 0, 0))
+    主动入口锁离线 = true
+    try {
+      if (道 === 'group') {
+        const scene = await 现场气氛(读配置())
+        文字 += '\n（主动观察轮，没有当前新点名。下面仅为刚核实的旧背景，不是催办，不补答；不虚构谁刚说过话。没有值得接的新内容就略过。）\n' + (scene.length ? scene.join('\n') : '（最近十分钟没有可核实的群聊文字；未知部分不要编。）')
+      }
+      回(res, await 转入一条(文字, [], '', 道, 0, 0))
+    } finally { 主动入口锁离线 = false }
   })
 
   // patch20 戳一戳感知：eventd 把 NapCat 的 poke 通知转来；同人30秒冷却防连戳刷屏
@@ -2035,5 +2314,6 @@ export function apply(ctx) {
 
   记账(`已装好 v${版本}：DSH↔QQ 两半都在｜总开关 ${读配置().总开关 ? '开' : '关'}｜试运行 ${读配置().试运行 ? '开（只记账）' : '关（真发）'}｜收消息 4 秒轮询一次`)
 
+  恢复消息账()
   return { 记账, 概况, 落地一发, 发到QQ, 收到事件, 日志 }
 }

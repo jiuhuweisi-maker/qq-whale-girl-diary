@@ -22,9 +22,10 @@ async function test(name, fn) { try { await fn(); results.push({ name, passed: t
       r = boot({ disk, clock }); await dispatch(r, [m]); assert.equal(r.modelInbox.length, 0); r.assertIsolated();
     });
   }
-  await test('claimed turn restores original route without regenerating', async () => {
+  await test('claimed turn restores only after original message is re-claimed, even if turn numbers change', async () => {
     const disk = new Map(), clock = new SimClock(); let r = boot({ disk, clock }); await dispatch(r, [row(r, 210)]); const prior = r.modelInbox[0];
-    r = boot({ disk, clock }); assert.equal(r.modelInbox.length, 0); await r.finish(prior, '原回合回复'); await r.finish(prior, '重复完成');
+    r = boot({ disk, clock }); assert.equal(r.modelInbox.length, 0); await r.finish(prior, '裸旧编号不能发');assert.equal(r.deliveries.length,0);
+    const resumed={...prior,turn:prior.turn+10};r.emit('agent/inbox/claimed',{agent:r.agent,message:prior.message,turn:resumed.turn});await r.finish(resumed, '原回合回复'); await r.finish(resumed, '重复完成');
     assert.equal(r.deliveries.length, 1); assert.equal(r.deliveries[0].body.message.find(x=>x.type==='reply').data.id, '210');
   });
   await test('queued request can be claimed after restart by its saved message ID', async () => {

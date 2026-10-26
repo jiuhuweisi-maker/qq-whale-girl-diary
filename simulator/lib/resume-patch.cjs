@@ -1,16 +1,38 @@
 const { createDeliveryState } = require('./durable-state.cjs');
+const { createReconciler } = require('./reconcile.cjs');
 function resumePatch(edit) {
   edit("import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'", "import { readFileSync, writeFileSync, mkdirSync, existsSync, openSync, closeSync, fsyncSync, renameSync } from 'node:fs'", '候选持久账本使用同步原子落盘');
   edit("import { randomUUID, timingSafeEqual } from 'node:crypto'", "import { randomUUID, timingSafeEqual, createHash } from 'node:crypto'", '持久快照校验和与隔离命名');
   const state = `
   // candidate: durability BEGIN
   ${createDeliveryState.toString()}
+  ${createReconciler.toString()}
   const 账摘要 = value => createHash('sha256').update(value).digest('hex')
   const 账配置 = 读配置()
   const 取账域 = c => JSON.stringify([c.她的QQ, c.目标会话, c.群号, c.私聊QQ])
   const 账域 = 取账域(账配置)
   const 消息账 = createDeliveryState({ fs: { readFileSync, writeFileSync, existsSync, openSync, closeSync, fsyncSync, renameSync }, hash: 账摘要, basePath: join(目录, 'qq-delivery-' + 账摘要(账域).slice(0, 20)), namespace: 账域, now: () => Date.now(), diag: 记账 })
   const 账可用 = () => 消息账.healthy && 取账域(读配置()) === 账域
+  const 恢复候选路由 = new Map()
+  const 对账器 = createReconciler({ store: 消息账, namespace: 账域, now: () => Date.now(), probe: 查发件凭据, send: (action, body) => 发一个(读配置().NapCat, action, body), diag: 记账 })
+  function 发件摘要(body) {
+    return JSON.stringify((body.message || []).map(s => s.type === 'text' ? ['text', String(s.data?.text || '')] : s.type === 'at' ? ['at', String(s.data?.qq || '')] : s.type === 'reply' ? ['reply', String(s.data?.id || '')] : [s.type, 'unmatchable']))
+  }
+  async function 查发件凭据(query) {
+    if (!账可用()) return null
+    if (ctx.qqDeliveryReceipts && typeof ctx.qqDeliveryReceipts.probe === 'function') return ctx.qqDeliveryReceipts.probe(query)
+    const a = query.attempt
+    if (!a.body || a.body.message.some(s => !['text', 'at', 'reply'].includes(s.type))) return null
+    // Text history can positively confirm a unique own-message match. Missing
+    // results, history gaps and API errors never permit an automatic retry.
+    const config = 读配置(), group = a.action === 'send_group_msg'
+    const response = await fetch(带票52(config.NapCat + (group ? '/get_group_msg_history' : '/get_friend_msg_history')), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(group ? { group_id: a.recipient, count: 80 } : { user_id: a.recipient, count: 80 }), signal: AbortSignal.timeout(8000) })
+    const payload = await response.json()
+    if (!response.ok || payload.status !== 'ok' || !Array.isArray(payload.data?.messages)) return null
+    const matches = payload.data.messages.filter(m => Number(m.user_id) === Number(config.她的QQ) && Math.abs(Number(m.time) * 1000 - a.at) < 30000 && (!group || m.group_id == null || String(m.group_id) === String(a.recipient)) && 发件摘要({ message: m.message }) === 发件摘要(a.body))
+    const collisions = Object.entries(消息账.data.outbox).some(([id, out]) => id !== query.batchId && out.attempts.some(old => old.digest === a.digest && Math.abs(old.at - a.at) < 60000))
+    return !collisions && matches.length === 1 ? { namespace: query.namespace, requestId: a.requestId, digest: a.digest, action: a.action, recipient: a.recipient, status: 'delivered', messageId: matches[0].message_id } : null
+  }
   function 账键(item) {
     return (item.route === 'private' ? 'p:' + 读配置().私聊QQ : 'g:' + 读配置().群号) + ':' + String(item.mid)
   }
@@ -41,19 +63,20 @@ function resumePatch(edit) {
     })) return
     for (const [key, r] of Object.entries(消息账.data.inbox)) {
       if (r.stage === 'buffered' && r.item) 加缓冲(r.bufferKey, { ...r.item, ledgerKey: key, restoring: true })
-      if (r.stage === 'queued' && r.requestId && r.route) 待认领路由.set(r.requestId, r.route)
-      if (r.stage === 'claimed' && Number.isFinite(r.turn) && r.route) 轮路由.set(r.turn, r.route)
+      // The host may renumber turns after restart. Only a fresh claim with the
+      // original durable message ID can bind a recovered reply to a new turn.
+      if (['queued', 'claimed'].includes(r.stage) && r.requestId && r.route) 恢复候选路由.set(r.requestId, r.route)
     }
   }
   function 清过期账路由() {
-    for (const map of [待认领路由, 轮路由]) for (const [id, route] of map) {
+    for (const map of [待认领路由, 轮路由, 恢复候选路由]) for (const [id, route] of map) {
       if (route.ledgerKeys?.length && route.ledgerKeys.every(k => Date.now() >= (消息账.data.inbox[k]?.expiresAt || 0))) {
         if (账阶段(route.ledgerKeys, 'expired')) map.delete(id)
       }
     }
   }
   async function 账本发一个(id, base, action, body) {
-    const attempt = { action, recipient: body.group_id || body.user_id, digest: 账摘要(JSON.stringify(body)), at: Date.now(), status: 'uncertain' }
+    const attempt = { action, recipient: body.group_id || body.user_id, digest: 账摘要(JSON.stringify(body)), requestId: id + ':' + 消息账.data.outbox[id].attempts.length, at: Date.now(), status: 'uncertain', body: JSON.stringify(body).length < 65536 ? body : null }
     if (!消息账.change(s => s.outbox[id].attempts.push(attempt))) return { ok: false, 不确定: true }
     const index = 消息账.data.outbox[id].attempts.length - 1
     const result = await 发一个(base, action, body)
@@ -78,7 +101,7 @@ function resumePatch(edit) {
       if (keys.length && keys.every(k => Date.now() >= (消息账.data.inbox[k]?.expiresAt || 0))) { 账阶段(keys, 'expired'); return [] }
       const id = 路由?.deliveryId || 新id()
       if (消息账.data.outbox[id]) { 记账('已登记的发件批次不重复发送'); return [] }
-      if (!消息账.change(s => { s.outbox[id] = { at: Date.now(), status: 'sending', attempts: [], keys } })) return []
+      if (!消息账.change(s => { s.outbox[id] = { at: Date.now(), status: 'sending', attempts: [], keys, deadline: keys.length ? Math.max(...keys.map(k => s.inbox[k]?.expiresAt || 0)) : Date.now() + 600000 } })) return []
       try {
         const results = await 发到QQ原57(配置, 原文字, 图们, 路由, (base, action, body) => 账本发一个(id, base, action, body))
         const status = results.some(x => x.不确定) ? 'uncertain' : !results.length ? 'suppressed' : results.every(x => x.ok) ? 'sent' : 'rejected'
@@ -102,6 +125,7 @@ function resumePatch(edit) {
     b.items.push(item)`, '进入缓冲先持久保存完整原消息');
   edit('    // A second QQ input must not be claimed', '    if (!账可用()) return\n    清过期账路由()\n    // A second QQ input must not be claimed', '损坏账本停止注入，过期待办不会堵塞新话');
   edit('  async function 轮询收消息() {\n    if (轮询中) return', '  async function 轮询收消息() {\n    if (!账可用()) return\n    if (轮询中) return', '损坏账本停止拉取，避免重复执行管理入口');
+  edit('    引用查预算99 = 2\n    探针66++', '    await 对账器.tick()\n    引用查预算99 = 2\n    探针66++', '轮询时自动核对不确定发件，不以空历史作重试依据');
   edit("'私聊批', b.files)", "'私聊批', b.files, 账批(项们))", '私聊携带整批来源编号');
   edit("'群批', 合.文件们)", "'群批', 合.文件们, 账批(消费.flatMap(x => 缓冲条目(x.b))))", '只消费本轮对应的消息，其他点名继续排队');
   edit('async function 限时转入(文字, 图们, 消息id, 来路, 艾特谁, 说话人, 批名, 文件们 = []) {', 'async function 限时转入(文字, 图们, 消息id, 来路, 艾特谁, 说话人, 批名, 文件们 = [], ledgerKeys = []) {', '传递持久批次标识');
@@ -113,7 +137,11 @@ function resumePatch(edit) {
   edit("    待认领路由.set(id, { ...route, queuedAt: Date.now() })", "    route = { ...route, queuedAt: Date.now(), deliveryId: id }\n    if (!账阶段(route.ledgerKeys, 'queued', { requestId: id, route })) throw new Error('durable route unavailable')\n    待认领路由.set(id, route)", '提交宿主之前保存请求与回发路由');
   edit('      待认领路由.delete(id)\n      throw error', "      待认领路由.delete(id)\n      账阶段(route.ledgerKeys, 'uncertain')\n      throw error", '宿主提交异常留作对账，不在恢复时重投');
   edit('    轮路由.set(轮号, 路由)', "    if (!账阶段(路由.ledgerKeys, 'claimed', { turn: 轮号, route: 路由 })) return\n    轮路由.set(轮号, 路由)", '重启可重新匹配原回合完成事件，不再注入一次');
+  edit('    const 路由 = 待认领路由.get(id)', '    const 路由 = 待认领路由.get(id) || 恢复候选路由.get(id)', '恢复认领必须匹配原消息ID，不依赖旧回合编号');
+  edit('    if (!路由) return\n    待认领路由.delete(id)', '    if (!路由) return\n    恢复候选路由.delete(id)\n    待认领路由.delete(id)', '原消息认领后移除恢复候选');
   edit("    if (待认领路由.delete(id)) 记账('DSH 丢弃了一条还没开始的 QQ 消息，不会误把别的回复发出去')", "    const route = 待认领路由.get(id)\n    if (route) 账阶段(route.ledgerKeys, 'skipped')\n    if (待认领路由.delete(id)) 记账('DSH 丢弃了一条还没开始的 QQ 消息，不会误把别的回复发出去')", '宿主丢弃的消息不在重启后复活');
+  edit('    const route = 待认领路由.get(id)\n    if (route)', '    const route = 待认领路由.get(id) || 恢复候选路由.get(id)\n    恢复候选路由.delete(id)\n    if (route)', '重启后的丢弃事件同样按原消息ID终结');
+  edit('    const 当前口吻101 = 读日常口吻101()', "    队列.待重认领 = 恢复候选路由.size\n    队列.持久账本健康 = 账可用()\n    队列.待对账 = Object.values(消息账.data.outbox).filter(x => x.status === 'uncertain').length\n    const 当前口吻101 = 读日常口吻101()", '状态接口公开无敏感信息的持久队列健康指标');
   edit('        按轮输出.delete(轮号)\n        轮路由.delete(轮号)', "        账阶段(轮路由.get(轮号)?.ledgerKeys, 'skipped')\n        按轮输出.delete(轮号)\n        轮路由.delete(轮号)", '打断状态持久终结');
   edit('      const 有东西 = 输出.文本 || (输出.图们 && 输出.图们.length)', "      const 有东西 = 输出.文本 || (输出.图们 && 输出.图们.length)\n      if (路由 && (!完成 || !有东西 || 输出.文本.trim() === '略过')) 账阶段(路由.ledgerKeys, 'skipped')", '无内容或失败回合不重放旧请求');
   edit("if (!v || n - v > 600) return n; return v } catch (e) { return n }", "if (!v || n - v > 600) return n - 610; return v } catch (e) { return n - 610 }", '私聊重启空窗不吞未见过的新消息');

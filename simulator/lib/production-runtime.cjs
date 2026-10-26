@@ -4,7 +4,7 @@ const DEFAULT_SOURCE = path.resolve(__dirname, '../../bridge/host.js');
 const ID = { A: 1001, B: 1002, C: 1003, W: 1004 };
 const hash = x => crypto.createHash('sha256').update(x).digest('hex');
 let runtimeSerial = 0;
-function createRuntime({ sourcePath = DEFAULT_SOURCE, style = '', names = { A: '主人', B: '小岚', C: '阿澄', W: '鲸鱼娘' }, clock = new SimClock(), disk = new Map(), sendBehavior, fsFault, autoClaim = true } = {}) {
+function createRuntime({ sourcePath = DEFAULT_SOURCE, style = '', names = { A: '主人', B: '小岚', C: '阿澄', W: '鲸鱼娘' }, clock = new SimClock(), disk = new Map(), sendBehavior, fsFault, autoClaim = true, receiptProbe } = {}) {
   const source = fs.readFileSync(sourcePath, 'utf8'), writes = [], requests = [], deliveries = [], attempts = [], admitted = [], logs = [], modelInbox = [], blocked = [];
   const routes = new Map(), listeners = new Map(), history = [], imageInfo = new Map(); let turn = 0, attachmentId = 0, uuid = 0;
   const config = { 她的QQ: ID.W, 总开关: true, 试运行: false, 目标会话: 'offline-only', 私聊QQ: String(ID.A), 群号: '7001', 转私聊: true, 转群: true, NapCat: 'https://onebot.invalid', 收图: true, 收图最多: 4, 发图: true, 图上限MB: 5, 称呼: '群友', 图片根目录: '/offline/stickers' };
@@ -25,6 +25,7 @@ function createRuntime({ sourcePath = DEFAULT_SOURCE, style = '', names = { A: '
   const emit = (event, ...args) => { for (const fn of listeners.get(event) || []) fn(...args); };
   const agent = { session: { id: config.目标会话 }, async followup(message) { const current = ++turn; modelInbox.push({ turn: current, message: structuredClone(message), capturedAt: clock.now }); if (autoClaim) emit('agent/inbox/claimed', { agent, message, turn: current }); } };
   const ctx = {
+    ...(receiptProbe ? { qqDeliveryReceipts: { probe: receiptProbe } } : {}),
     logger: { info: message => logs.push({ at: clock.now, message: String(message) }) },
     effect(fn) { fn(); return () => {}; }, interval() { return () => {}; },
     on(name, fn) { if (!listeners.has(name)) listeners.set(name, []); listeners.get(name).push(fn); return () => {}; },

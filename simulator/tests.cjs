@@ -20,6 +20,11 @@ let count = 0; async function check(name, fn) { await fn(); count++; console.log
   });
   await check('model budget is enforced independently of tool text',()=>{const b=new CallBudget(1);b.take();assert.throws(()=>b.take(),/budget/);});
   await check('tool states distinguish no match, timeout and native English error',()=>{assert.equal(toolResult({status:'no_match'}).ok,true);assert.equal(toolResult({status:'timeout'}).error,'timeout');assert(toolResult({status:'english_error'}).message.includes('Internal Server Error'));});
+  await check('mock tool responses contain actual outcomes, not an invented quota explanation',async()=>{
+    const sent=[];const spec=scenario('11');const response={ok:true,metadata:{provider:'deepseek-official',model:'deepseek-flash',reasoningEffort:'low'}};
+    const result=await require('./lib/model.cjs').generate({spec,context:'找原唱',persona:'本地测试',transport:{command:[]},budget:new CallBudget(2),requestPrefix:'local',invokeRequest:async(_,req)=>{sent.push(structuredClone(req.body));return sent.length===1?{...response,content:[{type:'tool_use',id:'local-tool',name:'search_music',input:{query:'夜行灯'}}]}:{...response,content:[],text:'原唱在这'};}});
+    const payload=JSON.parse(sent[1].messages.at(-1).content[0].content);assert(!('note'in payload));assert(!('furtherSearchCallsAllowed'in payload));assert.equal(result.toolCalls[0].control.furtherCallsAllowed,false);assert(!sent[1].tools);
+  });
   await check('local task registration and completion are idempotent',async()=>{const tasks=new LocalTasks();assert(tasks.add({id:'x',owner:'B'}));assert(!tasks.add({id:'x'}));let n=0;await tasks.fire('x',async()=>n++);await tasks.fire('x',async()=>n++);assert.equal(n,1);});
   await check('scheduled local task uses original owner and quote target once',async()=>{const r=await followupCheck(path.resolve(__dirname,'../bridge/host.js'),'保留原本口吻');assert(r.passed);});
   await check('simulated time can advance days without real sleeping',async()=>{const c=new SimClock(),start=c.now;let done=false;c.setTimeout(()=>done=true,28*86400000);await c.advance(28*86400000);assert(done);assert.equal(c.now-start,28*86400000);});

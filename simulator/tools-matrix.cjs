@@ -34,15 +34,16 @@ async function followupCheck(sourcePath, style) {
   return { task: tasks.jobs.get(job.id), repeatedAddAccepted: addedAgain, secondFire: again, sends: runtime.deliveries, passed: !addedAgain && again.skipped && runtime.deliveries.length === 1 && at === String(ID.B) && quote === '1103', limits: 'Controlled local task registry, not a claim about the full DSH background-task engine' };
 }
 async function main() {
+  const option=(name,fallback)=>{const i=process.argv.indexOf('--'+name);return i<0?fallback:process.argv[i+1];};
   const [snapshotArg, outArg, transportArg] = process.argv.slice(2), snapshotDir = path.resolve(snapshotArg), out = path.resolve(outArg); fs.mkdirSync(out, { recursive: true });
   const selected = process.argv[5] ? process.argv[5].split(',').map(Number) : [0,1,2,3,4,5,6];
-  const transport = JSON.parse(fs.readFileSync(transportArg, 'utf8')), budget = new CallBudget(selected.length * 2), results = [];
+  const transport = JSON.parse(fs.readFileSync(transportArg, 'utf8')), budget = new CallBudget(Number(option('max-calls',selected.length * 2))), results = [];
   console.log(JSON.stringify({ plan: { answers: selected.length, maximumModelCalls: budget.max, toolReturns: 'local fixtures', noRealQQ: true } }));
   for (const i of selected) {
     const spec = toolScenario(i);
-    const r = await runOne({ spec, mode: 'chain', snapshotDir, outputDir: out, transport, budget, stub: false }); results.push(r); console.log(JSON.stringify({ completed: spec.id, calls: r.modelCalls, hardPassed: r.hardPassed }));
+    const r = await runOne({ spec, mode: 'chain', snapshotDir, outputDir: out, transport, budget, stub: false, candidate:option('candidate',null),stylePath:option('style',null),personaPath:option('persona',null) }); results.push(r); console.log(JSON.stringify({ completed: spec.id, calls: r.modelCalls, hardPassed: r.hardPassed }));
   }
-  const followup = await followupCheck(path.join(snapshotDir, 'production_bridge.mjs'), fs.readFileSync(path.join(snapshotDir, 'style.md'), 'utf8'));
+  const followup = await followupCheck(option('candidate',path.join(snapshotDir, 'production_bridge.mjs')), fs.readFileSync(option('style',path.join(snapshotDir, 'style.md')), 'utf8'));
   fs.writeFileSync(path.join(out, 'summary.json'), JSON.stringify({ callsUsed: budget.used, results, followup, needIndependentSoftReview: true }, null, 2));
   console.log(JSON.stringify({ finished: true, callsUsed: budget.used, localTaskRoutingPassed: followup.passed }));
 }

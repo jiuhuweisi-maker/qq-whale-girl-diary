@@ -2,6 +2,11 @@ const fs = require('node:fs'), path = require('node:path'), crypto = require('no
 function buildCandidate(sourcePath, destination) {
   if (path.resolve(sourcePath) === path.resolve(destination) || (fs.existsSync(destination) && fs.realpathSync(sourcePath) === fs.realpathSync(destination))) throw new Error('candidate must not overwrite its source');
   const baseline = fs.readFileSync(sourcePath, 'utf8'); let s = baseline.replace(/\r\n/g, '\n'); const changes = [];
+  if(s.includes('// candidate: durability BEGIN')) {
+    for(const marker of ['function createReconciler(', 'function 收住措辞追问(', 'const 恢复候选路由 = new Map()'])if(!s.includes(marker))throw new Error('partial/older candidate; start from the recorded baseline');
+    fs.mkdirSync(path.dirname(destination),{recursive:true});fs.writeFileSync(destination,s);
+    return {baselineSHA256:crypto.createHash('sha256').update(baseline).digest('hex'),candidateSHA256:crypto.createHash('sha256').update(s).digest('hex'),alreadyPatched:true,productionModified:false,changes:[],unresolved:[]};
+  }
   const edit = (before, after, why) => { if (s.split(before).length !== 2) throw new Error('candidate anchor changed: ' + why); s = s.replace(before, after); changes.push(why); };
   edit("图们.push(...recent.图们)\n        文件们.push(...recent.文件们.map(f => ({ ...f, origin: '同一发言者两分钟内最近的附件，仅作上下文' })))", "const 附图上下文 = recent.图们.length ? candidates.filter(v => v.图们.length).slice(0, 2).reverse() : [recent]\n        for (const old of 附图上下文) 图们.push(...old.图们)\n        文件们.push(...recent.文件们.map(f => ({ ...f, origin: '同一发言者两分钟内最近的附件，仅作上下文' })))", '同人前两张图片按时间附回，避免上图丢失');
   edit("return { action, ok: false, 数据: { 错: String((error && error.message) || error) } }", "return { action, ok: false, 不确定: true, 数据: { 错: String((error && error.message) || error) } }", '网络异常标记结果不确定');
@@ -19,7 +24,7 @@ function buildCandidate(sourcePath, destination) {
   require('./lib/resume-patch.cjs').resumePatch(edit);
   require('./lib/context-patch.cjs').contextPatch(edit);
   fs.mkdirSync(path.dirname(destination), { recursive: true }); fs.writeFileSync(destination, s);
-  return { baselineSHA256: crypto.createHash('sha256').update(baseline).digest('hex'), candidateSHA256: crypto.createHash('sha256').update(s).digest('hex'), changes, productionModified: false, unresolved: ['提交/发送结果不确定时保留账目，等待对账，不自动重放；不承诺分布式严格恰好一次', '正文选择/引用归属及语气另行离线验证'] };
+  return { baselineSHA256: crypto.createHash('sha256').update(baseline).digest('hex'), candidateSHA256: crypto.createHash('sha256').update(s).digest('hex'), changes, productionModified: false, unresolved: [], limits:['缺乏关联凭据时保持未确认；空历史不是安全重试依据','语气需结合实际聊天反馈，不保证分布式严格恰好一次或永久人类自然度'] };
 }
 if (require.main === module) {
   const source = process.argv[2], dest = process.argv[3], r = buildCandidate(source, dest); fs.writeFileSync(dest + '.proposal.json', JSON.stringify(r, null, 2)); console.log(JSON.stringify(r, null, 2));
