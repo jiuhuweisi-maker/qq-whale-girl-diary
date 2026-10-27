@@ -405,9 +405,14 @@ function 解析管命令106(text) {
   let m = t.match(/^(?:请\s*)?(?:帮我\s*)?(?:踢出去|踢掉|踢出|踢|移出群|请出群)\s*(.+?)(?:\s*吧)?$/)
   if (!m) m = t.match(/^(?:请\s*)?(?:帮我\s*)?把\s*(.+?)\s*(?:踢了|踢掉|踢出去|移出群|请出群)(?:\s*吧)?$/)
   if (m) return { cmd: '管', act: 'kick', who: m[1].trim() }
-  m = t.match(/^禁言\s+([^\s]+)(?:\s+(\d{1,4}))?$/)
-  if (m) return { cmd: '管', act: 'ban', who: m[1], min: Math.min(Math.max(Number(m[2] || 10), 1), 1440) }
-  m = t.match(/^(?:解禁|放人)\s+([^\s]+)$/)
+  // patch107: group ban uses the same explicit-target parser as private moderation.
+  m = t.match(/^(?:请\s*)?(?:帮我\s*)?禁言\s+(\S+?)(?:\s+(\d{1,4})\s*(?:分钟|分)?)?$/)
+  if (!m) m = t.match(/^(?:请\s*)?(?:帮我\s*)?把\s+(\S+)\s+禁言\s*(\d{1,4})\s*(?:分钟|分)?$/)
+  if (m) {
+    const minutes = Number(m[2] || 10)
+    return minutes >= 1 && minutes <= 1440 ? { cmd: '管', act: 'ban', who: m[1], min: minutes } : null
+  }
+  m = t.match(/^(?:解禁|放人|解除禁言)\s+(\S+)$/)
   return m ? { cmd: '管', act: 'unban', who: m[1] } : null
 }
 function 解析群务106(row, config, channel, now = Date.now()) {
@@ -433,7 +438,7 @@ function 解析群务106(row, config, channel, now = Date.now()) {
   t = t.replace(/^(?:鲸戒|鲸鱼娘)[\s,，:：]+/, '').trim()
   if (channel === 'group' && !addressed) return null
   const command = 解析管命令106(t)
-  if (!command || (channel === 'group' && command.act !== 'kick')) return null
+  if (!command) return null
   const mention = command.who.match(/^<(\d+)>$/)
   if (targets.length && (!mention || targets.length !== 1 || Number(mention[1]) !== targets[0])) return null
   if (!targets.length && /[<>@＠]/.test(command.who)) return null
@@ -446,7 +451,7 @@ function 选群务目标106(command, members, config) {
   const norm = x => String(x || '').normalize('NFKC').replace(/[\u200b-\u200f\u202a-\u202e\u2060-\u206f]/g, '').trim()
   const found = members.filter(x => command.targetId ? Number(x.user_id) === command.targetId : [norm(x.card), norm(x.nickname)].includes(norm(command.who)))
   const unique = [...new Map(found.map(x => [Number(x.user_id), x])).values()]
-  if (unique.length !== 1) return { error: unique.length ? '有同名的，直接 @ 要踢的那个人吧。' : '没找到这个群员，你直接 @ 他吧。' }
+  if (unique.length !== 1) return { error: unique.length ? '有同名的，直接 @ 要操作的那个人吧。' : '没找到这个群员，你直接 @ 他吧。' }
   const target = unique[0], bot = members.find(x => Number(x.user_id) === Number(config.她的QQ))
   if (!bot || !['owner', 'admin'].includes(bot.role)) return { error: '我现在没有群管理权限，没动。' }
   if (!['owner', 'admin', 'member'].includes(target.role)) return { error: '目标权限没核实清楚，没动。' }
@@ -656,6 +661,7 @@ export function apply(ctx) {
   const 账可用 = () => 消息账.healthy && 取账域(读配置()) === 账域
   // First activation is durable. Installing this feature cannot execute old group history.
   if (!Number.isFinite(消息账.data.moderationEnabledAt106)) 消息账.change(s => { s.moderationEnabledAt106 = Math.floor(Date.now() / 1000) })
+  if (!Number.isFinite(消息账.data.groupBanEnabledAt107)) 消息账.change(s => { s.groupBanEnabledAt107 = Math.floor(Date.now() / 1000) })
   const 恢复候选路由 = new Map()
   const 对账器 = createReconciler({ store: 消息账, namespace: 账域, now: () => Date.now(), probe: 查发件凭据, send: (action, body) => 发一个(读配置().NapCat, action, body), diag: 记账 })
   function 发件摘要(body) {
@@ -2028,6 +2034,7 @@ export function apply(ctx) {
   async function 执行群务106(config, row, channel) {
     const command = 解析群务106(row, config, channel)
     if (!command || !账可用() || !config.总开关 || config.试运行 || Number(row.time) < 消息账.data.moderationEnabledAt106 || 消息账.data.inbox[command.sourceKey]) return false
+    if (channel === 'group' && command.act !== 'kick' && Number(row.time) < 消息账.data.groupBanEnabledAt107) return false
     // Persist first. A crash/timeout never repeats a destructive command on recovery.
     if (!消息账.change(s => { s.inbox[command.sourceKey] = { stage: 'completed', at: Date.now(), expiresAt: Date.now() + 86400000, moderation: { act: command.act, status: 'started' } } })) return false
     const save = status => 消息账.change(s => { s.inbox[command.sourceKey].moderation.status = status })
@@ -2041,7 +2048,8 @@ export function apply(ctx) {
       const target = 选群务目标106(command, members.data, config)
       if (target.error) { save('rejected'); await reply(target.error); return true }
       // Config/ledger health may change while the lookup is in flight.
-      if (!账可用() || !save('attempted')) return true
+      const current = 读配置()
+      if (!账可用() || !current.总开关 || current.试运行 || !save('attempted')) return true
       const body = { group_id: Number(config.群号), user_id: target.id }
       const action = command.act === 'kick' ? 'set_group_kick' : 'set_group_ban'
       if (command.act === 'kick') body.reject_add_request = false
@@ -2049,7 +2057,7 @@ export function apply(ctx) {
       const result = await 群务调用106(config, action, body)
       const saved = save(result.ok ? 'succeeded' : result.uncertain ? 'uncertain' : 'rejected')
       记账('群务106·' + command.act + '·' + (result.ok ? '成功' : result.uncertain ? '未确认，不自动重试' : '未执行成功'))
-      await reply(!saved || result.uncertain ? '结果没确认，我没重试。你先看下群成员列表。' : !result.ok ? 'QQ 没执行成功，这次没办成。' : command.act === 'kick' ? '已移出群，没禁止他再申请。' : command.act === 'unban' ? '解禁了。' : '禁言了 ' + command.min + ' 分钟。')
+      await reply(!saved || result.uncertain ? '结果没确认，我没重试。你先看下群里的状态。' : !result.ok ? 'QQ 没执行成功，这次没办成。' : command.act === 'kick' ? '已移出群，没禁止他再申请。' : command.act === 'unban' ? '解禁了。' : '禁言了 ' + command.min + ' 分钟。')
       return true
     } catch {
       save('uncertain'); 记账('群务106·执行未确认，不自动重试')

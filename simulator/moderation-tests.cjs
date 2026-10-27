@@ -62,6 +62,58 @@ async function test(name, fn) { await fn(); passed++; console.log('PASS ' + name
   await test('private ban and unban retain explicit owner control', async () => {
     for (const [word, duration] of [['禁言 B 3', 180], ['解禁 B', 0]]) { const r = boot(); r.add(command(r, { channel: 'private', segments: [text(word)] })); await poll(r); assert.equal(actions(r).length, 1); assert.equal(actions(r)[0].body.duration, duration); }
   });
+  const groupCommand = (r, phrase, extra = {}) => {
+    const parts = phrase.split('<B>');
+    return command(r, { segments: [at('W'), text(parts[0]), at('B'), text(parts[1] || '')], ...extra });
+  };
+  for (const [phrase, duration] of [['禁言 <B> 10分钟', 600], ['禁言 <B> 3', 180], ['禁言 <B> 1 分钟', 60], ['禁言 <B>', 600], ['把 <B> 禁言10分钟', 600], ['请帮我禁言 <B> 5分', 300], ['禁言 <B> 1440分钟', 86400], ['解禁 <B>', 0], ['解除禁言 <B>', 0]]) {
+    await test('owner group moderation: ' + phrase, async () => {
+      const r = boot(); r.add(groupCommand(r, phrase)); await poll(r);
+      assert.equal(actions(r).length, 1); assert.equal(actions(r)[0].action, 'set_group_ban');
+      assert.deepEqual(actions(r)[0].body, { group_id: 7001, user_id: ID.B, duration });
+      assert.equal(r.modelInbox.length, 0); assert.equal(r.deliveries[0].body.user_id, ID.A);
+      assert(r.deliveries[0].body.message[0].data.text.includes(duration ? (duration / 60) + ' 分钟' : '解禁'));
+    });
+  }
+  for (const phrase of ['不要禁言 <B> 10分钟', '如果禁言 <B> 10分钟', '禁言 <B> 10分钟吗？', '“解禁 <B>”', '禁言 <B> 0分钟', '禁言 <B> -1分钟', '禁言 <B> 1441分钟', '禁言 <B> 1.5分钟']) {
+    await test('group ban intent/duration rejected: ' + phrase, async () => { const r = boot(); r.add(groupCommand(r, phrase)); await poll(r); assert.equal(actions(r).length, 0); });
+  }
+  for (const phrase of ['禁言 <B> 3分钟', '解禁 <B>']) {
+    for (const [name, mutate] of [
+      ['other account called 主人', m => { m.user_id = ID.C; m.sender = { user_id: ID.C, nickname: '主人', role: 'owner' }; }],
+      ['mismatched sender', m => { m.sender.user_id = ID.C; }],
+      ['other group', m => { m.group_id = 7002; }],
+      ['quoted command', m => { m.message.unshift({ type: 'reply', data: { id: 'old-command' } }); }],
+      ['multiple targets', m => { m.message.push(at('C')); }],
+    ]) await test(phrase + ' cannot act with ' + name, async () => { const r = boot(), m = r.add(groupCommand(r, phrase)); mutate(m); await poll(r); assert.equal(actions(r).length, 0); });
+    await test(phrase + ': protects owner/self/admin targets and refuses duplicate names', async () => {
+      for (const target of ['A', 'W', 'admin', 'duplicate']) {
+        const list = structuredClone(members);
+        if (target === 'admin') list.find(x => x.user_id === ID.B).role = 'admin';
+        if (target === 'duplicate') list.find(x => x.user_id === ID.C).card = 'B';
+        const r = boot({ members: list });
+        r.add(command(r, { segments: [at('W'), text(phrase.replace('<B>', ['A', 'W'].includes(target) ? target : 'B'))] }));
+        await poll(r); assert.equal(actions(r).length, 0);
+      }
+    });
+    await test(phrase + ': same-message restart and timeout never repeat the action', async () => {
+      for (const behavior of ['success', 'received_then_timeout']) {
+        let r = boot({ moderationBehavior: () => behavior }); const row = groupCommand(r, phrase); r.add(row); await poll(r); await poll(r); assert.equal(actions(r).length, 1);
+        r = boot({ disk: r.disk, clock: r.clock }); r.add(row); await poll(r); assert.equal(actions(r).length, 0); assert.equal(r.modelInbox.length, 0);
+      }
+    });
+  }
+  await test('new group-ban activation ignores prior history even with existing patch106 kick state', async () => {
+    let r = boot(); const saved = [...r.disk.entries()].filter(([p]) => /qq-delivery-.*\.[01]$/.test(p));
+    const crypto = require('node:crypto');
+    for (const [p, value] of saved) {
+      const { checksum, ...payload } = JSON.parse(value); delete payload.data.groupBanEnabledAt107; payload.data.moderationEnabledAt106 -= 120;
+      r.disk.set(p, Buffer.from(JSON.stringify({ ...payload, checksum: crypto.createHash('sha256').update(JSON.stringify(payload)).digest('hex') })));
+    }
+    const { disk, clock } = r; r = boot({ disk, clock });
+    r.add(groupCommand(r, '禁言 <B> 3分钟', { time: clock.now - 30000 })); await poll(r); assert.equal(actions(r).length, 0);
+    await clock.advance(1000); r.add(groupCommand(r, '禁言 <B> 3分钟', { id: 602 })); await poll(r); assert.equal(actions(r).length, 1);
+  });
   await test('same command, overlapping polls and restart cause only one attempt', async () => {
     let r = boot(); const row = command(r); r.add(row); await r.clock.settle(Promise.all([r.hooks.轮询收消息(), r.hooks.轮询收消息()])); await poll(r); assert.equal(actions(r).length, 1);
     r = boot({ disk: r.disk, clock: r.clock }); r.add(row); await poll(r); assert.equal(actions(r).length, 0); assert.equal(r.deliveries.length, 0);
