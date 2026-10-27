@@ -9,6 +9,7 @@ const transfer=source.slice(source.indexOf('  async function 转入一条('),sou
 function runtime(){
   let style='平常接话，不用给每张表情包配台词。';let error=null;const calls=[],logs=[];
   const sandbox={Number,String,Array,Math,JSON,Buffer,Date,Map,URL,TextDecoder,AbortController,setTimeout,clearTimeout,readFileSync:()=>{if(error)throw error;return style;},记账:x=>logs.push(x),
+    当前群序110:()=>0,群轮有效110:()=>true,账阶段:()=>true,
     最后来路:'private',来路时刻:0,账可用:()=>true,读配置:()=>({目标会话:'existing',总开关:true,收图:true,收图最多:4,图上限MB:5,称呼:'对方'}),找agent:()=>({}),救会话:async()=>{},短id:()=>'',
     取图字节:async()=>Buffer.from([0x89,0x50,0x4e,0x47]),看图类:()=> 'image/png',存一张:()=>'/tmp/mock.png',扩展:()=> 'png',记收图:()=>{},ctx:{},
     跟进并记路由:async(agent,content,route)=>calls.push({content,route})};

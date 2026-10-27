@@ -406,7 +406,7 @@ function 解析管命令106(text) {
   if (!m) m = t.match(/^(?:请\s*)?(?:帮我\s*)?把\s*(.+?)\s*(?:踢了|踢掉|踢出去|移出群|请出群)(?:\s*吧)?$/)
   if (m) return { cmd: '管', act: 'kick', who: m[1].trim() }
   // patch107: group ban uses the same explicit-target parser as private moderation.
-  m = t.match(/^(?:请\s*)?(?:帮我\s*)?禁言\s+(\S+?)(?:\s+(\d{1,4})\s*(?:分钟|分)?)?$/)
+  m = t.match(/^(?:请\s*)?(?:帮我\s*)?禁言\s*(\S+?)(?:\s+(\d{1,4})\s*(?:分钟|分)?)?$/)
   if (!m) m = t.match(/^(?:请\s*)?(?:帮我\s*)?把\s+(\S+)\s+禁言\s*(\d{1,4})\s*(?:分钟|分)?$/)
   if (m) {
     const minutes = Number(m[2] || 10)
@@ -461,6 +461,30 @@ function 选群务目标106(command, members, config) {
   return { id: Number(target.user_id) }
 }
 // patch106: moderation helpers END
+
+// patch110: quiet intent BEGIN
+function 收声意图110(row, config, quote) {
+  if (!row || row.message_type !== 'group' || Number(row.group_id) !== Number(config.群号) || Number(row.user_id) !== Number(config.私聊QQ)) return null
+  if (row.sender?.user_id != null && Number(row.sender.user_id) !== Number(config.私聊QQ)) return null
+  if (row.self_id != null && Number(row.self_id) !== Number(config.她的QQ)) return null
+  const age = Date.now() / 1000 - Number(row.time)
+  if (!Number.isFinite(age) || age < 0 || age > 600 || row.message_id == null) return null
+  const parts = row.message
+  if (!Array.isArray(parts) || parts.some(p => !p || !['text','at','reply','image','mface','file'].includes(p.type))) return null
+  const ats = parts.filter(p => p.type === 'at').map(p => Number(p.data?.qq))
+  if (ats.some(id => id !== Number(config.她的QQ))) return null
+  if (parts.some(p => p.type === 'reply') && !(quote?.known && Number(quote.uid) === Number(config.她的QQ))) return null
+  let text = parts.filter(p => p.type === 'text').map(p => p.data?.text || '').join('').normalize('NFKC').trim()
+  const named = /^(?:鲸戒|鲸鱼娘)[\s,，:：]/.test(text)
+  if (!ats.length && !named && !(quote?.known && Number(quote.uid) === Number(config.她的QQ))) return null
+  text = text.replace(/^(?:鲸戒|鲸鱼娘)[\s,，:：]+/,'').trim()
+  const plain = text.replace(/[\s,，。!！~～]+/g,'')
+  const media = parts.some(p => ['image','mface','file'].includes(p.type))
+  if (!media && /^(?:(?:先)?(?:停|停下|停一下|停一会儿|别说了|别说话|别吵了|别拌嘴|闭嘴|安静一会儿)(?:吧|了)?(?:别拌嘴|别说了|别说话|别吵了)?|stop(?:stop)?)$/i.test(plain)) return 'stop'
+  if (!media && /^(?:开口|说吧|继续说|可以说了|恢复说话)$/.test(plain)) return 'resume'
+  return text || media ? 'new-request' : null
+}
+// patch110: quiet intent END
 
 // ---------- 纯函数（导出给冒烟测试喂） ----------
 
@@ -662,6 +686,48 @@ export function apply(ctx) {
   // First activation is durable. Installing this feature cannot execute old group history.
   if (!Number.isFinite(消息账.data.moderationEnabledAt106)) 消息账.change(s => { s.moderationEnabledAt106 = Math.floor(Date.now() / 1000) })
   if (!Number.isFinite(消息账.data.groupBanEnabledAt107)) 消息账.change(s => { s.groupBanEnabledAt107 = Math.floor(Date.now() / 1000) })
+  if (!Number.isFinite(消息账.data.quietEnabledAt110)) 消息账.change(s => { s.quietEnabledAt110 = Math.floor(Date.now() / 1000) })
+  // patch110: group quiet state BEGIN
+  function 读群忽略110() {
+    const file = join(目录, 'qq-chat-control.json')
+    if (!existsSync(file)) return []
+    try {
+      const c = JSON.parse(readFileSync(file, 'utf8')), cfg = 读配置()
+      if (c.version !== 1 || String(c.group) !== String(cfg.群号) || !Array.isArray(c.ignoredSenders) || c.ignoredSenders.length > 100) return null
+      if (c.ignoredSenders.some(id => !/^\d+$/.test(String(id)) || [Number(cfg.私聊QQ), Number(cfg.她的QQ)].includes(Number(id)))) return null
+      return c.ignoredSenders.map(String)
+    } catch { return null }
+  }
+  const 忽略群成员110 = uid => { const ids = 读群忽略110(); return ids === null || ids.includes(String(uid)) }
+  const 当前群序110 = () => Number(消息账.data.groupQuiet110?.epoch || 0)
+  const 群收声中110 = () => Date.now() < Number(消息账.data.groupQuiet110?.until || 0)
+  function 群轮有效110(route) {
+    return route?.来路 !== 'group' || (!群收声中110() && !忽略群成员110(route.话 || route.艾特 || 0) && Number(route.groupEpoch110 || 0) === 当前群序110() && !(route.ledgerKeys || []).some(k => 消息账.data.inbox[k]?.quietCancelled110))
+  }
+  function 处理群收声110(row, config, quote) {
+    const intent = 收声意图110(row, config, quote)
+    if (!intent || Number(row.time) < 消息账.data.quietEnabledAt110) return false
+    if (intent !== 'stop') {
+      if (群收声中110() && !消息账.change(s => { s.groupQuiet110.until = 0 })) return true
+      if (intent !== 'resume') return false
+      已转消息.add('g:' + config.群号 + ':' + String(row.message_id)); return true
+    }
+    const key = 'g:' + config.群号 + ':' + String(row.message_id)
+    if (消息账.data.inbox[key]) return true
+    if (!消息账.change(s => {
+      s.groupQuiet110 = { epoch: 当前群序110() + 1, until: Date.now() + 600000 }
+      for (const r of Object.values(s.inbox)) if (r.item?.route === 'group' || r.route?.来路 === 'group') {
+        r.quietCancelled110 = true
+        if (['buffered','submitting','queued','claimed'].includes(r.stage)) r.stage = 'skipped'
+      }
+      s.inbox[key] = { stage: 'completed', at: Date.now(), expiresAt: Date.now() + 86400000, quietCommand110: true }
+    })) return true
+    for (const [k,b] of 缓聊) if (b.route === 'group') 缓聊.delete(k)
+    热聊.clear()
+    记账('主人叫停：清除群聊待答并拦截旧轮后续发送，不自动补一句收尾')
+    return true
+  }
+  // patch110: group quiet state END
   const 恢复候选路由 = new Map()
   const 对账器 = createReconciler({ store: 消息账, namespace: 账域, now: () => Date.now(), probe: 查发件凭据, send: (action, body) => 发一个(读配置().NapCat, action, body), diag: 记账 })
   function 发件摘要(body) {
@@ -724,11 +790,12 @@ export function apply(ctx) {
       }
     }
   }
-  async function 账本发一个(id, base, action, body) {
+  async function 账本发一个(id, base, action, body, allowed = () => true) {
+    if (!allowed()) return { action, ok: false, 已抑制: true, 数据: { suppressed: true } }
     const attempt = { action, recipient: body.group_id || body.user_id, digest: 账摘要(JSON.stringify(body)), requestId: id + ':' + 消息账.data.outbox[id].attempts.length, at: Date.now(), status: 'uncertain', body: JSON.stringify(body).length < 65536 ? body : null }
     if (!消息账.change(s => s.outbox[id].attempts.push(attempt))) return { ok: false, 不确定: true }
     const index = 消息账.data.outbox[id].attempts.length - 1
-    const result = await 发一个(base, action, body)
+    const result = await 发一个(base, action, body, allowed)
     const saved = 消息账.change(s => Object.assign(s.outbox[id].attempts[index], { status: result.不确定 ? 'uncertain' : result.ok ? 'sent' : 'rejected', messageId: result.数据?.data?.message_id || null }))
     return saved ? result : { ...result, ok: false, 不确定: true }
   }
@@ -827,7 +894,7 @@ export function apply(ctx) {
     if (发送窗口.length > 40) 发送窗口.splice(0, 发送窗口.length - 40)
     return null
   }
-  async function 发一个(base, action, 体) {
+  async function 发一个(base, action, 体, allowed = () => true) {
     if (action === 'send_group_msg' && 群静默中()) { 记账('🤐 群静默中，一条群发被挡'); return { ok: true, 说: '群静默挡' } }
     const 是图 = Array.isArray(体 && 体.message) && 体.message.some((x) => x && x.type === 'image')
     const 闸 = await 节流发送(是图)
@@ -840,6 +907,7 @@ export function apply(ctx) {
       const 歇46 = Math.max(600, Math.min(9000, Math.round(μ50 + 正50 * μ50 * 0.35)))
       await new Promise((rr) => setTimeout(rr, 歇46))
     } catch (error) {}
+    if (!allowed() || (action === 'send_group_msg' && 群收声中110()) || (action === 'group_poke' && (群收声中110() || 忽略群成员110(体.user_id)))) return { action, ok: false, 已抑制: true, 数据: { suppressed: true } }
     try {
       const r = await fetch(带票52(`${base}/${action}`), {
         method: 'POST',
@@ -916,19 +984,20 @@ export function apply(ctx) {
   // ⭐ patch57 嘴锁：两个大脑回合的回复批不再交叉插队（"你们聊"后马上续聊的错乱感来源）
   let 嘴锁57 = Promise.resolve()
   async function 发到QQ(配置, 原文字, 图们, 路由) {
+    if (路由?.来路 === 'group' && 路由.groupEpoch110 == null) 路由 = { ...路由, groupEpoch110: 当前群序110() }
     const 前57 = 嘴锁57
     let 解57
     嘴锁57 = new Promise((r) => (解57 = r))
     await 前57.catch(() => {})
     try {
-      if (!账可用()) return []
+      if (!账可用() || !群轮有效110(路由)) return []
       const keys = 路由?.ledgerKeys || []
       if (keys.length && keys.every(k => Date.now() >= (消息账.data.inbox[k]?.expiresAt || 0))) { 账阶段(keys, 'expired'); return [] }
       const id = 路由?.deliveryId || 新id()
       if (消息账.data.outbox[id]) { 记账('已登记的发件批次不重复发送'); return [] }
       if (!消息账.change(s => { s.outbox[id] = { at: Date.now(), status: 'sending', attempts: [], keys, deadline: keys.length ? Math.max(...keys.map(k => s.inbox[k]?.expiresAt || 0)) : Date.now() + 600000 } })) return []
       try {
-        const results = await 发到QQ原57(配置, 原文字, 图们, 路由, (base, action, body) => 账本发一个(id, base, action, body))
+        const results = await 发到QQ原57(配置, 原文字, 图们, 路由, (base, action, body) => 账本发一个(id, base, action, body, () => 群轮有效110(路由)))
         const status = results.some(x => x.不确定) ? 'uncertain' : !results.length ? 'suppressed' : results.every(x => x.ok) ? 'sent' : 'rejected'
         消息账.change(s => { s.outbox[id].status = status; for (const k of keys) if (s.inbox[k]) s.inbox[k].stage = status === 'uncertain' ? 'uncertain' : 'completed' })
         return results
@@ -947,7 +1016,7 @@ export function apply(ctx) {
     const 文字 = 清文105.text
     let 段们 = 按段拆(文字).length ? 按段拆(文字) : [String(文字 || '').trim()].filter((s) => s.length > 0)
     // v108 主人钦定10-27:105-107重构把v101整行残渣摘吞了(线上grep v101=0实锤),机制级补回——段内粘附型英文系统腔摘句
-    { const 腔 = /\b(?:this|that|the|your|these|those)[ \t]+(?:request|message|prompt|input|query|content|task|action|file|upload|download|attachment|sentence|text)[a-z']*[ \t][^\u3400-\u9fff\n]{0,600}|(?:internal server error|traceback|stack trace|process\. exit|exited with code)[^\u3400-\u9fff\n]{0,600}/gi
+    if (!路.quotedStatusLiterals?.length) { const 腔 = /\b(?:this|that|the|your|these|those)[ \t]+(?:request|message|prompt|input|query|content|task|action|file|upload|download|attachment|sentence|text)[a-z']*[ \t][^\u3400-\u9fff\n]{0,600}|(?:internal server error|traceback|stack trace|process\. exit|exited with code)[^\u3400-\u9fff\n]{0,600}/gi
       const 段们8 = 段们.map((t) => { const c = String(t).replace(腔, ' ').replace(/ {2,}/g, ' ').trim(); return c.length > 0 ? c : null })
       if (段们8.length !== 段们.length || 段们8.some((c, i) => (c || '') !== 段们[i])) 记账('🧹 v108 段内残渣补摘1处')
       段们 = 段们8.filter((c) => c !== null) }
@@ -1032,9 +1101,9 @@ export function apply(ctx) {
         const 带引G = i === 0 && 路.mid && 路.mid !== 'qq' && Array.isArray(体.message) && (路.艾特 ? true : Math.random() < 0.25) // patch65 回@必引闲话掷骰
         if (带引G) 体.message.unshift({ type: 'reply', data: { id: String(路.mid) } })
         let 果G = await 发本轮(配置.NapCat, 'send_group_msg', 体)
-        if (!果G.ok && 带引G && !果G.不确定) { 体.message.shift(); 果G = await 发本轮(配置.NapCat, 'send_group_msg', 体) }
+        if (!果G.ok && 带引G && !果G.不确定 && !果G.已抑制) { 体.message.shift(); 果G = await 发本轮(配置.NapCat, 'send_group_msg', 体) }
         出.push(果G)
-        if (果G.不确定) return 出
+        if (果G.不确定 || 果G.已抑制) return 出
         if (i < 段们.length - 1) await new Promise((r) => setTimeout(r, 发段延迟))
       }
       for (const x of 图数据) {
@@ -1065,6 +1134,7 @@ export function apply(ctx) {
       return 记账(`试运行：本来要发到 QQ →「${净文.slice(0, 40)}${净文.length > 40 ? '…' : ''}」${图标}`)
     }
     const 结果 = await 发到QQ(配置, 文字, 图们, 路由)
+    if (结果.some(r => r.已抑制)) { 记账('群聊后续发送已按叫停或忽略偏好取消'); return }
     const 全过 = 结果.length > 0 && 结果.every((r) => r.ok)
     if (结果.length === 0) {
       记账('转私聊 / 转群都没开，或没填 QQ 号 / 群号，或者这轮既没有文字也没有图（而且图都没转成）：没地方发')
@@ -1117,6 +1187,7 @@ export function apply(ctx) {
 
       if (完成 && 路由 && 有东西 && !已发轮.has(轮号)) {
         已发轮.add(轮号)
+        if (!群轮有效110(路由)) { 账阶段(路由.ledgerKeys, 'skipped'); 记账('旧群回合已被叫停或忽略，不再发送'); return }
         if (已发轮.size > 1000) 已发轮.delete(已发轮.values().next().value)
         const 选引 = 解析回复选择(String(输出.文本 || ''), 路由)
         路由 = 选引.route
@@ -1140,7 +1211,7 @@ export function apply(ctx) {
             await new Promise((r) => setTimeout(r, 1200))
             const ag = 找agent(配置.目标会话)
             if (!ag) { 续轮保留100 = 0; 记账('画待：会话没醒，画不成了'); return }
-            const 续路由 = { 来路: 路由.来路, 艾特: 路由.话 || 路由.艾特 || 0, 话: 路由.话 || 0, mid: 路由.mid || '' }
+            const 续路由 = { 来路: 路由.来路, 艾特: 路由.话 || 路由.艾特 || 0, 话: 路由.话 || 0, mid: 路由.mid || '', groupEpoch110: 路由.groupEpoch110 }
             try {
               await 跟进并记路由(ag, [{ type: 'text', text: '（系统提示，对方看不到）现在开始画：' + 画描 + '。画法：Bash 跑 python3 /opt/qq-cs/draw.py 描述 --size=1024x1024，它会打印成图路径；把该路径单独成行放在回复最后，配一句自然的话（比如 来啦，久等了）。画失败就老实说没画出来，别硬编路径。' }], 续路由)
             } catch (e) { 记账('画待注入失败：' + String((e && e.message) || e)) } finally { 续轮保留100 = 0 }
@@ -1537,6 +1608,7 @@ export function apply(ctx) {
   let 堵塞告警100 = 0
   function 有QQ待办100() { return !!(冲缓冲中 || 待认领路由.size || 轮路由.size || 缓聊.size || Date.now() < 续轮保留100) }
   function 加缓冲(键, 项) {
+    if (项.route === 'group' && (群收声中110() || 忽略群成员110(项.speaker))) return
     let b = 缓聊.get(键)
     if (!b) { b = { texts: [], images: [], files: [], items: [], mid: '', first: Date.now(), last: 0, at: 0, speaker: 0, route: 项.route, name: 项.name, pingOnly: false }; 缓聊.set(键, b) }
     if (项.mid && b.items.some((x) => x.mid === String(项.mid))) return
@@ -1649,7 +1721,7 @@ export function apply(ctx) {
       const 现在 = Math.floor(Date.now() / 1000)
       const 行们 = []
       for (const m of msgs) {
-        if (!m || 排除.has(String(m.message_id)) || 现在 - (m.time || 0) > 600) continue
+        if (!m || 忽略群成员110(m.user_id) || 排除.has(String(m.message_id)) || 现在 - (m.time || 0) > 600) continue
         const 谁 = String((m.sender && (m.sender.card || m.sender.nickname)) || '群友').slice(0, 12)
         const 话 = (Array.isArray(m.message) ? m.message : []).map((x) => {
           if (!x) return ''
@@ -1758,6 +1830,9 @@ export function apply(ctx) {
   const 黄脸表 = ['惊讶','撇嘴','色','发呆','得意','流泪','害羞','闭嘴','睡','大哭','尴尬','发怒','调皮','呲牙','惊讶','难过','酷','冷汗','抓狂','吐','偷笑','可爱','白眼','傲慢','饥饿','困','惊恐','流汗','憨笑','大兵','奋斗','咒骂','疑问','嘘','晕','折磨','衰','骷髅','敲打','再见','擦汗','抠鼻','鼓掌','糗大了','坏笑','左哼哼','右哼哼','哈欠','鄙视','委屈','快哭了','阴险','亲亲','吓','可怜','菜刀','西瓜','啤酒','篮球','乒乓','咖啡','饭','玫瑰','凋谢','示爱','爱心','心碎','蛋糕','闪电','炸弹','刀','足球','瓢虫','便便','月亮','太阳','礼物','拥抱','强','弱','握手','胜利','抱拳','勾引','拳头','差劲','爱你','NO','OK','爱情','飞吻','跳跳','发抖','怄火','转圈','磕头','回头','跳绳','挥手','激动','街舞','献吻','左太极','右太极']
   async function 转入一条(文字, 图们, 消息id, 来路, 艾特谁, 说话人, 文件们 = [], ledgerKeys = [], replyChoices = []) {
     if (!账可用()) return { ok: false, 不确定: true, 说: '持久账本不可用或通道已变化' }
+    const 群序110 = 当前群序110()
+    const 守路110 = { 来路, 话: Number(说话人) || 0, 艾特: Number(艾特谁) || 0, ledgerKeys, groupEpoch110: 群序110 }
+    if (!群轮有效110(守路110)) { 账阶段(ledgerKeys, 'skipped'); return { ok: true, skipped: true } }
     图们 = [...new Map((图们 || []).map(s => { const d = s && s.data || s || {}; return [String(d.url || d.file || JSON.stringify(d)), s] })).values()]
     if (来路 && 来路 !== 'none') { 最后来路 = 来路; 来路时刻 = Date.now() }
     // 私聊轮询自己会清 艾特我人，这里不清，免得 /receive 测试误伤
@@ -1833,7 +1908,8 @@ export function apply(ctx) {
       // ⚠⚠ 必须 await：followup 返回 Promise。不接住的话，它 reject 时（会话半死 / agent 已释放）
       //   catch 根本看不到（try 早就退出了）⇒ 未处理的 rejection ⇒ **整个 DSH 宿主退出**
       //   （2026-10-21：speak-up 同一个坑已经被用户报成"装了鱼就死了"，这里一并修）
-      await 跟进并记路由(agent, content, { 来路: 来路 || 最后来路 || 'private', 艾特: Number(艾特谁) || 0, 话: Number(说话人) || 0, mid: String(消息id || ''), ledgerKeys, replyChoices })
+      if (!群轮有效110(守路110)) { 账阶段(ledgerKeys, 'skipped'); return { ok: true, skipped: true } }
+      await 跟进并记路由(agent, content, { 来路: 来路 || 最后来路 || 'private', 艾特: Number(艾特谁) || 0, 话: Number(说话人) || 0, mid: String(消息id || ''), ledgerKeys, replyChoices, groupEpoch110: 群序110 })
       try {
         if (ctx.sessions && typeof ctx.sessions.flush === 'function') await ctx.sessions.flush(agent.session)
       } catch (error) {}
@@ -1937,6 +2013,9 @@ export function apply(ctx) {
       const 列表 = await 拉('get_group_msg_history', { group_id: Number(配置.群号), count: 30 })
       const 域 = 'g:' + 配置.群号
       for (const 条 of 列表) 记99(域, 条)
+      // An explicit stop outranks old quote lookups, buffering, and model turns.
+      const stop110 = [...列表].sort(消息先后99).reverse().find(row => Number(row?.time) >= 上次群时间 && !已转消息.has('g:' + 配置.群号 + ':' + String(row?.message_id)) && 收声意图110(row, 配置) === 'stop')
+      if (stop110 && 处理群收声110(stop110, 配置)) 上次群时间 = Math.max(上次群时间, Number(stop110.time) || 0)
       for (const 条 of 列表.sort(消息先后99)) {
         if (!条) continue
         const 自53 = Number(条.self_id) && Number(条.self_id) > 0 ? Number(条.self_id) : Number(配置.她的QQ) || 0
@@ -1983,13 +2062,17 @@ export function apply(ctx) {
         // Do cheap age/dedup checks before any old-message lookup.
         if ((条.time || 0) < 上次群时间 || 已转消息.has('g:' + 配置.群号 + ':' + String(条.message_id))) { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); continue }
         if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); 上次群时间 = 条.time || 上次群时间; continue }
+        if (处理群收声110(条, 配置)) { 上次群时间 = 条.time || 上次群时间; continue }
         if (解析群务106(条, 配置, 'group')) {
           await 执行群务106(配置, 条, 'group')
           上次群时间 = 条.time || 上次群时间
           continue
         }
+        if ((群收声中110() && 群发言者 !== Number(配置.私聊QQ)) || 忽略群成员110(群发言者)) { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); 上次群时间 = 条.time || 上次群时间; continue }
         const { 文字, 图们, 文件们, 引用 } = await 条转片段(条, 域, 配置)
         if (引用 && 引用.deferred) break // next poll retries it; do not advance past an unresolved row
+        if (处理群收声110(条, 配置, 引用)) { 上次群时间 = 条.time || 上次群时间; continue }
+        if (群收声中110()) { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); 上次群时间 = 条.time || 上次群时间; continue }
         const { 被艾特, 引用本鱼, 找我, 叫别人 } = 群消息指向99(条, 配置, 引用)
         if (!找我) {
           const 热 = 热聊.get(群发言者)
@@ -2260,6 +2343,11 @@ export function apply(ctx) {
     const cmd = 解析群务106(body.message, c, body.channel)
     回(res, { ok: true, accepted: !!cmd, action: cmd?.act || null, targetKind: cmd ? cmd.targetId ? 'id' : 'exact-name' : null, noAgentTurn: true, noQQSend: true, noModerationAction: true })
   })
+  路线(`${路由前缀}/chat-control-audit`, async (req, res) => {
+    if (!允许附件审计102(req)) { res.statusCode = 403; return 回(res, { ok: false, reason: 'unauthorized' }) }
+    const body = await 读体(req), c = { 私聊QQ: 1001, 她的QQ: 1004, 群号: 7001 }, ignored = 读群忽略110()
+    回(res, { ok: true, intent: 收声意图110(body.message,c,body.quote), quiet: 群收声中110(), ignoredCount: ignored?.length || 0, controlHealthy: ignored !== null, noAgentTurn: true, noQQSend: true })
+  })
   路线(`${路由前缀}/parse-test`, async (req, res) => {
     const 来 = await 读体(req)
     const 文 = typeof 来.text === 'string' ? 来.text : ''
@@ -2332,6 +2420,7 @@ export function apply(ctx) {
     上次戳.set(uid, Date.now())
     if (上次戳.size > 60) 上次戳.clear()
     if (gid && Number(配置.群号) !== gid) return 回(res, { ok: true, 说: '别的群的戳，不管' })
+    if (gid && (群收声中110() || 忽略群成员110(uid))) return 回(res, { ok: true, skipped: true, 说: '群聊收声或忽略偏好生效，不回应' })
     let 名 = '有人'
     try {
       const r = await fetch(带票52(`${配置.NapCat}/${gid ? 'get_group_member_info' : 'get_stranger_info'}`), {

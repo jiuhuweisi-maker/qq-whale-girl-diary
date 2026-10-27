@@ -10,7 +10,8 @@ function block(a, b) {
 }
 const hygiene = source.includes('// patch105: output hygiene BEGIN') ? block('// patch105: output hygiene BEGIN', '// patch105: output hygiene END') : '';
 const moderation = source.includes('// patch106: moderation helpers BEGIN') ? block('// patch106: moderation helpers BEGIN', '// patch106: moderation helpers END') : '';
-const helpers = moderation + '\n' + hygiene + '\n' + block('// patch102: file helpers BEGIN', '// patch102: file helpers END') + '\n' + ['quote', 'frame', 'dispatch'].map((kind) => block('// patch100: ' + kind + ' helpers BEGIN', '// patch100: ' + kind + ' helpers END')).join('\n');
+const quiet = source.includes('// patch110: quiet intent BEGIN') ? block('// patch110: quiet intent BEGIN', '// patch110: quiet intent END') : '';
+const helpers = quiet + '\n' + moderation + '\n' + hygiene + '\n' + block('// patch102: file helpers BEGIN', '// patch102: file helpers END') + '\n' + ['quote', 'frame', 'dispatch'].map((kind) => block('// patch100: ' + kind + ' helpers BEGIN', '// patch100: ' + kind + ' helpers END')).join('\n');
 // A candidate adds a real state dependency. Load that implementation too; only
 // its filesystem boundary is virtual, as with the full-chain simulator.
 const durability = source.includes('// candidate: durability BEGIN') ? block('// candidate: durability BEGIN', '// candidate: durability END') : '';
@@ -38,6 +39,7 @@ function runtime() {
     记账: (s) => logs.push(s), 带票52: (s) => s, 现场气氛: async () => [],
     console: { log: () => {} }, 解析主人指令: () => { throw new Error('quoted command was executed'); },
     执行群务106: () => { throw new Error('unexpected moderation'); },
+    群轮有效110: () => true, 群收声中110: () => false, 忽略群成员110: () => false, 处理群收声110: () => false, 当前群序110: () => 0,
     routes: new Map(), 按轮输出: new Map(), 已发轮: new Set(), 路由前缀: '/bridge', 内部注入91: 0,
     读体: async req => req, 回: (res, value) => { res.value = value; return value; },
     路线: (name, handler) => { sandbox.routes.set(name, handler); }, 新id: (() => { let id = 0; return () => 'test-' + ++id; })(),

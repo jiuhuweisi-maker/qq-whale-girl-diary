@@ -11,6 +11,7 @@ function fileRuntime() {
     readFileSync: () => '保留原本的可爱口吻，emoji、颜文字和小括号动作照常用。', 记账: x => logs.push(x),
     最后来路: 'group', 来路时刻: 0, 账可用: () => true, 读配置: () => ({ 目标会话: 'existing', 总开关: true, 收图: true, 收图最多: 4, 图上限MB: 5 }), 找agent: () => ({}),
     救会话: async () => {}, 短id: () => '', 取图字节: async () => Buffer.from([0x89, 0x50, 0x4e, 0x47]), 看图类: () => 'image/png', 存一张: () => '/tmp/original.png', 扩展: () => 'png', 记收图: () => {},
+    当前群序110: () => 0, 群轮有效110: () => true, 账阶段: () => true,
     跟进并记路由: async (agent, content, route) => sent.push({ content, route }),
     ctx: { attachments: { saveFile: async input => { saved.push(input); return { attachmentId: 'file-' + saved.length, name: input.name, bytes: input.data.length }; }, admitPromptContent: async content => content } },
   };
