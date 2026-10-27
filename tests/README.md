@@ -18,6 +18,7 @@ patch101 的聊天偏好加载与传递另运行：
 
 ```sh
 node tests/chat-style.test.cjs
+node tests/chat-rhythm.test.cjs
 ```
 
 8项检查覆盖动态更新、回退、内部轮、文字与图片的消息传递；它们不为模型语言是否自然打自动分。口吻判断场景见 `docs/CHAT-STYLE.md`。

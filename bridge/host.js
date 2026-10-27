@@ -757,23 +757,12 @@ export function apply(ctx) {
     }
   }
 
-  /** 把一段长文字按空行拆成自然段（没有空行就整段）。 */
+  /** 保留模型明确选择的换行，不按短字数额外拆碎消息。 */
   function 按段拆(文字) {
     // ⭐ patch60 换行即消息：切分权归还她自己的排版，逗号连发机器退役（主人钦定独立思考）
     const 原文 = String(文字 || '').trim()
     if (!原文) return []
-    const 条 = []
-    for (const 行 of 原文.split(/\n+/)) {
-      let c = 行.trim()
-      if (!c) continue
-      while (c.length > 78) {
-        let 断 = c.lastIndexOf(' ', 78)
-        if (断 < 30) 断 = 78
-        条.push(c.slice(0, 断).trim()); c = c.slice(断).trim()
-      }
-      if (c) 条.push(c)
-    }
-    return 条.filter((x) => x && x.trim().length)
+    return 原文.split(/\n+/).map((行) => 行.trim()).filter(Boolean)
   }
   /**
    * 相对路径的图按哪儿找：
@@ -820,7 +809,7 @@ export function apply(ctx) {
   const 图闸 = new Map() // patch24：文件小写名 -> 上次真发时间戳
   let 群图最近 = 消息账.data.groupPictureAt
   for (const [key, t] of Object.entries(消息账.data.pictures)) 图闸.set(key, t)
-  /** 把一句正文发到该发的地方（私聊 / 群）；按空行拆段，一段一条连发。⭐ 末尾再加上图片。 */
+  /** 按明确换行发送完整消息，末尾再附图片；一回合没有固定条数。 */
   
   // ⭐ patch57 嘴锁：两个大脑回合的回复批不再交叉插队（"你们聊"后马上续聊的错乱感来源）
   let 嘴锁57 = Promise.resolve()
@@ -1259,6 +1248,16 @@ export function apply(ctx) {
   路线(`${路由前缀}/state`, async (req, res) => {
     await 读体(req)
     回(res, await 概况())
+  })
+
+  // Read-only proof through the live preference renderer, never an agent turn or QQ send.
+  // Independent bearer authentication is shared with the existing attachment audit.
+  路线(`${路由前缀}/style-audit`, async (req, res) => {
+    if (!允许附件审计102(req)) { res.statusCode = 403; return 回(res, { ok: false, reason: 'unauthorized' }) }
+    const sample = '【口吻加载核验，不进入会话】'
+    const style = 读日常口吻101(), rendered = 带日常口吻101(sample, 'private')
+    const digest = (text) => createHash('sha256').update(text).digest('hex')
+    回(res, { ok: !!style, preferenceCharacters: style.length, preferenceSHA256: digest(style), promptSHA256: digest(rendered), noAgentTurn: true, noQQSend: true })
   })
 
   // Admin-only replay through the same resolver/store, with no agent turn or QQ send.
