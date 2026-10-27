@@ -8,7 +8,8 @@ function block(a, b) {
   assert(start >= 0 && end > start, 'test extracts the candidate, not a reimplementation');
   return source.slice(start + a.length, end);
 }
-const helpers = block('// patch102: file helpers BEGIN', '// patch102: file helpers END') + '\n' + ['quote', 'frame', 'dispatch'].map((kind) => block('// patch100: ' + kind + ' helpers BEGIN', '// patch100: ' + kind + ' helpers END')).join('\n');
+const hygiene = source.includes('// patch105: output hygiene BEGIN') ? block('// patch105: output hygiene BEGIN', '// patch105: output hygiene END') : '';
+const helpers = hygiene + '\n' + block('// patch102: file helpers BEGIN', '// patch102: file helpers END') + '\n' + ['quote', 'frame', 'dispatch'].map((kind) => block('// patch100: ' + kind + ' helpers BEGIN', '// patch100: ' + kind + ' helpers END')).join('\n');
 // A candidate adds a real state dependency. Load that implementation too; only
 // its filesystem boundary is virtual, as with the full-chain simulator.
 const durability = source.includes('// candidate: durability BEGIN') ? block('// candidate: durability BEGIN', '// candidate: durability END') : '';

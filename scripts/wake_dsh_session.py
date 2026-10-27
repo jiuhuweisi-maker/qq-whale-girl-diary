@@ -52,11 +52,21 @@ def main():
 
     with open(CONFIG, encoding="utf-8") as source:
         session = json.load(source)["目标会话"]
-    if not session.startswith("session-68a2522f"):
-        raise RuntimeError("target session differs from the known original")
+    if not re.fullmatch(r"session-[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}", session):
+        raise RuntimeError("configured target is not a valid stored session identity")
     opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
     with opener.open(BASE + "/?token=" + urllib.parse.quote(token), timeout=10) as response:
         response.read(128)
+    listing = {"type": "client-request", "rpcId": "qq-wake-existing", "method": "session/list", "payload": {"args": {"_request": {}}}}
+    request = urllib.request.Request(BASE + "/api/session/list", data=json.dumps(listing).encode("utf-8"), headers={"Content-Type": "application/json"})
+    with opener.open(request, timeout=10) as response:
+        data = json.load(response)
+    def contains(value):
+        if isinstance(value, dict):
+            return value.get("id", value.get("sessionId")) == session or any(contains(x) for x in value.values())
+        return isinstance(value, list) and any(contains(x) for x in value)
+    if not contains(data):
+        raise RuntimeError("configured target does not exist; refusing implicit creation")
     envelope = {
         "type": "client-request",
         "rpcId": "qq-wake-%d" % int(time.time()),

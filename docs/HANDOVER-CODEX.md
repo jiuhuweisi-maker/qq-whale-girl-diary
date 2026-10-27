@@ -1,5 +1,7 @@
 # 接班完全运行手册（codex 专递 · 打码版）
 
+> 2026-10-27 patch105：当前目标已主动换班，读配置找ID；旧会话完整留档可检索，别把旧68a会话重新接回桥。最新完成和验证见 [PATCH105-COMPLETION-2026-10-27.md](PATCH105-COMPLETION-2026-10-27.md)。原模型低档、凭据、QQ客户端和调度频率保留。
+
 > 读者假设：你能读到仓库外的 `C:\Users\ASUS\whale-ops\SECRETS.md`（所有真值在那，本文件只写方法与占位符）。
 > 开工顺序：先本文件 → AGENTS.md（接班人须知/红线/血案纪律）→ docs/SNOWLUMA.md（架构+补丁史）→ 有不懂的按 patch 号查 docs/bridge-patches.md。
 > 2026-10-26 维护已正式移交 Codex；最新实测与回滚点见 `CODEX-TAKEOVER-2026-10-26.md`。本文后面的“交给 DSH”旧分工不再适用，底层红线仍保留。

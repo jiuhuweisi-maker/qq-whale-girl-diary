@@ -37,6 +37,40 @@ const 带票52 = (u) => {
 }
 const 日志上限 = 60
 
+// patch105: output hygiene BEGIN
+function 用户要求的英文原文105(content) {
+  const text = (content || []).filter(x => x.type === 'text').map(x => x.text || '').join('\n')
+  if (!/(?:翻译|解释|什么意思|啥意思|什么含义|这句英文|这个报错|这条错误)/.test(text)) return []
+  return [...text.matchAll(/\b(?:This request|The request|Your request|This message|The message|Internal Server Error|Traceback|Error:)[^\u3400-\u9fff\n“”「」"`]{0,600}/gi)].map(m => m[0].trim()).filter(Boolean).slice(0, 4)
+}
+function 清聊天杂讯105(raw, allowed = []) {
+  let text = String(raw || ''), removed = 0
+  const protectedText = []
+  for (const literal of allowed) {
+    if (!literal || !text.includes(literal)) continue
+    const token = '\uE000' + protectedText.length + '\uE001'
+    protectedText.push({ token, literal }); text = text.split(literal).join(token)
+  }
+  // Match a status/instruction notice as a whole before splitting into bubbles.
+  // No generic English-word threshold: legitimate English, links and quotes stay.
+  const start = /\b(?:(?:(?:this|that|the|your|these|those)\s+(?:request|message|prompt|input|query|content|task|action|file|upload|download|attachment))\b[^\u3400-\u9fff\n]{0,240}?(?:\b(?:cannot|can't|could not|unable|failed|denied|rejected|flagged|expired|invalid)\b|\bsystem prompt\b|\binternal instructions\b|\bnothing\b[^\u3400-\u9fff\n.]{0,100}\b(?:improv|process|handl)\w*)|(?:there (?:is|'s) nothing|nothing here)\b[^\u3400-\u9fff\n.]{0,150}\b(?:improv|process|handl)\w*)/gi
+  let match
+  while ((match = start.exec(text))) {
+    const tail = text.slice(match.index)
+    const han = tail.search(/[\u3400-\u9fff\uE000]/)
+    const end = tail.search(/[.!?](?=\s|$)|(?=\n\s*\n)/)
+    let length = end >= 0 ? end + (/[.!?]/.test(tail[end]) ? 1 : 0) : (han >= 0 ? han : tail.length)
+    if (han >= 0) length = Math.min(length, han)
+    if (length <= 0) { start.lastIndex = match.index + match[0].length; continue }
+    text = text.slice(0, match.index) + text.slice(match.index + length); removed++; start.lastIndex = match.index
+  }
+  text = text.replace(/(?:^|\n)[ \t]*(?:Internal Server Error\b|Traceback \(most recent call last\):|(?:APIError|RateLimitError|AuthenticationError|ValidationError):|Error:\s*(?:upstream|request|timeout|socket|ECONN|ETIMEDOUT))[^\u3400-\u9fff\n]*/gi, () => { removed++; return '\n' })
+  text = text.replace(/\n[ \t]*\n[ \t]*\n/g, '\n\n').split('\n').map(x => x.trimEnd()).join('\n').trim()
+  for (const { token, literal } of protectedText) text = text.split(token).join(literal)
+  return { text, removed }
+}
+// patch105: output hygiene END
+
 const 默认配置 = {
   她的QQ: 0,
   总开关: false, // 关着 = 一句都不发（安全默认）
@@ -840,34 +874,10 @@ export function apply(ctx) {
     if (禁言中()) { 记账(`🔇 禁言中，拦下一条${路.来路 === 'group' ? '群' : '私'}发言：「${String(原文字 || '').slice(0, 24)}」`); return 出 }
     // ⭐ 正文里的 markdown 图（贴纸就是这么发的）也当图片发；抠掉之后正文更干净
     const 抠过 = 配置.发图 ? 抠正文图(原文字) : { 净文字: String(原文字 || ''), 图: [] }
-    const 文字 = 抠过.净文字
+    const 清文105 = 清聊天杂讯105(抠过.净文字, 路.quotedStatusLiterals)
+    if (清文105.removed) 记账('出站杂讯已摘除（' + 清文105.removed + '处，不记录原文）')
+    const 文字 = 清文105.text
     let 段们 = 按段拆(文字).length ? 按段拆(文字) : [String(文字 || '').trim()].filter((s) => s.length > 0)
-    // patch83 meta残渣哨：中文泡泡里粘连的英文优化残渣句逐段摘除
-    段们 = 段们.map((t) => {
-      const cut = t.replace(/\s*(?:This request|There (?:is|s) nothing|Nothing here)[^\n]*?(?:improv|process|handl|complet|accept|support|fulfill|approv)[^\n]*?(?:[.!?]|\n|$)/gi, '')  // v96b纯英文段也摘
-      if (cut.trim() !== t.trim()) { 记账('🧹 patch83 摘除meta残渣1句'); return cut.trim() }
-      return t
-    }).filter((t) => t.length > 0)
-
-    // patch61 脏口滤网：系统小字不是她的话
-    const 脏口 = (t) => {
-      if (/^(?:Internal Server Error\b|Traceback \(most recent call last\)|Error:\s.*(?:upstream|request|timeout))/i.test(t.trim())) return true
-      if (/[\u4e00-\u9fff]/.test(t)) return false
-      if (t.length <= 10) return false
-      if (/(This content|External web content|fair use|copyrighted|verify that you|ignore previous|system prompt)/i.test(t)) return true
-      if (/^(?:this|that|the|your) (?:request|message|prompt|input|query|content|task|action|file|upload|download|attachment)\b/i.test(t.trim()) && /(cannot|can't|unable|not be|failed|denied|rejected|expired|invalid|too large)/i.test(t)) return true  // v96b: 段首空白让^漏咬  // v91系统腔英文句：四词也拦
-      return (t.match(/[A-Za-z]{3,}/g) || []).length >= 10
-    }
-    const 段们2 = 段们.filter((t) => !脏口(t))
-    if (段们2.length !== 段们.length) 记账('滤掉系统串话' + (段们.length - 段们2.length) + '条')
-    // v101: 英文残渣粘在中文段尾时按段cut/脏口都漏(脏口故意放行中文段)——拼成整行再判一次句式
-    { const 整行 = 段们2.join(' ')
-      if (脏口(整行) || /(?:this|that|the|your|these|those) (?:request|message|prompt|input|query|content|task|action|file|upload|download|attachment)\b/i.test(整行)) {
-        const 段们3 = 段们2.map((t) => t.replace(/\s*(?:This request|There (?:is|s) nothing|Nothing here|The (?:request|message|content))[^\n]*?(?:[.!?]|(?=\s)|$)/gi, '').trim()).filter((t) => t.length > 0)
-        if (段们3.length !== 段们2.length || 段们3.join(' ') !== 段们2.join(' ')) 记账('🧹 v101 整行残渣补摘1处')
-        段们2.length = 0; 段们2.push(...段们3)
-      } }
-    段们.splice(0, 段们.length, ...段们2)
     const 发段延迟 = 450 // 每段之间隔一下，像真人一条条发
     const 最大 = Math.max(1, Math.min(Number(配置.图上限MB) || 5, 30)) * 1024 * 1024
     // ⭐ 图片：base64 或网络地址，QQ 那边直接收，不用访问本机文件
@@ -1126,7 +1136,7 @@ export function apply(ctx) {
   // 把桥送进去的用户消息 ID 记下来；等 DSH 真正认领它时，才知道属于哪一轮。
   async function 跟进并记路由(agent, content, route) {
     const id = 新id()
-    route = { ...route, clarificationOnly: content.some(x => x.type === 'text' && x.text.includes('（当前问的是你自己上一句话的措辞')), queuedAt: Date.now(), deliveryId: id }
+    route = { ...route, quotedStatusLiterals: 用户要求的英文原文105(content), clarificationOnly: content.some(x => x.type === 'text' && x.text.includes('（当前问的是你自己上一句话的措辞')), queuedAt: Date.now(), deliveryId: id }
     if (!账阶段(route.ledgerKeys, 'queued', { requestId: id, route })) throw new Error('durable route unavailable')
     待认领路由.set(id, route)
     while (待认领路由.size > 512) {
@@ -1258,6 +1268,14 @@ export function apply(ctx) {
     const style = 读日常口吻101(), rendered = 带日常口吻101(sample, 'private')
     const digest = (text) => createHash('sha256').update(text).digest('hex')
     回(res, { ok: !!style, preferenceCharacters: style.length, preferenceSHA256: digest(style), promptSHA256: digest(rendered), noAgentTurn: true, noQQSend: true })
+  })
+
+  路线(`${路由前缀}/output-audit`, async (req, res) => {
+    if (!允许附件审计102(req)) { res.statusCode = 403; return 回(res, { ok: false, reason: 'unauthorized' }) }
+    const body = await 读体(req)
+    if (typeof body.text !== 'string' || body.text.length > 8000) { res.statusCode = 400; return 回(res, { ok: false, reason: 'invalid_sample' }) }
+    const result = 清聊天杂讯105(body.text)
+    回(res, { ok: true, cleanSHA256: createHash('sha256').update(result.text).digest('hex'), characters: result.text.length, removed: result.removed, noAgentTurn: true, noQQSend: true })
   })
 
   // Admin-only replay through the same resolver/store, with no agent turn or QQ send.
@@ -1496,8 +1514,20 @@ export function apply(ctx) {
   }
   function 措辞追问提示(items) {
     const last = items.map(x => String(x.text || '').split('\n').at(-1).trim())
-    const asks = last.some(t => /^(?:什么叫|啥叫|你(?:说|这句|上一句|刚才).{0,30}(?:指什么|指谁|指哪|什么意思|说谁)|[“「].{1,20}[”」].{0,10}(?:哪|什么)|那边.{0,12}(?:啥意思|什么意思|指哪|指什么|是谁)|.{0,15}(?:没会话|没回话).{0,8}(?:什么意思|是啥意思))/.test(t))
+    if (last.some(t => /(?:顺便|另外|然后|再帮|还是帮|接着帮).{0,20}(?:找|搜|查|看|做|画)/.test(t))) return ''
+    const asks = last.some(t => /^(?:什么叫|啥叫|你(?:说|这句|上一句|刚(?:才)?(?:说|那句)?).{0,45}(?:指什么|指谁|指哪|什么意思|说谁|是什么|什么含义)|[“「].{1,20}[”」].{0,10}(?:哪|什么)|那边.{0,12}(?:啥意思|什么意思|指哪|指什么|是谁)|.{0,15}(?:没会话|没回话).{0,8}(?:什么意思|是啥意思))/.test(t))
     return asks ? '\n（当前问的是你自己上一句话的措辞，只需解释或纠正该句。原先别人的请求没有转给追问者；本轮不重新接那项工作、不追要材料，也不追加“要不要我做”的接单邀请。解释到位就结束，语气照常。）' : ''
+  }
+  function 本轮聊天动作105(items) {
+    const clarify = 措辞追问提示(items)
+    if (clarify) return clarify
+    const last = String(items.at(-1)?.text || '').split('\n').at(-1).trim()
+    if (/(?:他说|她说|有人说|你说|翻译|什么意思|怎么回|怎么说|不是要|别说|不许说|不要说)/.test(last)) return ''
+    const finalClause = last.split(/[，。！？!?；;\n]/).map(x => x.trim()).filter(Boolean).at(-1) || ''
+    if (/(?:先不聊|不聊了|晚点(?:再)?聊|回头聊|先睡了|我(?:先)?(?:走|睡)了|晚安|拜拜|再见|先下[啦了]?|下了)/.test(finalClause)) {
+      return '\n（本轮是在告别，不是提出新问题。自然送别就是完整回应，关系和语气照常；不另给对方安排动作、等候或回来报告，也不补写他的往事。下一次真的来了新话再继续。）'
+    }
+    return ''
   }
   function 合成群批99(群批, 目标) {
     const 全部 = 群批.flatMap((x) => 缓冲条目(x.b).map((item) => ({ item, batch: x }))).sort((a, b) => a.item.time - b.item.time || a.item.order - b.item.order)
@@ -1526,7 +1556,7 @@ export function apply(ctx) {
       : '（以下是按时间排列的群聊。可以接一处话，也可以略过；多人时不自动挂任何人的引用，回应谁就自然叫他的称呼。）'
     const replyChoices = 全部.flatMap(({ item, batch }, i) => (!目标 || batch === 目标) && item.mid ? [{ ref: 'q' + (i + 1), mid: item.mid, speaker: item.speaker || batch.b.speaker }] : [])
     const 选引提示 = 目标 ? '\n（只接本轮对象这一人的话；同名但成员标识不同的是不同人。引用里的人、警告对象、原请求人不因插话改变。回复第一行先写【回复:q编号】，选你正文真正接的那条本轮消息；标记会被移除，别在正文解释或复述标识。不要选背景消息。）' : ''
-    return { 文: 提示 + 选引提示 + '\n' + 行们.join('\n') + (目标 ? 措辞追问提示(目标项.map(x => x.item)) : ''), replyChoices, 图们, 文件们, mid: 目标 ? (锚 && 锚.item.mid || '') : 群批.length === 1 ? (锚 && 锚.item.mid || '') : '', at: 目标 ? 目标.b.at : 0, speaker: 目标 ? 目标.b.speaker : 群批.length === 1 ? 群批[0].b.speaker : 0, ids: new Set(全部.map((x) => x.item.mid)) }
+    return { 文: 提示 + 选引提示 + '\n' + 行们.join('\n') + (目标 ? 本轮聊天动作105(目标项.map(x => x.item)) : ''), replyChoices, 图们, 文件们, mid: 目标 ? (锚 && 锚.item.mid || '') : 群批.length === 1 ? (锚 && 锚.item.mid || '') : '', at: 目标 ? 目标.b.at : 0, speaker: 目标 ? 目标.b.speaker : 群批.length === 1 ? 群批[0].b.speaker : 0, ids: new Set(全部.map((x) => x.item.mid)) }
   }
   // patch100: frame helpers END
   // patch19 读空气：群消息转发前，抓最近10分钟的群聊现场给模型当背景
@@ -1595,7 +1625,7 @@ export function apply(ctx) {
         const 项们 = 缓冲条目(b)
         const 锚 = 项们.filter((x) => x.text || x.images.length).at(-1) || 项们.at(-1)
         let 文 = '【' + b.name + '】' + b.texts.join('\n')
-        if (b.route === 'private') 文 = '（这是私聊，只有你和主人，不在群里——群里的事除非他问起就别带进来）' + 文
+        if (b.route === 'private') 文 = '（这是私聊，只有你和主人，不在群里——群里的事除非他问起就别带进来）' + 文 + 本轮聊天动作105(项们)
         const 果 = await 限时转入(文, b.images, 锚 && 锚.mid || b.mid, b.route, b.at, b.speaker, '私聊批', b.files, 账批(项们))
         if (果 && 果.ok === false && !果.不确定) { b.last = now; 退回缓冲(私.键, b) }
         return

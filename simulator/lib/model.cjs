@@ -23,6 +23,8 @@ function environment(spec) {
   return '【隔离模拟环境】A=主人，B、C=群友，W=你。显示名只用于称呼，稳定身份不随改名变化。当前身份映射：' + JSON.stringify(spec.names) + '。只通过本轮提供的受控工具获得新信息；不运行命令、不发通知、不操作服务。没有安排后续任务的工具时，不承诺自动后续执行。图片均为受控的文字说明，用于指代测试，不是视觉能力测试。不要复述环境说明，正常聊天即可。' + (spec.environmentFacts ? '\n【模拟器真实状态账本】' + JSON.stringify(spec.environmentFacts) : '');
 }
 async function generate({ spec, context, persona, transport, budget, requestPrefix, stub = false, invokeRequest = invoke }) {
+  const effort = transport.reasoningEffort || 'low';
+  if (!['low', 'high', 'max'].includes(effort)) throw new Error('unsupported simulation reasoning effort');
   const messages = spec.prior.map(p => ({ role: p.role, content: [{ type: 'text', text: p.content }] }));
   messages.push({ role: 'user', content: [{ type: 'text', text: context }] });
   const system = persona + '\n\n' + environment(spec);
@@ -31,11 +33,11 @@ async function generate({ spec, context, persona, transport, budget, requestPref
   const tools = spec.toolState.status === 'not_called' ? [] : TOOLS;
   for (let step = 0; step < 2; step++) {
     const number = budget.take();
-    const body = { model: 'deepseek-flash', max_tokens: 4096, thinking: { type: 'enabled' }, output_config: { effort: 'low' }, system, messages, ...(tools.length && step === 0 ? { tools } : {}) };
+    const body = { model: 'deepseek-flash', max_tokens: effort === 'low' ? 4096 : 8192, thinking: { type: 'enabled' }, output_config: { effort }, system, messages, ...(tools.length && step === 0 ? { tools } : {}) };
     const inputSnapshot = structuredClone(body);
     inputSnapshot.messages = inputSnapshot.messages.map(m => ({ ...m, content: m.content.filter(p => p.type !== 'thinking') }));
     const response = await invokeRequest(transport.command, { requestId: requestPrefix + '-' + number, body });
-    if (response.metadata?.provider !== 'deepseek-official' || response.metadata?.model !== 'deepseek-flash' || response.metadata?.reasoningEffort !== 'low') throw new Error('proxy did not use snapshotted model');
+    if (response.metadata?.provider !== 'deepseek-official' || response.metadata?.model !== 'deepseek-flash' || response.metadata?.reasoningEffort !== effort) throw new Error('proxy did not use requested snapshotted model and effort');
     metadata.push(response.metadata);
     // Native reasoning blocks are used only for a tool continuation and never written to reports.
     const visible = { ...response }; delete visible.replayContent;

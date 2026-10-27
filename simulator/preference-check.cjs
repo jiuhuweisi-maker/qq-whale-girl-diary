@@ -4,7 +4,10 @@ const arg=(k,d)=>{const i=process.argv.indexOf('--'+k);return i<0?d:process.argv
 async function runOne({test,mode,sourcePath,persona,style,transport,budget,out,label}){
   const r=createRuntime({sourcePath,style});const channel=test.channel||'private';
   const row={id:471,sender:'A',time:r.clock.now,text:test.text,at:channel==='group'?['W']:[],replyTo:null,images:test.image?[test.image]:[],channel};
-  if(mode==='dialogue')await r.clock.settle(r.hooks.转入一条('【完整正确的离线上下文；当前'+(channel==='private'?'私聊主人':'群聊主动机会')+'】\n'+JSON.stringify(row),[],String(row.id),channel,channel==='group'?ID.A:0,ID.A));
+  if(mode==='dialogue'){
+    const frame='【完整正确的当前上下文】频道：'+(channel==='private'?'私聊，只有你和主人':'群聊')+'；消息编号：'+row.id+'；发送者：主人（稳定身份A）；时间：'+new Date(row.time).toISOString()+'；@：'+row.at.join(',')+'；引用目标：无。'+(test.image?'\n【图片说明】'+test.image.description:'');
+    await r.clock.settle(r.hooks.转入一条(frame+'\n【主人当前原话】'+test.text+(r.hooks.本轮聊天动作105?.([{text:test.text}])||''),[],String(row.id),channel,channel==='group'?ID.A:0,ID.A));
+  }
   else if(test.id==='P06')await r.requestRoute('nudge',{text:test.text,channel:'group'});
   else{r.add(row);await r.clock.settle(r.hooks.轮询收消息());await r.clock.advance(7000);await r.clock.settle(r.hooks.冲缓冲(r.config));}
   const inbox=r.modelInbox[0];if(!inbox)throw Error('No model input');

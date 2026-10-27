@@ -74,7 +74,7 @@ function createRuntime({ sourcePath = DEFAULT_SOURCE, style = '', names = { A: '
   if (imported.length !== expectedImports.length || imported.some(x => !expectedImports.includes(x))) throw new Error('production imports changed; review offline boundaries');
   const anchor = 'return { 记账, 概况, 落地一发, 发到QQ, 收到事件, 日志 }';
   if (source.split(anchor).length !== 2) throw new Error('production instrumentation anchor changed');
-  const instrumented = source.replace(/^import .* from ['"][^'"]+['"]\r?\n/gm, '').replace(/^export\s+/gm, '').replaceAll('import.meta.url', "'file:///offline/bridge/host.js'").replace(anchor, `return { 记账, 概况, 落地一发, 发到QQ, 收到事件, 日志, __test: { 条转片段, 记99, 合成群批99, 加缓冲, 冲缓冲, 轮询收消息, 转入一条, 收到认领, 收到丢弃, 缓聊, 待认领路由, 轮路由, 已转消息, 解析主人指令 } }`);
+  const instrumented = source.replace(/^import .* from ['"][^'"]+['"]\r?\n/gm, '').replace(/^export\s+/gm, '').replaceAll('import.meta.url', "'file:///offline/bridge/host.js'").replace(anchor, `return { 记账, 概况, 落地一发, 发到QQ, 收到事件, 日志, __test: { 条转片段, 记99, 合成群批99, 加缓冲, 冲缓冲, 轮询收消息, 转入一条, 收到认领, 收到丢弃, 缓聊, 待认领路由, 轮路由, 已转消息, 解析主人指令, 本轮聊天动作105: typeof 本轮聊天动作105 === 'function' ? 本轮聊天动作105 : null } }`);
   let randomState = 12345;
   const randomMath = Object.create(Math); randomMath.random = () => { randomState = randomState * 16807 % 2_147_483_647; return (randomState - 1) / 2_147_483_646; };
   const sandbox = { ...vfs, console: { log: x => logs.push({ at: clock.now, message: String(x) }) }, Buffer, URL, TextDecoder, AbortController, AbortSignal, Response, Headers, Map, Set, Math: randomMath, Date: clock.dateClass(),
