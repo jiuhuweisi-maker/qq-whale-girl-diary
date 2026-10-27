@@ -871,6 +871,13 @@ export function apply(ctx) {
     }
     const 段们2 = 段们.filter((t) => !脏口(t))
     if (段们2.length !== 段们.length) 记账('滤掉系统串话' + (段们.length - 段们2.length) + '条')
+    // v101: 英文残渣粘在中文段尾时按段cut/脏口都漏(脏口故意放行中文段)——拼成整行再判一次句式
+    { const 整行 = 段们2.join(' ')
+      if (脏口(整行) || /(?:this|that|the|your|these|those) (?:request|message|prompt|input|query|content|task|action|file|upload|download|attachment)\b/i.test(整行)) {
+        const 段们3 = 段们2.map((t) => t.replace(/\s*(?:This request|There (?:is|s) nothing|Nothing here|The (?:request|message|content))[^\n]*?(?:[.!?]|(?=\s)|$)/gi, '').trim()).filter((t) => t.length > 0)
+        if (段们3.length !== 段们2.length || 段们3.join(' ') !== 段们2.join(' ')) 记账('🧹 v101 整行残渣补摘1处')
+        段们2.length = 0; 段们2.push(...段们3)
+      } }
     段们.splice(0, 段们.length, ...段们2)
     const 发段延迟 = 450 // 每段之间隔一下，像真人一条条发
     const 最大 = Math.max(1, Math.min(Number(配置.图上限MB) || 5, 30)) * 1024 * 1024
