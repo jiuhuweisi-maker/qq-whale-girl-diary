@@ -397,6 +397,66 @@ function 写配置(配置) {
   }
 }
 
+// patch106: moderation helpers BEGIN
+// Decisions use stable IDs and raw current segments, never model output or quoted text.
+function 解析管命令106(text) {
+  const t = String(text || '').normalize('NFKC').trim().replace(/^\//, '').trim().replace(/[。!！]+$/, '').trim()
+  if (!t || t.length > 100 || /[?？\n\r\x00-\x1f“”"'「」『』]/.test(t) || /不要|别踢|不踢|不能|不许|如果|假如|假设|比如|举例|测试|模拟|引用|转述|玩笑|是不是|是否|能不能|可不可以/.test(t)) return null
+  let m = t.match(/^(?:请\s*)?(?:帮我\s*)?(?:踢出去|踢掉|踢出|踢|移出群|请出群)\s*(.+?)(?:\s*吧)?$/)
+  if (!m) m = t.match(/^(?:请\s*)?(?:帮我\s*)?把\s*(.+?)\s*(?:踢了|踢掉|踢出去|移出群|请出群)(?:\s*吧)?$/)
+  if (m) return { cmd: '管', act: 'kick', who: m[1].trim() }
+  m = t.match(/^禁言\s+([^\s]+)(?:\s+(\d{1,4}))?$/)
+  if (m) return { cmd: '管', act: 'ban', who: m[1], min: Math.min(Math.max(Number(m[2] || 10), 1), 1440) }
+  m = t.match(/^(?:解禁|放人)\s+([^\s]+)$/)
+  return m ? { cmd: '管', act: 'unban', who: m[1] } : null
+}
+function 解析群务106(row, config, channel, now = Date.now()) {
+  if (!row || !['group', 'private'].includes(channel) || row.message_type !== channel) return null
+  const owner = Number(config.私聊QQ), bot = Number(config.她的QQ), group = Number(config.群号)
+  if (!(owner > 0 && bot > 0 && group > 0) || Number(row.user_id) !== owner || (row.sender?.user_id != null && Number(row.sender.user_id) !== owner)) return null
+  if (row.self_id != null && Number(row.self_id) !== bot) return null
+  if (channel === 'group' && Number(row.group_id) !== group) return null
+  const age = now / 1000 - Number(row.time)
+  if (!Number.isFinite(age) || age < 0 || age > 600 || row.message_id == null || !String(row.message_id)) return null
+  const segments = row.message
+  if (!Array.isArray(segments) || !segments.length || segments.some(s => !s || !['text', 'at'].includes(s.type))) return null
+  if (segments.some(s => s.type === 'text' && /[\x00-\x1f<>]|\[CQ:/i.test(String(s.data?.text || '')))) return null
+  const targets = [], botMentioned = segments.some(s => s.type === 'at' && Number(s.data?.qq) === bot)
+  let t = segments.map(s => {
+    if (s.type === 'text') return String(s.data?.text || '')
+    if (Number(s.data?.qq) === bot) return ' '
+    const id = String(s.data?.qq || '')
+    if (!/^\d+$/.test(id) || !(Number(id) > 0)) return '<invalid>'
+    targets.push(Number(id)); return ' <' + id + '> '
+  }).join('').normalize('NFKC').trim()
+  const addressed = botMentioned || /^\//.test(t) || /^(?:鲸戒|鲸鱼娘)[\s,，:：]/.test(t)
+  t = t.replace(/^(?:鲸戒|鲸鱼娘)[\s,，:：]+/, '').trim()
+  if (channel === 'group' && !addressed) return null
+  const command = 解析管命令106(t)
+  if (!command || (channel === 'group' && command.act !== 'kick')) return null
+  const mention = command.who.match(/^<(\d+)>$/)
+  if (targets.length && (!mention || targets.length !== 1 || Number(mention[1]) !== targets[0])) return null
+  if (!targets.length && /[<>@＠]/.test(command.who)) return null
+  if (/^(?:他|她|它|他们|她们|这个|那个|谁)$/.test(command.who)) return null
+  return { ...command, targetId: mention ? Number(mention[1]) : /^\d+$/.test(command.who) ? Number(command.who) : 0,
+    sourceKey: (channel === 'private' ? 'p:' + owner : 'g:' + group) + ':' + String(row.message_id), channel }
+}
+function 选群务目标106(command, members, config) {
+  if (!Array.isArray(members)) return { error: '群成员名单没读到，这次没动。' }
+  const norm = x => String(x || '').normalize('NFKC').replace(/[\u200b-\u200f\u202a-\u202e\u2060-\u206f]/g, '').trim()
+  const found = members.filter(x => command.targetId ? Number(x.user_id) === command.targetId : [norm(x.card), norm(x.nickname)].includes(norm(command.who)))
+  const unique = [...new Map(found.map(x => [Number(x.user_id), x])).values()]
+  if (unique.length !== 1) return { error: unique.length ? '有同名的，直接 @ 要踢的那个人吧。' : '没找到这个群员，你直接 @ 他吧。' }
+  const target = unique[0], bot = members.find(x => Number(x.user_id) === Number(config.她的QQ))
+  if (!bot || !['owner', 'admin'].includes(bot.role)) return { error: '我现在没有群管理权限，没动。' }
+  if (!['owner', 'admin', 'member'].includes(target.role)) return { error: '目标权限没核实清楚，没动。' }
+  if ([Number(config.私聊QQ), Number(config.她的QQ)].includes(Number(target.user_id))) return { error: '你和我自己都不在可操作名单里。' }
+  if (target.role === 'owner' || (bot.role !== 'owner' && target.role === 'admin')) return { error: '这个成员的权限我管不了，没动。' }
+  if (!Number.isSafeInteger(Number(target.user_id)) || Number(target.user_id) <= 0) return { error: '目标没核实清楚，没动。' }
+  return { id: Number(target.user_id) }
+}
+// patch106: moderation helpers END
+
 // ---------- 纯函数（导出给冒烟测试喂） ----------
 
 /** 从一条 assistant 消息里只抽出正文（text 块拼起来；reasoning / image 都不要）。 */
@@ -594,6 +654,8 @@ export function apply(ctx) {
   const 账域 = 取账域(账配置)
   const 消息账 = createDeliveryState({ fs: { readFileSync, writeFileSync, existsSync, openSync, closeSync, fsyncSync, renameSync }, hash: 账摘要, basePath: join(目录, 'qq-delivery-' + 账摘要(账域).slice(0, 20)), namespace: 账域, now: () => Date.now(), diag: 记账 })
   const 账可用 = () => 消息账.healthy && 取账域(读配置()) === 账域
+  // First activation is durable. Installing this feature cannot execute old group history.
+  if (!Number.isFinite(消息账.data.moderationEnabledAt106)) 消息账.change(s => { s.moderationEnabledAt106 = Math.floor(Date.now() / 1000) })
   const 恢复候选路由 = new Map()
   const 对账器 = createReconciler({ store: 消息账, namespace: 账域, now: () => Date.now(), probe: 查发件凭据, send: (action, body) => 发一个(读配置().NapCat, action, body), diag: 记账 })
   function 发件摘要(body) {
@@ -1837,6 +1899,12 @@ export function apply(ctx) {
         if (引用 && 引用.deferred) break // lookup budget exhausted: keep watermark before this row
         if (!文字 && !图们.length) { 已转消息.add('p:' + 她的号 + ':' + String(条.message_id)); 上次私聊时间 = 条.time || 上次私聊时间; continue }
         if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add('p:' + 她的号 + ':' + String(条.message_id)); 上次私聊时间 = 条.time || 上次私聊时间; continue } // 超10分钟不挖坟
+        // patch106: verified direct owner moderation; durable reservation precedes the action.
+        if (解析群务106(条, 配置, 'private')) {
+          await 执行群务106(配置, 条, 'private')
+          上次私聊时间 = 条.time || 上次私聊时间
+          continue
+        }
         // ⭐ patch21 主人指令：桥层直接执行，不进 DSH（零 token）。只认纯文字，带图的当普通消息走
         const 当前段102 = Array.isArray(条.message) ? 条.message : []
         const 仅当前文字102 = 当前段102.length && 当前段102.every(s => s && s.type === 'text') ? 当前段102.map(s => String(s.data && s.data.text || '')).join('') : ''
@@ -1904,6 +1972,11 @@ export function apply(ctx) {
         // Do cheap age/dedup checks before any old-message lookup.
         if ((条.time || 0) < 上次群时间 || 已转消息.has('g:' + 配置.群号 + ':' + String(条.message_id))) { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); continue }
         if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); 上次群时间 = 条.time || 上次群时间; continue }
+        if (解析群务106(条, 配置, 'group')) {
+          await 执行群务106(配置, 条, 'group')
+          上次群时间 = 条.time || 上次群时间
+          continue
+        }
         const { 文字, 图们, 文件们, 引用 } = await 条转片段(条, 域, 配置)
         if (引用 && 引用.deferred) break // next poll retries it; do not advance past an unresolved row
         const { 被艾特, 引用本鱼, 找我, 叫别人 } = 群消息指向99(条, 配置, 引用)
@@ -1941,6 +2014,49 @@ export function apply(ctx) {
   let 无限禁言 = false // 无限静音，直到「开口」
   const 禁言中 = () => 无限禁言 || Date.now() < 禁言到
 
+  // These calls do not enter message-send retry/anomaly counters or QQ login recovery.
+  async function 群务调用106(config, action, body) {
+    try {
+      const response = await fetch(带票52(config.NapCat + '/' + action), {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(8000),
+      })
+      const j = await response.json()
+      const ok = response.ok && j?.status === 'ok' && j.retcode === 0
+      return { ok, data: ok ? j.data : null, uncertain: !ok && !(response.ok && j?.status === 'failed' && Number.isFinite(j.retcode) && j.retcode !== 0) }
+    } catch { return { ok: false, uncertain: true } }
+  }
+  async function 执行群务106(config, row, channel) {
+    const command = 解析群务106(row, config, channel)
+    if (!command || !账可用() || !config.总开关 || config.试运行 || Number(row.time) < 消息账.data.moderationEnabledAt106 || 消息账.data.inbox[command.sourceKey]) return false
+    // Persist first. A crash/timeout never repeats a destructive command on recovery.
+    if (!消息账.change(s => { s.inbox[command.sourceKey] = { stage: 'completed', at: Date.now(), expiresAt: Date.now() + 86400000, moderation: { act: command.act, status: 'started' } } })) return false
+    const save = status => 消息账.change(s => { s.inbox[command.sourceKey].moderation.status = status })
+    const reply = async text => {
+      // Receipts go to the verified owner privately, never to a model-selected recipient.
+      await 发一个(config.NapCat, 'send_private_msg', { user_id: Number(config.私聊QQ), message: [{ type: 'text', data: { text } }] })
+    }
+    try {
+      const members = await 群务调用106(config, 'get_group_member_list', { group_id: Number(config.群号), no_cache: true })
+      if (!members.ok) { save('rejected'); await reply('群成员没核实清楚，这次没动。'); return true }
+      const target = 选群务目标106(command, members.data, config)
+      if (target.error) { save('rejected'); await reply(target.error); return true }
+      // Config/ledger health may change while the lookup is in flight.
+      if (!账可用() || !save('attempted')) return true
+      const body = { group_id: Number(config.群号), user_id: target.id }
+      const action = command.act === 'kick' ? 'set_group_kick' : 'set_group_ban'
+      if (command.act === 'kick') body.reject_add_request = false
+      else body.duration = command.act === 'unban' ? 0 : command.min * 60
+      const result = await 群务调用106(config, action, body)
+      const saved = save(result.ok ? 'succeeded' : result.uncertain ? 'uncertain' : 'rejected')
+      记账('群务106·' + command.act + '·' + (result.ok ? '成功' : result.uncertain ? '未确认，不自动重试' : '未执行成功'))
+      await reply(!saved || result.uncertain ? '结果没确认，我没重试。你先看下群成员列表。' : !result.ok ? 'QQ 没执行成功，这次没办成。' : command.act === 'kick' ? '已移出群，没禁止他再申请。' : command.act === 'unban' ? '解禁了。' : '禁言了 ' + command.min + ' 分钟。')
+      return true
+    } catch {
+      save('uncertain'); 记账('群务106·执行未确认，不自动重试')
+      return true
+    }
+  }
+
   function 解析主人指令(文) {
     const 原始 = String(文 || '').trim()
     if (!原始) return null
@@ -1964,12 +2080,8 @@ export function apply(ctx) {
     if (m && m[2].trim()) return { cmd: '群里说', arg: m[2].trim() }
     m = 剥.match(/^(?:发|开|来|整|甩)[  ]*(?:张|个)?[  ]*(?:鲸元券|抽奖)$/)
     if (m) return { cmd: '券' }
-    m = 剥.match(/^禁言[  ]+(\S+?)(?:[  ]+(\d{1,4}))?$/)
-    if (m && m[1]) return { cmd: '管', act: 'ban', who: m[1], min: Number(m[2] || 10) }
-    m = 剥.match(/^(?:解禁|放人)[  ]+(\S+)$/)
-    if (m) return { cmd: '管', act: 'unban', who: m[1] }
-    m = 剥.match(/^踢[  ]+(\S+)$/)
-    if (m) return { cmd: '管', act: 'kick', who: m[1] }
+    const 管106 = 解析管命令106(原始)
+    if (管106) return 管106
     // —— 自然语言兜底：精确口令没中才走这，保守防误伤 ——
     if (净.length > 30 && !强令 && !/(去群里说|替我说|群里发|通知群)/.test(净)) return null
     const 候选 = []
@@ -1994,24 +2106,6 @@ export function apply(ctx) {
     if (/^(?:重置|清空)?冷却/.test(净) && 净.length <= 8) 打分({ cmd: '冷却' }, 3)
     m = t.match(/(?:^|[，。！？；、\s])(?:去群里说|替我说|群里发|跟?群里(?:说|发)(?:一句|一声)?|通知群(?:里)?|帮我发(?:到|去|进)?群(?:里)?)[\s:：，,]*(.+)$/s) // patch63: 触发词须居句首或标点后，治你在群里发误劫持
     if (m && m[1].trim()) 打分({ cmd: '群里说', arg: m[1].trim() }, 3)
-    const 抓目标 = (src) => {
-      const 洗 = (x) => { let y = String(x).replace(/[@＠]/g, ''); for (let q = 0; q < 3; q++) { y = y.replace(/^(?:请|麻烦|帮我|帮忙|立刻|马上|赶紧|快点|去|把|将|在|咱|我|你|他|她)+/, '').replace(/^(?:群里|群内|我们群|这个群|群里|群)+/, '').replace(/^(?:的|叫|是|那位|那个|这个|名叫|叫做)+/, '').replace(/^(?:里|内|们)+/, '') } y = y.replace(/[了哈呀吗吧呗嘛的]+$/, ''); return y.replace(/[^0-9A-Za-z\u4e00-\u9fff@]/g, '').trim() }
-      let k = src.match(/[「『"'"']([^「』"'"']{1,14})[」』"'"']/)
-      if (k) return 洗(k[1])
-      k = src.match(/(?:把|帮|替|给)\s*([^,，。;；!！?？\s]{1,16}?)\s*(?:关禁闭|禁言|禁了|踢出|踢掉|移出|请出|赶出|解禁|别禁了?|不用禁了?|放)/)
-      if (k && 洗(k[1])) return 洗(k[1])
-      k = src.match(/(?:禁言|解禁|别禁了?|不用禁了?|放人|关禁闭|踢出|踢掉|移出群|请出|赶出|踢|静音)(?:一下|下|了)?\s*(?:谁|一下)?\s*([^,，。;；!！?？\s]{1,16}?)(?:吧|呗|哈|呀|吗|嘛)?(?=\s*(?:\d+|[一二两俩三四五六七八九十]+)?\s*(?:分钟|小时|半|钟头)?\s*$|[\s,，。!！?？])/)
-      if (k && 洗(k[1]) && !/^[\d一二两俩三四五六七八九十半]+$/.test(洗(k[1]))) return 洗(k[1])
-      k = src.match(/([0-9A-Za-z\u4e00-\u9fff]{1,14}?)(?:同学|老师)?(?:\s*(?:给我)?(?:去)?(?:关?禁言|禁了|关禁闭|踢出|踢掉|移出群|请出去|解禁))/)
-      if (k && 洗(k[1])) return 洗(k[1])
-      const q = src.match(/\d{5,12}/)
-      if (q) return q[0]
-      return ''
-    }
-    const 目标 = 抓目标(t)
-    if (/解禁|取消禁言|(?:别|不用|解除)(?:禁|关禁闭|再禁)|放人/.test(净)) 打分({ cmd: '管', act: 'unban', who: 目标 }, 3)
-    if (/禁言|关禁闭|禁了|关起来/.test(净)) 打分({ cmd: '管', act: 'ban', who: 目标, min: 分钟 || 10 }, 3)
-    if (/(踢出|踢了|踢掉|^踢|移出群|请出|赶出)/.test(净) && 目标) 打分({ cmd: '管', act: 'kick', who: 目标 }, 3)
     if (!候选.length) return null
     候选.sort((a2, b2) => b2.分 - a2.分)
     if (候选.length > 1 && 候选[0].分 === 候选[1].分 && 候选[0].令.cmd !== 候选[1].令.cmd) {
@@ -2097,48 +2191,7 @@ export function apply(ctx) {
         记账('手动开奖 口令' + code)
         return 答('开了！口令「鲸元券 ' + code + '」，两小时有效——第一个在群里喊对的，我当场发奖品图')
       }
-      if (令.cmd === '管') {
-        const 群号N = Number(配置.群号)
-        if (!令.who) return 答('要管谁呀？名字或QQ号给我一个喵')
-        let uid = /^\d{5,12}$/.test(String(令.who)) ? Number(令.who) : 0
-        let 名片 = String(令.who)
-        if (!uid) {
-          const 员 = await 发一个(配置.NapCat, 'get_group_member_list', { group_id: 群号N, no_cache: true })
-          const 们 = Array.isArray((员.数据 && 员.数据.data)) ? 员.数据.data : []
-          const key = String(令.who).replace(/[@＠]/g, '').trim()
-          const 中 = 们.filter((x) => String(x.card || '').includes(key) || String(x.nickname || '').includes(key))
-          if (中.length === 1) { uid = Number(中[0].user_id); 名片 = String(中[0].card || 中[0].nickname || key) }
-          else if (中.length > 1) return 答('「' + key + '」对上的有好几个：' + 中.map((x) => (x.card || x.nickname) + '(' + x.user_id + ')').join('、') + '——报全名或号吧')
-          else return 答('群里翻遍了，没找到像「' + key + '」的喵——名字差个字你说清楚点')
-        }
-        if (uid === Number(配置.她的QQ)) return 答('我是管理哎，QQ 不让管理禁管理，这条对我无效喵')
-        const 令体 = { group_id: 群号N, user_id: uid }
-        let r, 成
-        if (令.act === 'ban') { 令体.duration = Math.min(Math.max(Number(令.min) || 10, 1), 1440) * 60; r = await 发一个(配置.NapCat, 'set_group_ban', 令体); 成 = '禁了 ' + 名片 + ' ' + Math.round(令体.duration / 60) + ' 分钟，世界安静了' }
-        else if (令.act === 'unban') { 令体.duration = 0; r = await 发一个(配置.NapCat, 'set_group_ban', 令体); 成 = 名片 + ' 放出来了' }
-        else { r = await 发一个(配置.NapCat, 'set_group_kick', 令体); 成 = '把 ' + 名片 + ' 请出去了……这一脚我替你踹的' }
-        if (!r.ok) {
-          const msg = String((r.数据 && (r.数据.message || r.数据.retcode)) || '未知')
-          记账('主人指令→' + 令.act + ' ' + 令.who + '(' + uid + ') ✗ ' + msg)
-          if (/admin/i.test(msg)) return 答(名片 + ' 跟我一样是管理，管理之间管不了喵——要动他得你亲自上')
-          if (/uid|not in group|member/i.test(msg)) return 答(名片 + ' 好像不在群里，这单我接不住喵')
-          return 答('QQ 回我一句「' + msg + '」，事没办成喵')
-        }
-        记账('主人指令→' + 令.act + ' ' + 令.who + '(' + uid + ') ✓')
-        if (令.act !== 'unban') {
-          const 分 = Math.round(令体.duration / 60) || 0
-          const 延 = 60000 + Math.floor(Math.random() * 90000)
-          setTimeout(() => {
-            if (禁言中() || 有QQ待办100()) return
-            const 话 = 令.act === 'ban'
-              ? '〔桥的事件〕你刚把「' + 名片 + '」关进小黑屋' + (分 ? (' ' + 分 + ' 分钟') : '') + '，是主人下的令。现在在群里随口吐槽一句这事——就一句，自然点，像干完活顺手哼一声，别复述流程别自夸别提桥和主人指令'
-              : '〔桥的事件〕你刚按主人的令把「' + 名片 + '」请出群了，这动静不小。看群里气氛决定要不要说一句——打哈哈或装没事都行，自然为主，别说教'
-            void 转入一条(话, [], '', 'group', 0, 0)
-            记账('吐槽事件已投递：' + 名片)
-          }, 延)
-        }
-        return 答(成)
-      }
+      if (令.cmd === '管') return 答('群务要由你本人直接发给我，群里可以用 @鲸戒 踢 @目标。')
       if (令.cmd === '闭嘴') {
         if (令.arg) {
           const 分 = Math.min(Number(令.arg), 1440)
@@ -2176,14 +2229,23 @@ export function apply(ctx) {
     }
   }
 
-  // 调试入口：节点侧模拟主人指令（走与 QQ 私聊同一执行器）
+  // 独立鉴权调试入口；群务必须来自真实主人QQ消息，禁止从此执行。
   路线(`${路由前缀}/master-cmd`, async (req, res) => {
+    if (!允许附件审计102(req)) { res.statusCode = 403; return 回(res, { ok: false, reason: 'unauthorized' }) }
     const 来 = await 读体(req)
     const 文 = typeof 来.text === 'string' ? 来.text : ''
     const 令 = 解析主人指令(文)
     if (!令) return 回(res, { ok: false, 说: '不是指令' })
+    if (令.cmd === '管') { res.statusCode = 403; return 回(res, { ok: false, reason: 'qq_owner_message_required' }) }
     void 执行主人指令(读配置(), 令, 文)
     回(res, { ok: true, 说: '指令执行中，回执看主人私聊' })
+  })
+  // Pure audit: no member lookup, agent turn, QQ action, or caller-selected production identity.
+  路线(`${路由前缀}/moderation-audit`, async (req, res) => {
+    if (!允许附件审计102(req)) { res.statusCode = 403; return 回(res, { ok: false, reason: 'unauthorized' }) }
+    const body = await 读体(req), c = { 私聊QQ: 1001, 她的QQ: 1004, 群号: 7001 }
+    const cmd = 解析群务106(body.message, c, body.channel)
+    回(res, { ok: true, accepted: !!cmd, action: cmd?.act || null, targetKind: cmd ? cmd.targetId ? 'id' : 'exact-name' : null, noAgentTurn: true, noQQSend: true, noModerationAction: true })
   })
   路线(`${路由前缀}/parse-test`, async (req, res) => {
     const 来 = await 读体(req)
