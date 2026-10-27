@@ -946,6 +946,11 @@ export function apply(ctx) {
     if (清文105.removed) 记账('出站杂讯已摘除（' + 清文105.removed + '处，不记录原文）')
     const 文字 = 清文105.text
     let 段们 = 按段拆(文字).length ? 按段拆(文字) : [String(文字 || '').trim()].filter((s) => s.length > 0)
+    // v108 主人钦定10-27:105-107重构把v101整行残渣摘吞了(线上grep v101=0实锤),机制级补回——段内粘附型英文系统腔摘句
+    { const 腔 = /\b(?:this|that|the|your|these|those)[ \t]+(?:request|message|prompt|input|query|content|task|action|file|upload|download|attachment|sentence|text)[a-z']*[ \t][^\u3400-\u9fff\n]{0,600}|(?:internal server error|traceback|stack trace|process\. exit|exited with code)[^\u3400-\u9fff\n]{0,600}/gi
+      const 段们8 = 段们.map((t) => { const c = String(t).replace(腔, ' ').replace(/ {2,}/g, ' ').trim(); return c.length > 0 ? c : null })
+      if (段们8.length !== 段们.length || 段们8.some((c, i) => (c || '') !== 段们[i])) 记账('🧹 v108 段内残渣补摘1处')
+      段们 = 段们8.filter((c) => c !== null) }
     const 发段延迟 = 450 // 每段之间隔一下，像真人一条条发
     const 最大 = Math.max(1, Math.min(Number(配置.图上限MB) || 5, 30)) * 1024 * 1024
     // ⭐ 图片：base64 或网络地址，QQ 那边直接收，不用访问本机文件
