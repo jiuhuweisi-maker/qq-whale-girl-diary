@@ -8,6 +8,7 @@ node integrations/surfcore/tests/memory-scope.test.mjs
 node integrations/surfcore/tests/legacy-control.test.cjs
 node integrations/surfcore/tests/runtime.test.mjs
 node integrations/surfcore/tests/bridge-integration.test.mjs <已生成适配的上游目录>
+node integrations/surfcore/tests/bili-listener.test.mjs <原版或已适配的上游目录>
 ```
 
 `build.mjs` 遇到锚点漂移或重复安装会停止，不靠模糊替换。依赖使用上游 lockfile；先 `npm ci --ignore-scripts`，只运行已审查的 SDK 补丁。`import-memory.mjs` 读取仓库外 JSON 设置，保留原始文件，生成带来源和群私隔离的索引与活动记忆。`verify-live.mjs` 在服务器只读校验实际安装文件、连接、记忆索引和配置，不生成模型回合、不发 QQ。
