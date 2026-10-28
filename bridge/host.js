@@ -1587,7 +1587,7 @@ export function apply(ctx) {
         前缀 += '（附件背景：同一发言者此前发过' + JSON.stringify(recent.文) + '，随本轮带回。只在当前话题相关时用，不需要对背景图逐张点评；下面才是当前发言）\n'
       }
     }
-    return { 文字: 前缀 + 文字, 图们, 文件们, 引用 }
+    return { 文字: 前缀 + 文字, 图们, 文件们, 引用, 当前正文: 段们.filter(s => s && s.type === 'text').map(s => String(s.data?.text || '')).join('').trim(), 当前附件: 段们.some(s => s && ['image', 'mface', 'file'].includes(s.type)) }
   }
   function 群消息指向99(条, 配置, 引用) {
     const 自己 = Number(条.self_id) || Number(配置.她的QQ) || 0
@@ -1641,7 +1641,7 @@ export function apply(ctx) {
     const choices = route.replyChoices || []
     let mid = choices.length > 1 ? '' : route.mid
     if (match) {
-      const picked = choices.find(c => c.ref === match[1] && Number(c.speaker) === Number(route.话) && route.来路 === 'group')
+      const picked = choices.find(c => c.ref === match[1] && Number(c.speaker) === Number(route.话) && ['group', 'private'].includes(route.来路))
       mid = picked ? picked.mid : ''
       if (!picked) 记账('回复选择不在本轮对象候选中，去掉引用但保留正文')
     }
@@ -1666,6 +1666,13 @@ export function apply(ctx) {
   function 本轮聊天动作105(items) {
     const clarify = 措辞追问提示(items)
     if (clarify) return clarify
+    // A requested line is source material, not a new assertion by its sender.
+    const 台词111 = items.some(x => /^(?:(?:那|这样|比如|例如)[，,：:\s]*)?(?:你(?:可以|就|来|再|试着|能不能|帮我)?(?:说|回|念|学)|替我说|帮我说|用你的口气说)(?:一句|一遍|一下|成|：|:|[“「"]|\s)|^(?:我的意思是[，,\s]*)?(?:让你说|你来念|你说的台词|后面.{0,8}你对我说)/.test(String(x.plainText ?? x.text ?? '').trim()))
+    if (台词111) {
+      const direct = items.map(x => String(x.plainText ?? x.text ?? '').trim()).map(t => t.match(/^你(?:可以|就|来|再|试着|能不能)?(?:说|回|念|学)(?:一句|一遍|一下)?[：:\s]+([\s\S]+)$/)).find(Boolean)
+      const assignment = direct ? '\n【待说台词；说话者=你，听话者=对方】' + JSON.stringify(direct[1]) : ''
+      return assignment + '\n（这轮是在指定或纠正一句台词的说话者。台词里的“我”按指定的说话者理解，分清谁说给谁听；称呼和评价属于待说台词。按这次要求自然回应，不能接时简短说清，不假装没听懂或另起话题。）'
+    }
     const last = String(items.at(-1)?.text || '').split('\n').at(-1).trim()
     if (/(?:他说|她说|有人说|你说|翻译|什么意思|怎么回|怎么说|不是要|别说|不许说|不要说)/.test(last)) return ''
     const finalClause = last.split(/[，。！？!?；;\n]/).map(x => x.trim()).filter(Boolean).at(-1) || ''
@@ -1673,6 +1680,22 @@ export function apply(ctx) {
       return '\n（本轮是在告别，不是提出新问题。自然送别就是完整回应，关系和语气照常；不另给对方安排动作、等候或回来报告，也不补写他的往事。下一次真的来了新话再继续。）'
     }
     return ''
+  }
+  // patch111: private frames retain the same per-message quote contract as groups.
+  function 合成私批111(items, name) {
+    const ordered = items.slice().sort((a, b) => a.time - b.time || a.order - b.order)
+    const substantial = ordered.filter(x => /[\p{L}\p{N}]/u.test(String(x.plainText ?? x.text ?? '')) || (x.ownAttachment ?? (x.images?.length || x.files?.length)))
+    const eligible = substantial.length ? substantial : ordered
+    const replyChoices = ordered.flatMap((x, i) => x.mid && eligible.includes(x) ? [{ ref: 'q' + (i + 1), mid: x.mid, speaker: x.speaker }] : [])
+    let imageIndex = 0
+    const lines = ordered.map((x, i) => {
+      const start = imageIndex + 1; imageIndex += x.images?.length || 0
+      const pictures = x.images?.length ? '（随本条附图' + start + (imageIndex > start ? '至' + imageIndex : '') + '）' : ''
+      const files = x.files?.length ? '（随本条附文件：' + x.files.map(f => JSON.stringify(f.name)).join('、') + '）' : ''
+      return '【' + name + '|q' + (i + 1) + '】' + (substantial.length && !substantial.includes(x) ? '（语气补充）' : '') + x.text + pictures + files
+    })
+    const selection = ordered.length > 1 ? '\n（本轮要接的正文：' + replyChoices.map(x => x.ref).join('、') + '，按时间合起来理解；语气补充保留为情绪线索。若挂引用，第一行写【回复:q编号】，只选正文真正回应的消息；也可以不挂引用。标记不要写进聊天。）' : ''
+    return { text: lines.join('\n') + selection, replyChoices, mid: ordered.length === 1 ? ordered[0].mid : '' }
   }
   function 合成群批99(群批, 目标) {
     const 全部 = 群批.flatMap((x) => 缓冲条目(x.b).map((item) => ({ item, batch: x }))).sort((a, b) => a.item.time - b.item.time || a.item.order - b.item.order)
@@ -1768,10 +1791,10 @@ export function apply(ctx) {
         缓聊.delete(私.键)
         const b = 私.b
         const 项们 = 缓冲条目(b)
-        const 锚 = 项们.filter((x) => x.text || x.images.length).at(-1) || 项们.at(-1)
-        let 文 = '【' + b.name + '】' + b.texts.join('\n')
+        const 私框111 = 合成私批111(项们, b.name)
+        let 文 = 私框111.text
         if (b.route === 'private') 文 = '（这是私聊，只有你和主人，不在群里——群里的事除非他问起就别带进来）' + 文 + 本轮聊天动作105(项们)
-        const 果 = await 限时转入(文, b.images, 锚 && 锚.mid || b.mid, b.route, b.at, b.speaker, '私聊批', b.files, 账批(项们))
+        const 果 = await 限时转入(文, b.images, 私框111.mid, b.route, b.at, b.speaker, '私聊批', b.files, 账批(项们), 私框111.replyChoices)
         if (果 && 果.ok === false && !果.不确定) { b.last = now; 退回缓冲(私.键, b) }
         return
       }
@@ -1982,7 +2005,7 @@ export function apply(ctx) {
         if (!条 || Number(条.user_id) !== 她的号) continue
         if ((条.time || 0) < 上次私聊时间) continue           // 旧的，跳过
         if (已转消息.has('p:' + 她的号 + ':' + String(条.message_id))) continue             // 转过了
-        const { 文字, 图们, 文件们, 引用 } = await 条转片段(条, 域, 配置)
+        const { 文字, 图们, 文件们, 引用, 当前正文, 当前附件 } = await 条转片段(条, 域, 配置)
         if (引用 && 引用.deferred) break // lookup budget exhausted: keep watermark before this row
         if (!文字 && !图们.length) { 已转消息.add('p:' + 她的号 + ':' + String(条.message_id)); 上次私聊时间 = 条.time || 上次私聊时间; continue }
         if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add('p:' + 她的号 + ':' + String(条.message_id)); 上次私聊时间 = 条.time || 上次私聊时间; continue } // 超10分钟不挖坟
@@ -2003,7 +2026,7 @@ export function apply(ctx) {
           continue
         }
         艾特我人 = 0
-        加缓冲('p' + 她的号, { text: 文字, images: 图们, files: 文件们, mid: String(条.message_id || ''), route: 'private', at: 0, speaker: 她的号, name: '主人', time: 条.time })
+        加缓冲('p' + 她的号, { text: 文字, plainText: 当前正文, ownAttachment: 当前附件, images: 图们, files: 文件们, mid: String(条.message_id || ''), route: 'private', at: 0, speaker: 她的号, name: '主人', time: 条.time })
         上次私聊时间 = 条.time || 上次私聊时间
         已转消息.add('p:' + 她的号 + ':' + String(条.message_id))
       }
@@ -2069,7 +2092,7 @@ export function apply(ctx) {
           continue
         }
         if ((群收声中110() && 群发言者 !== Number(配置.私聊QQ)) || 忽略群成员110(群发言者)) { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); 上次群时间 = 条.time || 上次群时间; continue }
-        const { 文字, 图们, 文件们, 引用 } = await 条转片段(条, 域, 配置)
+        const { 文字, 图们, 文件们, 引用, 当前正文 } = await 条转片段(条, 域, 配置)
         if (引用 && 引用.deferred) break // next poll retries it; do not advance past an unresolved row
         if (处理群收声110(条, 配置, 引用)) { 上次群时间 = 条.time || 上次群时间; continue }
         if (群收声中110()) { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); 上次群时间 = 条.time || 上次群时间; continue }
@@ -2086,7 +2109,7 @@ export function apply(ctx) {
         艾特时刻 = Date.now()
         const 名前 = 群发言者 === Number(配置.私聊QQ) ? '主人' : String((条.sender && (条.sender.card || 条.sender.nickname)) || '群友')
         if (新69) 记账('活69·进群批·seq' + String(条.message_seq) + (被艾特 ? '·@我' : 引用本鱼 ? '·回复我' : ''))
-        加缓冲('g' + 群发言者, { text: 文字, images: 图们, files: 文件们, mid: String(条.message_id || ''), route: 'group', at: 找我 ? 群发言者 : 0, speaker: 群发言者, name: 名前, pingOnly: 只点名, time: 条.time })
+        加缓冲('g' + 群发言者, { text: 文字, plainText: 当前正文, images: 图们, files: 文件们, mid: String(条.message_id || ''), route: 'group', at: 找我 ? 群发言者 : 0, speaker: 群发言者, name: 名前, pingOnly: 只点名, time: 条.time })
         上次群时间 = 条.time || 上次群时间
         已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id))
       }
