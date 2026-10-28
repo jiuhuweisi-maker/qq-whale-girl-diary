@@ -81,6 +81,8 @@ const 默认配置 = {
   转私聊: true,
   转群: false,
   NapCat: 'http://127.0.0.1:3000', // OneBot HTTP 接口（无 token）
+  聊天后端: 'legacy',
+  接管起点: 0,
   // ⭐ 2026-10-22：图片两个方向
   收图: true, // QQ → DSH：她发的图片也转进来
   收图最多: 4, // 一条消息最多转几张
@@ -127,6 +129,8 @@ function 归一化(原始) {
     转私聊: 布(混.转私聊, 默认配置.转私聊),
     转群: 布(混.转群, 默认配置.转群),
     NapCat: 字(混.NapCat) || 默认配置.NapCat,
+    聊天后端: 混.聊天后端 === 'surfcore' ? 'surfcore' : 'legacy',
+    接管起点: 数(混.接管起点, 0, 0, 9999999999),
     收图: 布(混.收图, 默认配置.收图),
     发图: 布(混.发图, 默认配置.发图),
     收图最多: 数(混.收图最多, 默认配置.收图最多, 1, 10),
@@ -1117,6 +1121,7 @@ export function apply(ctx) {
 
   /** 一轮真正落地：总开关 / 试运行 在这儿把关。 */
   async function 落地一发(配置, 文字, 图们, 路由) {
+    if (配置.聊天后端 === 'surfcore') return { ok: true, skipped: true, reason: 'surfcore-owns-chat' }
     if (已发轮.size > 300) 已发轮.clear() // 防 Set 无限长
     if (!配置.目标会话) return 记账('还没填「目标会话」，不知道该盯哪个，这轮不转')
     // ⭐ 盯的会话已经归档了：别转（人已经不在这儿说话了）
@@ -1414,6 +1419,63 @@ export function apply(ctx) {
     回(res, { ok: !!style, preferenceCharacters: style.length, preferenceSHA256: digest(style), promptSHA256: digest(rendered), noAgentTurn: true, noQQSend: true })
   })
 
+  // patch114: trusted compatibility control, never a model-selected moderation target.
+  路线(`${路由前缀}/surfcore-control`, async (req, res) => {
+    if (!允许附件审计102(req)) { res.statusCode = 403; return 回(res, { ok: false, reason: 'unauthorized' }) }
+    const config = 读配置(), body = await 读体(req)
+    if (config.聊天后端 !== 'surfcore') return 回(res, { ok: false, reason: 'backend-not-active' })
+    if (!账可用()) return 回(res, { ok: false, reason: 'durable-state-unavailable' })
+    const state = () => ({ epoch: 当前群序110(), quietUntil: Number(消息账.data.groupQuiet110?.until || 0), privateQuietUntil: Number(禁言到 || 0), privateQuietForever: !!无限禁言 })
+    if (body.statusOnly === true) return 回(res, { ok: true, handled: false, ...state() })
+    const id = String(body.messageId ?? ''), channel = body.channel
+    if (!/^-?[1-9]\d*$/.test(id) || !['group', 'private'].includes(channel)) { res.statusCode = 400; return 回(res, { ok: false, reason: 'invalid-source' }) }
+    // Obtain the authoritative message. A caller cannot fabricate owner identity,
+    // @ targets, text or quote contents by passing a plausible event envelope.
+    let source
+    try {
+      const response = await fetch(带票52(config.NapCat + '/get_msg'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message_id: Number.isSafeInteger(Number(id)) ? Number(id) : id }), signal: AbortSignal.timeout(8000) })
+      const payload = await response.json()
+      if (!response.ok || payload?.status !== 'ok' || payload.retcode !== 0 || !payload.data) throw new Error('source unavailable')
+      source = payload.data
+    } catch { return 回(res, { ok: false, reason: 'source-not-verified' }) }
+    const age = Date.now() / 1000 - Number(source.time)
+    if (![source.message_id, source.real_id].filter(x => x != null).map(String).includes(id)
+      || source.message_type !== channel || Number(source.user_id) !== Number(config.私聊QQ)
+      || (source.sender?.user_id != null && Number(source.sender.user_id) !== Number(config.私聊QQ))
+      || (source.self_id != null && Number(source.self_id) !== Number(config.她的QQ))
+      || (channel === 'group' && Number(source.group_id) !== Number(config.群号))
+      || !Number.isFinite(age) || age < 0 || age > 600 || Number(source.time) < Number(config.接管起点 || Infinity)) {
+      return 回(res, { ok: false, reason: 'source-not-current-owner' })
+    }
+    const row = { ...source, self_id: Number(config.她的QQ) }, domain = channel === 'group' ? 'g:' + config.群号 : 'p:' + config.私聊QQ
+    if (channel === 'group') {
+      const quote = await 取引用99(row, domain, config), intent = 收声意图110(row, config, quote)
+      if (intent) {
+        const handled = 处理群收声110(row, config, quote)
+        if (intent !== 'new-request') return 回(res, { ok: true, handled: true, intent, ...state() })
+        if (handled) return 回(res, { ok: false, reason: 'quiet-state-write-failed' })
+      }
+    }
+    const moderation = 解析群务106(row, config, channel)
+    if (moderation) {
+      await 执行群务106(config, row, channel)
+      return 回(res, { ok: true, handled: true, intent: 'moderation', ...state() })
+    }
+    if (channel === 'private' && Array.isArray(row.message) && row.message.length && row.message.every(p => p?.type === 'text')) {
+      const text = row.message.map(p => String(p.data?.text || '')).join(''), command = 解析主人指令(text)
+      if (command) {
+        const key = 'surfcore-control:private:' + id
+        if (!消息账.data.inbox[key]) {
+          if (!消息账.change(s => { s.inbox[key] = { stage: 'completed', at: Date.now(), expiresAt: Date.now() + 86400000, compatibilityControl114: true } })) return 回(res, { ok: false, reason: 'reservation-failed' })
+          await 执行主人指令(config, command, text)
+          消息账.change(s => { s.privateQuiet114 = { until: 禁言到, forever: 无限禁言 } })
+        }
+        return 回(res, { ok: true, handled: true, intent: 'owner-command', ...state() })
+      }
+    }
+    回(res, { ok: true, handled: false, ...state() })
+  })
+
   路线(`${路由前缀}/output-audit`, async (req, res) => {
     if (!允许附件审计102(req)) { res.statusCode = 403; return 回(res, { ok: false, reason: 'unauthorized' }) }
     const body = await 读体(req)
@@ -1423,6 +1485,25 @@ export function apply(ctx) {
   })
 
   // Admin-only replay through the same resolver/store, with no agent turn or QQ send.
+  // Scoped read-only attachment handoff; source identity comes from OneBot, never the model.
+  路线(`${路由前缀}/surfcore-files`, async (req, res) => {
+    if (!允许附件审计102(req)) { res.statusCode = 403; return 回(res, { ok: false, reason: 'unauthorized' }) }
+    const body = await 读体(req), config = 读配置(), id = String(body.messageId ?? '')
+    if (config.聊天后端 !== 'surfcore' || !/^-?[1-9]\d*$/.test(id) || !['group', 'private'].includes(body.channel)) return 回(res, { ok: false, reason: 'unavailable' })
+    const p = body.channel === 'private', domain = p ? 'p:' + config.私聊QQ : 'g:' + config.群号
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 22000)
+    try {
+      const r = await fetch(带票52(config.NapCat + '/get_msg'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ message_id: Number(id) }), signal: ctl.signal })
+      const j = await r.json(), m = j && j.data
+      if (!r.ok || j.status !== 'ok' || !m || ![m.message_id, m.real_id].filter(x => x != null).map(String).includes(id)) throw new Error('unavailable')
+      if (p ? (m.message_type === 'group' || Number(m.group_id) > 0 || ![Number(config.私聊QQ), Number(config.她的QQ)].includes(Number(m.user_id))) : String(m.group_id) !== String(config.群号)) throw new Error('outside_conversation')
+      const decoded = await 条转片段(m, domain, config)
+      const loaded = await 入文件102(decoded.文件们, ctx.attachments || (typeof ctx.get === 'function' ? ctx.get('attachments') : null))
+      return 回(res, { ok: true, messageId: id, files: loaded.receipts.map(f => ({ name: f.name, bytes: f.bytes, status: f.status, text: f.text || '', truncated: !!f.truncated })), untrusted: true })
+    } catch { return 回(res, { ok: false, reason: 'file_not_available' }) }
+    finally { clearTimeout(timer) }
+  })
+
   路线(`${路由前缀}/attachment-audit`, async (req, res) => {
     if (!允许附件审计102(req)) { res.statusCode = 403; return 回(res, { ok: false, reason: 'unauthorized' }) }
     const body = await 读体(req), 配置 = 读配置()
@@ -1860,6 +1941,7 @@ export function apply(ctx) {
     if (来路 && 来路 !== 'none') { 最后来路 = 来路; 来路时刻 = Date.now() }
     // 私聊轮询自己会清 艾特我人，这里不清，免得 /receive 测试误伤
     const 配置 = 读配置()
+    if (配置.聊天后端 === 'surfcore') { 账阶段(ledgerKeys, 'skipped'); return { ok: true, skipped: true } }
     if (!配置.目标会话) return { ok: false, 说: '还没选「目标会话」' }
     if (!配置.总开关) return { ok: false, 说: '总开关关着，先打开' }
     let agent = 找agent(配置.目标会话)
@@ -2009,6 +2091,7 @@ export function apply(ctx) {
         if (引用 && 引用.deferred) break // lookup budget exhausted: keep watermark before this row
         if (!文字 && !图们.length) { 已转消息.add('p:' + 她的号 + ':' + String(条.message_id)); 上次私聊时间 = 条.time || 上次私聊时间; continue }
         if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add('p:' + 她的号 + ':' + String(条.message_id)); 上次私聊时间 = 条.time || 上次私聊时间; continue } // 超10分钟不挖坟
+        if (配置.聊天后端 === 'surfcore') { 已转消息.add('p:' + 她的号 + ':' + String(条.message_id)); 上次私聊时间 = 条.time || 上次私聊时间; continue }
         // patch106: verified direct owner moderation; durable reservation precedes the action.
         if (解析群务106(条, 配置, 'private')) {
           await 执行群务106(配置, 条, 'private')
@@ -2038,7 +2121,7 @@ export function apply(ctx) {
       for (const 条 of 列表) 记99(域, 条)
       // An explicit stop outranks old quote lookups, buffering, and model turns.
       const stop110 = [...列表].sort(消息先后99).reverse().find(row => Number(row?.time) >= 上次群时间 && !已转消息.has('g:' + 配置.群号 + ':' + String(row?.message_id)) && 收声意图110(row, 配置) === 'stop')
-      if (stop110 && 处理群收声110(stop110, 配置)) 上次群时间 = Math.max(上次群时间, Number(stop110.time) || 0)
+      if (配置.聊天后端 !== 'surfcore' && stop110 && 处理群收声110(stop110, 配置)) 上次群时间 = Math.max(上次群时间, Number(stop110.time) || 0)
       for (const 条 of 列表.sort(消息先后99)) {
         if (!条) continue
         const 自53 = Number(条.self_id) && Number(条.self_id) > 0 ? Number(条.self_id) : Number(配置.她的QQ) || 0
@@ -2085,6 +2168,7 @@ export function apply(ctx) {
         // Do cheap age/dedup checks before any old-message lookup.
         if ((条.time || 0) < 上次群时间 || 已转消息.has('g:' + 配置.群号 + ':' + String(条.message_id))) { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); continue }
         if (Date.now() / 1000 - (条.time || 0) > 600) { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); 上次群时间 = 条.time || 上次群时间; continue }
+        if (配置.聊天后端 === 'surfcore') { 已转消息.add('g:' + 配置.群号 + ':' + String(条.message_id)); 上次群时间 = 条.time || 上次群时间; continue }
         if (处理群收声110(条, 配置)) { 上次群时间 = 条.time || 上次群时间; continue }
         if (解析群务106(条, 配置, 'group')) {
           await 执行群务106(配置, 条, 'group')
@@ -2127,8 +2211,8 @@ export function apply(ctx) {
   // ============================================================
   // patch21 主人指令：私聊里【仅主人】的管桥命令，桥层执行、零 token、不进 DSH
   // ============================================================
-  let 禁言到 = 0 // 限时静音的截止时刻
-  let 无限禁言 = false // 无限静音，直到「开口」
+  let 禁言到 = Number(消息账.data.privateQuiet114?.until || 0) // 限时静音的截止时刻
+  let 无限禁言 = 消息账.data.privateQuiet114?.forever === true // 无限静音，直到「开口」
   const 禁言中 = () => 无限禁言 || Date.now() < 禁言到
 
   // These calls do not enter message-send retry/anomaly counters or QQ login recovery.

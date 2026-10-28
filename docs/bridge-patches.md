@@ -1,5 +1,7 @@
 # dsh-qq-bridge 十八连补丁全记录（host.js）
 
+2026-10-28 **patch114 / SurfCore迁移**：普通聊天切到固定0.6.20，旧桥仅控制/健康；可信来源管理IPC、群私记忆隔离、耐久收发与图片冷却接入。407项本地/Linux检查通过，新增6次实际DSH假QQ模型请求；B站预算¥1/日已写，账号扫码及完整线上验收交接DSH。详见 `PATCH114-SURFCORE-2026-10-28.md`，不要把部分覆盖说成所有功能验收完毕。
+
 > 可重放：`bridge/host.js` 是打完全部补丁的成品；`bridge/patches/patch.py`~`patch18.py`
 > 是逐补丁的重放脚本（按编号顺序对原装 host.js 依次 `python3 patchN.py` 即可复现）。
 

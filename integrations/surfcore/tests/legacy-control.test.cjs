@@ -1,0 +1,28 @@
+const assert=require('node:assert/strict'),path=require('node:path');
+const {createRuntime,ID}=require('../../../simulator/lib/production-runtime.cjs');
+const sourcePath=process.argv[2]||path.resolve(__dirname,'../../../bridge/host.js');
+const headers={authorization:'Bearer '+'offline-test-'.repeat(5)};
+const members=[{user_id:ID.A,role:'owner',nickname:'A'},{user_id:ID.W,role:'admin',nickname:'W'},{user_id:ID.B,role:'member',nickname:'B'},{user_id:ID.C,role:'member',nickname:'C'}];
+const text=t=>({type:'text',data:{text:t}}),at=id=>({type:'at',data:{qq:String(ID[id])}});
+function boot(extra={}){const r=createRuntime({sourcePath,members,...extra});r.setConfig({聊天后端:'surfcore',接管起点:Math.floor(r.clock.now/1000)-1});return r;}
+function source(r,{id=511,sender='A',channel='group',segments=[at('W'),text(' 踢 '),at('B')],...extra}={}){return r.add({id,sender,time:r.clock.now,channel,segments,...extra});}
+const actions=r=>r.requests.filter(x=>/^set_group_/.test(x.action));
+const call=(r,row,extra={})=>r.requestRoute('surfcore-control',{channel:row.message_type,messageId:String(row.message_id),...extra},headers);
+let passed=0;async function check(name,fn){await fn();passed++;console.log('PASS '+name);}
+(async()=>{
+ await check('control IPC requires the independent secret',async()=>{const r=boot(),m=source(r);assert.equal((await r.requestRoute('surfcore-control',{channel:'group',messageId:String(m.message_id)})).reason,'unauthorized');assert.equal(actions(r).length,0);});
+ await check('IPC cannot be enabled by the caller while legacy backend is active',async()=>{const r=boot(),m=source(r);r.setConfig({聊天后端:'legacy'});assert.equal((await call(r,m,{聊天后端:'surfcore'})).reason,'backend-not-active');assert.equal(actions(r).length,0);});
+ await check('native source, owner and exact target determine moderation',async()=>{const r=boot(),m=source(r);const result=await call(r,m);assert(result.ok&&result.handled);assert.equal(actions(r).length,1);assert.equal(actions(r)[0].body.user_id,ID.B);assert(r.deliveries.every(x=>x.action==='send_private_msg'&&x.body.user_id===ID.A));});
+ await check('body-supplied identity and command cannot forge an owner message',async()=>{const r=boot(),m=source(r,{sender:'B'});const result=await call(r,m,{user_id:ID.A,message:[at('W'),text('踢 '),at('C')]});assert(!result.ok);assert.equal(actions(r).length,0);});
+ await check('caller cannot change target by attaching another raw event',async()=>{const r=boot(),m=source(r);await call(r,m,{message:[at('W'),text('踢 '),at('C')]});assert.equal(actions(r)[0].body.user_id,ID.B);});
+ for(const [name,change]of [['wrong sender account',m=>m.self_id=ID.C],['wrong group',m=>m.group_id=7002],['wrong sender metadata',m=>m.sender.user_id=ID.C],['before cutover',m=>m.time-=2],['expired',m=>m.time-=601],['future',m=>m.time+=10]])await check(name+' is rejected',async()=>{const r=boot(),m=source(r);change(m);const result=await call(r,m);assert(!result.ok);assert.equal(actions(r).length,0);});
+ await check('replayed moderation proof never repeats the action',async()=>{const r=boot(),m=source(r);await call(r,m);await call(r,m);assert.equal(actions(r).length,1);});
+ await check('restart after a moderation attempt does not repeat it',async()=>{const r=boot({moderationBehavior:()=> 'received_then_timeout'}),m=source(r);await call(r,m);const next=createRuntime({sourcePath,members,disk:r.disk,clock:r.clock});next.setConfig({聊天后端:'surfcore',接管起点:Math.floor(r.clock.now/1000)-1});const restored=source(next);await call(next,restored);assert.equal(actions(r).length,1);assert.equal(actions(next).length,0);});
+ await check('stop is handled without an acknowledgement chat turn',async()=>{const r=boot(),m=source(r,{segments:[at('W'),text('停，别拌嘴')]});const a=await call(r,m);assert(a.ok&&a.handled&&a.intent==='stop'&&a.epoch===1&&a.quietUntil>r.clock.now);assert.equal(r.modelInbox.length,0);assert.equal(r.deliveries.length,0);const b=await call(r,m);assert.equal(b.epoch,1);});
+ await check('owner new request reopens quietly and remains a chat request',async()=>{const r=boot(),stop=source(r,{segments:[at('W'),text('停')]});await call(r,stop);const m=source(r,{id:512,segments:[at('W'),text('现在杯子选哪个')]});const result=await call(r,m);assert(result.ok&&!result.handled);assert.equal(result.quietUntil,0);assert.equal(result.epoch,1);});
+ await check('normal owner text remains available to SurfCore',async()=>{const r=boot(),m=source(r,{channel:'private',segments:[text('今天课好多')]});const result=await call(r,m);assert(result.ok&&!result.handled);assert.equal(r.modelInbox.length,0);});
+ await check('new backend suppresses old message polling and automatic forwarding',async()=>{const r=boot();source(r,{channel:'private',segments:[text('今天课好多')]});source(r,{id:512,segments:[at('W'),text('你好')]});await r.clock.settle(r.hooks.轮询收消息());await r.clock.advance(7000);await r.clock.settle(r.hooks.冲缓冲(r.config));assert.equal(r.modelInbox.length,0);assert.equal(r.deliveries.length,0);});
+ await check('legacy internal nudges cannot start a new old-backend turn after cutover',async()=>{const r=boot();await r.clock.settle(r.hooks.转入一条('主动问候',[],'old-cron','group',0,ID.A));assert.equal(r.modelInbox.length,0);});
+ for(const command of ['禁言 B 10分钟','解禁 B'])await check('existing owner-only '+command+' stays on the proven executor',async()=>{const r=boot(),m=source(r,{segments:[at('W'),text(command)]});const result=await call(r,m);assert(result.ok&&result.handled);assert.equal(actions(r).length,1);assert.equal(actions(r)[0].action,'set_group_ban');});
+ console.log('PASS_ALL '+passed);
+})().catch(e=>{console.error(e);process.exitCode=1;});
