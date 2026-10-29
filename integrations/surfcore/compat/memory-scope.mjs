@@ -11,6 +11,8 @@ export function scopeMemoryCard(card, { key, ownerQQ, allowedGroups = [] } = {})
     : Array.isArray(allowedGroups) && allowedGroups.map(String).includes(target.id));
   const records = authorized && Array.isArray(card?.records) ? card.records.filter(record => {
     if (!record || typeof record !== 'object') return false;
+    // Operational plans belong to Bili's scheduler, not QQ anecdotes or character.
+    if(Array.isArray(record.tags)&&record.tags.includes('finance-learning-plan-122'))return false;
     const source = conversation(record.conversationKey);
     const isPrivate = record.private === true || source?.kind === 'private' || String(record.conversationKey || '').startsWith('private:')
       || record.scope === 'pet' || record.platform === 'pet' || record.source === 'legacy-mixed';

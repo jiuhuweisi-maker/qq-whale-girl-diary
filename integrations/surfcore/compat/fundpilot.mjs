@@ -2,11 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { createDeliveryState } from './durable-state.cjs';
+import {BASE_FUNDS,resolveFund,mergeFundCatalog,parsePublicFundCatalog} from './fund-catalog.mjs';
+import {createFinanceLearning} from './finance-learning.mjs';
 
 const symbols = ['159696.SZ', '588080.SH'];
 const hash = v => crypto.createHash('sha256').update(typeof v === 'string' ? v : JSON.stringify(v)).digest('hex');
 const symbolOf = text => symbols.find(s => text.includes(s.slice(0, 6)));
-export function parseFundCommand(raw) {
+export function parseFundCommand(raw,catalog=BASE_FUNDS) {
   const text = String(raw || '').trim().replace(/^(?:鲸戒[，, ]*)?(?:请|帮我|给我)?\s*/, '');
   let m = /^模拟(买入|卖出)\s*(159696|588080)(?:\.(SZ|SH))?\s*[，,：: ]+\s*(\d+)\s*份[。！!]?$/i.exec(text);
   if (m) {
@@ -25,6 +27,17 @@ export function parseFundCommand(raw) {
     if (priceMills <= 0 || priceMills > 1000000) throw Error('提醒价格需要是有效的正数');
     return { action: 'watch', symbol: symbolOf(text), direction: ['高于','涨到'].includes(m[2]) ? 'above' : 'below', priceMills };
   }
+  const namedOrder=/^模拟(买入|卖出)\s*(.+?)[，,：: ]+\s*(\d+)\s*份[。！!]?$/u.exec(text);
+  const namedWatch=/^(?:盯着?|关注)\s*(.+?)[，,：: ]*\s*(高于|低于|涨到|跌到)\s*(\d+(?:\.\d{1,3})?)\s*元?\s*(?:就)?提醒我[。！!]?$/u.exec(text);
+  const named=namedOrder||namedWatch;
+  if(named){
+    const query=namedOrder?named[2]:named[1];
+    if(/^\d{6}(?:\.(?:SH|SZ))?$/i.test(query))return null;
+    const resolution=resolveFund(query,catalog);
+    if(resolution.status!=='found'||!resolution.fund.paperSupported){const e=Error(resolution.fund?'这只我认得，但目前模拟盘还没支持它。':resolution.message);e.resolution={...resolution,message:e.message};throw e;}
+    const canonical=namedOrder?`模拟${named[1]}${resolution.fund.symbol}，${named[3]}份`:`盯${resolution.fund.code}，${named[2]}${named[3]}元提醒我`;
+    return parseFundCommand(canonical,catalog);
+  }
   return null;
 }
 
@@ -39,6 +52,11 @@ export function createFundPilot({root, config, sourceMessage, quiet=()=>false, n
   disk.mkdirSync(path.join(root,'state'),{recursive:true});
   const ledger=createDeliveryState({fs:disk,hash,basePath:path.join(root,'state/fundpilot').replaceAll('\\','/'),namespace:'whale-fundpilot-116',now,diag:log});
   const ownerKey='private:'+String(config.ownerQQ);
+  const learning=createFinanceLearning({root,config,disk,now});
+  const catalogFile=path.join(root,'state/fund-catalog.json');
+  const catalog=()=>{try{return mergeFundCatalog(JSON.parse(disk.readFileSync(catalogFile,'utf8')).funds)}catch{return BASE_FUNDS}};
+  async function refreshCatalog(){const r=await fetch('https://fund.eastmoney.com/js/fundcode_search.js',{signal:AbortSignal.timeout(12000),redirect:'error'});if(!r.ok)throw Error('名录暂时没取到');const chunks=[];let size=0;for await(const b of r.body){size+=b.byteLength;if(size>8000000){await r.body.cancel().catch(()=>{});throw Error('名录过大');}chunks.push(Buffer.from(b));}const text=Buffer.concat(chunks).toString('utf8');const funds=parsePublicFundCatalog(text);disk.writeFileSync(catalogFile+'.tmp',JSON.stringify({fetchedAt:new Date(now()).toISOString(),funds}),{mode:0o600});disk.renameSync(catalogFile+'.tmp',catalogFile);return funds.length;}
+  async function ensureCatalog(){try{const cache=JSON.parse(disk.readFileSync(catalogFile,'utf8'));if(now()-Date.parse(cache.fetchedAt)<86400000)return;}catch{}try{await refreshCatalog();}catch{log('基金名录这次没更新，沿用已核对名称，不猜代码');}}
   const enabled=()=>config.whaleCompat?.fundpilot?.enabled===true;
   const save=fn=>{if(!ledger.healthy||!ledger.change(fn))throw Error('模拟账户的本地记录暂时不可用，先不动它');};
   async function request(route, data) {
@@ -53,11 +71,15 @@ export function createFundPilot({root, config, sourceMessage, quiet=()=>false, n
   let busy=false;
   async function handle(body) {
     if (!enabled()||body.key!==ownerKey||quiet(ownerKey))throw Error('基金助手只在主人自己的私信里使用');
+    if(body.action==='resolve'){await ensureCatalog();return {mode:'paper',...resolveFund(body.query,catalog())};}
+    if(body.action==='learning')return {mode:'paper',...learning.notes(body.query)};
+    if(body.action==='study')return {mode:'paper',...(String(body.query||'').includes('BV')?await learning.collect(body.query):await learning.search(body.query))};
+    if(body.action==='note')return {mode:'paper',...learning.record(body.query,body.note)};
     if (['status','market','journal'].includes(body.action))return request('/'+body.action);
     const m=sourceMessage(body.key,String(body.messageId||''));
     if(!m||String(m.userId)!==String(config.ownerQQ)||m.isSelf||now()-Number(m.time)>600000||Number(m.time)>now()+5000)throw Error('需要你当前私信里的明确指令，旧话和引用不算下单');
-    const command=parseFundCommand(m.plain||m.text);
-    if(!command||command.action!==body.action)throw Error('这句我还不能确定要怎么操作。模拟买卖请说代码和份数，盯盘请说提醒条件。');
+    let command;try{command=parseFundCommand(m.plain||m.text,catalog());}catch(e){if(e.resolution)return {mode:'paper',ok:false,needsClarification:true,...e.resolution};throw e;}
+    if(!command||command.action!==body.action)throw Error('这句我还不能确定要怎么操作。模拟买卖请说清基金和份数，盯盘请说提醒条件。');
     const id='qq:'+hash(ownerKey).slice(0,16)+':'+String(body.messageId);
     const old=ledger.data.commands?.[id];
     if(old){if(old.result)return {...old.result,replayed:true};throw Error('这条指令已经尝试过，结果还待核对，先不重复执行');}
@@ -101,5 +123,5 @@ export function createFundPilot({root, config, sourceMessage, quiet=()=>false, n
       else save(d=>{for(const n of d.pending)if(pending.some(p=>p.id===n.id))delete n.attempted;});
     }catch(e){log('基金助手本轮未完成检查：'+String(e.message).slice(0,100));}finally{busy=false;}
   }
-  return {handle,poll,ledger,status:()=>({enabled:enabled(),healthy:ledger.healthy,monitoring:ledger.data.monitorEnabled!==false,pending:ledger.data.pending?.length||0})};
+  return {handle,poll,ledger,refreshCatalog,status:()=>({enabled:enabled(),healthy:ledger.healthy,monitoring:ledger.data.monitorEnabled!==false,pending:ledger.data.pending?.length||0})};
 }

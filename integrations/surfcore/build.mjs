@@ -188,6 +188,10 @@ fs.writeFileSync(schedulerFile, patchBiliListener(fs.readFileSync(schedulerFile,
 fs.writeFileSync(path.join(root,'src/bridge.js'),patchFundBridge(fs.readFileSync(path.join(root,'src/bridge.js'),'utf8')));
 fs.writeFileSync(path.join(root,'src/mcp-snowluma-safe.js'),patchFundMcp(fs.readFileSync(path.join(root,'src/mcp-snowluma-safe.js'),'utf8')));
 edits.push('bili listener lexical scope');
-const sums = Object.fromEntries(['src/bridge.js', 'src/mcp-snowluma-safe.js', 'plugins/surfcore/lib/scheduler.js', ...fs.readdirSync(overlay).map(n => 'whale-compat/' + n)].map(name => [name, crypto.createHash('sha256').update(fs.readFileSync(path.join(root, name))).digest('hex')]));
-fs.writeFileSync(path.join(root, 'whale-overlay-manifest.json'), JSON.stringify({ upstream: 'c174ed07b7ad5c64654bf3d309dd8cbac1558737', patch: 121, edits, sums }, null, 2));
+const biliFile=path.join(root,'plugins/surfcore/tools/bili.mjs');
+const biliSource=fs.readFileSync(biliFile,'utf8');
+if(biliSource.split('const map = {').length!==2)throw Error('Bili CLI anchor drift');
+fs.writeFileSync(biliFile,biliSource.replace('const map = {',"const map = {\n  'fund-study': ['../../../whale-compat/finance-learning-cli.mjs', '金融学习：next/search/read/record/notes；仅读视频和本地笔记'],"));
+const sums = Object.fromEntries(['src/bridge.js', 'src/mcp-snowluma-safe.js', 'plugins/surfcore/lib/scheduler.js','plugins/surfcore/tools/bili.mjs', ...fs.readdirSync(overlay).map(n => 'whale-compat/' + n)].map(name => [name, crypto.createHash('sha256').update(fs.readFileSync(path.join(root, name))).digest('hex')]));
+fs.writeFileSync(path.join(root, 'whale-overlay-manifest.json'), JSON.stringify({ upstream: 'c174ed07b7ad5c64654bf3d309dd8cbac1558737', patch: 123, edits, sums }, null, 2));
 console.log(JSON.stringify({ patched: edits.length, files: Object.keys(sums).length }));

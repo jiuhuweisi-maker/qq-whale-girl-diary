@@ -7,7 +7,9 @@ import { createWhaleRuntime } from '../compat/runtime.mjs';
 import { renderConversationMemory } from '../compat/memory-scope.mjs';
 import { createLegacyReader } from '../compat/legacy-reader.mjs';
 import { createFundPilot } from '../compat/fundpilot.mjs';
-import { recordSessionResult } from '../compat/session-recovery.mjs';
+import { recordSessionResult,reserveGenerationRetry } from '../compat/session-recovery.mjs';
+import {scopedToolGuide,qqPersona,conversationFocus} from '../compat/conversation-logic.mjs';
+import {relationshipBlock} from '../compat/relationships.mjs';
 const root = path.resolve(process.argv[2]);
 const { cleanOutput, requestedLiterals } = await import(pathToFileURL(path.join(root, 'whale-compat/hygiene.mjs')));
 // Expose the same runtime in the upstream's existing VM harness; no replacement parser/router.
@@ -25,7 +27,7 @@ const disk = { ...fs, openSync(file, mode, ...args) { if (mode === 'r' && fs.sta
 const h = await bridgeHarness({ config: { whaleCompat: { cutover: Math.floor(Date.now()/1000)-1 }, purpose: { enabled: false }, social: { enabled: false }, voice: { enabled: false }, biliBridge: { enabled: false }, socialV2: { enabled: true, tokenGuard: { enabled: false }, send: { maxPerMinute: 100, maxPerHour: 500 } } }, globals: {
   createWhaleRuntime: options => createWhaleRuntime({ ...options, disk, control: async () => structuredClone(control) }),
   createFundPilot:options=>createFundPilot({...options,disk,request:async(route,data)=>({mode:'paper',liveTrading:false,cashFen:100000,...(data?{order:data}:{})})}),recordSessionResult,
-  renderConversationMemory, createLegacyReader, cleanOutput, requestedLiterals, discoverDshSessionCookie: () => ''
+  renderConversationMemory, createLegacyReader, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,relationshipBlock,discoverDshSessionCookie: () => ''
 } });
 const server = h.startConsoleServer();
 if (!server.listening) await new Promise(r => server.once('listening', r));

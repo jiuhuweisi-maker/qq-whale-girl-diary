@@ -1,0 +1,12 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {relationshipBlock,personAnchor,includesParticipantAccount} from '../compat/relationships.mjs';import {scopeMemoryCard} from '../compat/memory-scope.mjs';
+const data={version:1,people:[{userId:'1002',names:['柱间','静'],groups:['7001'],fact:'画猫猫虫的群友',confirmed:true,source:{kind:'owner-confirmed'}},{userId:'1003',names:['静'],groups:['7002'],fact:'另一个人',confirmed:true,source:{kind:'owner-confirmed'}},{userId:'1004',names:['猜的'],groups:['7001'],confirmed:false,source:{kind:'model'}}]};
+const opts={key:'group:7001',ownerQQ:'1001',allowedGroups:['7001','7002'],disk:{statSync:()=>({size:1000}),readFileSync:()=>JSON.stringify(data)}};
+test('confirmed nickname relationship is always present without recent messages',()=>{const text=relationshipBlock('file',opts);assert(text.includes('柱间 / 静是同一人'));assert(text.includes(personAnchor('1002')));assert(!text.includes('另一个人'));assert(!text.includes('猜的'));});
+test('name collision never merges stable identities across groups',()=>{const text=relationshipBlock('file',{...opts,key:'group:7002'});assert(text.includes(personAnchor('1003')));assert(!text.includes(personAnchor('1002')));});
+test('restarting the reader does not decay relationship facts',()=>{assert.equal(relationshipBlock('file',opts),relationshipBlock('file',{...opts,messages:[{userId:'1002',text:'新名字'}]}));});
+test('unknown group and other private account cannot retrieve relationship file',()=>{for(const key of ['group:7003','private:1002',''])assert.equal(relationshipBlock('file',{...opts,key}),'');assert(relationshipBlock('file',{...opts,key:'private:1001'}).includes(personAnchor('1002')));});
+test('missing or corrupt files do not fabricate a person',()=>{assert.equal(relationshipBlock('file',{...opts,disk:{statSync:()=>({size:1}),readFileSync:()=>'{bad'}}),'');});
+test('Bili operational plan stays saved but is not loaded as QQ experience',()=>{const card={records:[{id:'plan',tags:['finance-learning-plan-122'],scope:'bili'},{id:'public',text:'看过一段视频',scope:'bili'}]};const out=scopeMemoryCard(card,opts);assert.deepEqual(out.records.map(x=>x.id),['public']);assert.equal(card.records.length,2);});
+
+
+test('known member accounts are not output prose; names and fund codes remain valid',()=>{const cfg={ownerQQ:'87654321'};assert(includesParticipantAccount('账号87654321是谁',cfg));assert(!includesParticipantAccount('基金159696，100份',cfg));assert(!includesParticipantAccount('9876543210',cfg));const text=relationshipBlock('file',opts);assert(!text.includes('1002'));});
