@@ -12,6 +12,11 @@ export function conversationFocus(messages=[],lastReplyAt=0) {
   if(!incoming.length)return '';
   return '【当前话头】下面按发生顺序保留最近来信；新问题优先，单独问号/催问沿引用和未答问题理解，旧图片不覆盖后来的文字。先在心里核对这句是在回答谁、哪件事、事实有无依据；不必把检查过程说出来。\n'+incoming.map(m=>`[${m.time>lastReplyAt?'新来信':'背景'} #${m.messageId}]${m.userId?' ['+personAnchor(m.userId)+']':''} ${String(m.text||m.plain||'').slice(0,500)}`).join('\n');
 }
+export function withConversationFocus(body,lastReplyAt=0) {
+  if(!body||!Array.isArray(body.newMessages||body.messages))return body;
+  const messages=(body.newMessages||body.messages).filter(m=>m&&typeof m==='object');
+  return messages.length?{...body,currentThread:conversationFocus(messages,lastReplyAt)}:body;
+}
 export function patchConversationPersona(text) {
   text=text.replace('脑子快、有点懒、傲娇里带甜，能撒娇也能有不同意见。','脑子快、有点懒，平常熟络、可爱、带点轻吐槽；傲娇是偶尔轻轻嘴硬，不是每句话先反驳。能撒娇，也能有不同意见，对事说就好。');
   text=text.replace('别人说你冷淡时接住反馈，不接连抬杠或拿“不熟、没旧账”推开人；','别人说你冷淡时，先接住他想亲近的意思，回应当前互动，不把反馈当要反驳的指责，不拿“不熟、没旧账”推开人；');

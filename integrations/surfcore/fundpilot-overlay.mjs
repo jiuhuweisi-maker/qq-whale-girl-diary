@@ -11,6 +11,10 @@ export function patchFundBridge(source) {
   source=replaceOnce(source,"return [base, adminBlock, biliBrief, memoryBlock].filter(Boolean).join('\\n\\n');","const guide = cfg.whaleCompat.personaFile ? scopedToolGuide(fs.readFileSync(path.join(ROOT,'whale-compat/TOOL-GUIDE.md'),'utf8'),conversationKey,cfg.ownerQQ) : '';\n    return [base, guide, adminBlock, biliBrief, memoryBlock].filter(Boolean).join('\\n\\n');");
   source=replaceOnce(source,"import {scopedToolGuide,qqPersona,conversationFocus} from '../whale-compat/conversation-logic.mjs';","import {scopedToolGuide,qqPersona,conversationFocus} from '../whale-compat/conversation-logic.mjs';\nimport {relationshipBlock} from '../whale-compat/relationships.mjs';");
   source=replaceOnce(source,"return [base, guide, adminBlock, biliBrief, memoryBlock].filter(Boolean).join('\\n\\n');","const people=relationshipBlock(cfg.whaleCompat.relationshipFile,{key:conversationKey,ownerQQ:cfg.ownerQQ,allowedGroups:cfg.allow.groups,messages:getSocialV2State(conversationKey).recentMessages});\n    return [base, people, guide, adminBlock, biliBrief, memoryBlock].filter(Boolean).join('\\n\\n');");
+  source=replaceOnce(source,"import {scopedToolGuide,qqPersona,conversationFocus} from '../whale-compat/conversation-logic.mjs';","import {scopedToolGuide,qqPersona,conversationFocus,withConversationFocus} from '../whale-compat/conversation-logic.mjs';");
+  source=replaceOnce(source,'      const sendJson = (obj, status = 200) => {',`      const sendJson = (obj, status = 200) => {
+        if (status === 200 && typeof obj?.key === 'string' && isSessionAllowedInCurrentMode(obj.key)) obj=withConversationFocus(obj,getSocialV2State(obj.key).lastAiReplyAt);`);
+  source=replaceOnce(source,' + adminLine + biliLine + memoryCardLine + tokenLine',' + (biliRecall ? biliRecall + \'\\n\\n\' : \'\') + tokenLine');
   source=replaceOnce(source,'  await whale.syncControl();',`  await whale.syncControl();
   const fundpilot = createFundPilot({root:ROOT, config:cfg,log,
     sourceMessage:(key,id)=>getSocialV2State(key).recentMessages.find(m=>String(m.messageId)===id),

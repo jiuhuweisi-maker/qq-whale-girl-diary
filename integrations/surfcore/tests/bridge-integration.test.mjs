@@ -8,7 +8,7 @@ import { renderConversationMemory } from '../compat/memory-scope.mjs';
 import { createLegacyReader } from '../compat/legacy-reader.mjs';
 import { createFundPilot } from '../compat/fundpilot.mjs';
 import { recordSessionResult,reserveGenerationRetry } from '../compat/session-recovery.mjs';
-import {scopedToolGuide,qqPersona,conversationFocus} from '../compat/conversation-logic.mjs';
+import {scopedToolGuide,qqPersona,conversationFocus,withConversationFocus} from '../compat/conversation-logic.mjs';
 import {relationshipBlock} from '../compat/relationships.mjs';
 const root = path.resolve(process.argv[2]);
 const { cleanOutput, requestedLiterals } = await import(pathToFileURL(path.join(root, 'whale-compat/hygiene.mjs')));
@@ -27,7 +27,7 @@ const disk = { ...fs, openSync(file, mode, ...args) { if (mode === 'r' && fs.sta
 const h = await bridgeHarness({ config: { whaleCompat: { cutover: Math.floor(Date.now()/1000)-1 }, purpose: { enabled: false }, social: { enabled: false }, voice: { enabled: false }, biliBridge: { enabled: false }, socialV2: { enabled: true, tokenGuard: { enabled: false }, send: { maxPerMinute: 100, maxPerHour: 500 } } }, globals: {
   createWhaleRuntime: options => createWhaleRuntime({ ...options, disk, control: async () => structuredClone(control) }),
   createFundPilot:options=>createFundPilot({...options,disk,request:async(route,data)=>({mode:'paper',liveTrading:false,cashFen:100000,...(data?{order:data}:{})})}),recordSessionResult,
-  renderConversationMemory, createLegacyReader, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,relationshipBlock,discoverDshSessionCookie: () => ''
+  renderConversationMemory, createLegacyReader, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,relationshipBlock,discoverDshSessionCookie: () => ''
 } });
 const server = h.startConsoleServer();
 if (!server.listening) await new Promise(r => server.once('listening', r));
@@ -56,6 +56,8 @@ try {
   await test('actual valid English remains available', async()=> {const result=await send(['Good night 🐟']); assert.equal(result.ok,true);});
   await test('actual quote resolver rejects an unrelated message id', async()=> {const before=h.calls.http.filter(x=>x.url.endsWith('/send_group_msg')).length; const result=await send(['这句回你'],{quote:'8888888',at:'201'}); assert.equal(result.ok,false); assert.equal(h.calls.http.filter(x=>x.url.endsWith('/send_group_msg')).length,before);});
   await test('actual role and memory API uses explicit scope', async()=> {assert.equal(h.memoryCardPromptBlock('invalid'),''); assert.equal(h.memoryCardPromptBlock('private:201'),'');});
+  await test('actual wake attributes an old quote once without rewriting stored memory',async()=>{const dir=path.join(h.temp,'dsh','surfcore','memory');fs.mkdirSync(dir,{recursive:true});const file=path.join(dir,'memory-card.json'),raw=JSON.stringify({records:[{id:'recall-fixture',text:'我是群里维护服务器的小鱼',speaker:'群友B',source:'qq-group',conversationKey:'group:456',pinned:true,createdAt:new Date().toISOString()}]});fs.writeFileSync(file,raw);const wake=h.buildWakePromptV2('group:456','message');assert.equal(wake.split('【历史记录 · 发言按来源引用】').length-1,1);assert(wake.includes('【历史发言·群友B】'));assert.equal(fs.readFileSync(file,'utf8'),raw);});
+  await test('actual recent-message response includes the fresh conversation focus',async()=>{const r=await fetch(base+'/api/socialV2/recent?key=group:456',{headers:{'x-console-token':'fixture-console-token'}}).then(r=>r.json());assert(r.messages.length);assert(r.currentThread.includes('person-'));});
   await test('fund tool is routed through native call correlation and owner private scope',async()=>{
     h.cfg.whaleCompat.fundpilot={enabled:true};const key='private:123',st=h.getSocialV2State(key),sid=await h.ensureSession(key),id=++serial;
     const args={key,token:st.agentToken,action:'status'};h.whale.onEvent(key,sid,{type:'turn/start',data:{turn:'fund'}});h.whale.onEvent(key,sid,{type:'tool/call',data:{name:'mcp__snowluma__qq_fundpilot',callId:'fund-status',arguments:JSON.stringify(args)}});
