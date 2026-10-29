@@ -3,6 +3,13 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFile } from 'node:child_process';
 const idOf = name => crypto.createHash('sha256').update(name).digest('hex').slice(0, 20);
+const EMOTION_QUERIES=[['开心','高兴','快乐','雀跃','欢呼','好耶','喜悦','笑'],['委屈','难过','伤心','哭','安慰'],['无语','嫌弃','扶额'],['惊讶','震惊','吃惊'],['害羞','脸红'],['得意','骄傲']];
+export function matchesStickerQuery(query,caption,name='') {
+  let remainder=String(query||'').toLowerCase().trim();const groups=[];
+  for(const words of EMOTION_QUERIES){if(words.some(w=>remainder.includes(w))){groups.push(words);for(const w of words)remainder=remainder.replaceAll(w,' ');}}
+  const terms=remainder.replace(/表情包|表情|图片|一张|找个|给我|的/g,' ').split(/\s+/).filter(Boolean).slice(0,8),text=String(caption+' '+name).toLowerCase();
+  return terms.every(t=>text.includes(t))&&groups.every(words=>words.some(w=>text.includes(w)));
+}
 export function legacyMedia(config) {
   const root = path.resolve(config.whaleCompat.stickerDir);
   function entries() {
@@ -16,8 +23,7 @@ export function legacyMedia(config) {
     });
   }
   function search(query = '') {
-    const terms = String(query).toLowerCase().trim().split(/\s+/).filter(Boolean).slice(0, 8);
-    return entries().filter(row => terms.every(t => row.caption.toLowerCase().includes(t) || row.name.toLowerCase().includes(t))).sort(() => Math.random() - 0.5).slice(0, 12).map(({ id, caption }) => ({ id, caption }));
+    return entries().filter(row => matchesStickerQuery(query,row.caption,row.name)).sort(() => Math.random() - 0.5).slice(0, 12).map(({ id, caption }) => ({ id, caption }));
   }
   function image(id) {
     const found = entries().find(row => row.id === id);

@@ -1,0 +1,7 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {proactiveDelay} from '../compat/proactive-clock.mjs';
+const ledger=()=>({healthy:true,data:{},change(fn){fn(this.data);return true;}}),o={min:60000,max:120000,now:1000000,random:()=>.5};
+test('a future opportunity survives process restart without being delayed again',()=>{const l=ledger();assert.equal(proactiveDelay(l,'group:1',o),90000);assert.equal(proactiveDelay({...l,data:structuredClone(l.data)},'group:1',{...o,now:o.now+30000}),60000);});
+test('missed opportunities do not all catch up after a long outage',()=>{const l=ledger();proactiveDelay(l,'group:1',o);assert.equal(proactiveDelay(l,'group:1',{...o,now:o.now+86400000}),90000);});
+test('reserve the next opportunity before the callback effect',()=>{const l=ledger();proactiveDelay(l,'group:1',o);proactiveDelay(l,'group:1',{...o,advance:true,now:o.now+90000});assert.equal(proactiveDelay(l,'group:1',{...o,now:o.now+90000}),90000);});
+test('private and group clocks never share a target',()=>{const l=ledger();proactiveDelay(l,'group:1',o);assert.equal(proactiveDelay(l,'private:1',{...o,random:()=>0}),60000);assert.notEqual(l.data.proactiveClock['group:1'].nextAt,l.data.proactiveClock['private:1'].nextAt);});
+test('an unhealthy or unwritable ledger cannot schedule',()=>{assert.equal(proactiveDelay({healthy:false},'group:1',o),null);assert.equal(proactiveDelay({healthy:true,data:{},change:()=>false},'group:1',o),null);});
