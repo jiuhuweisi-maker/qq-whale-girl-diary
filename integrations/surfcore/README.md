@@ -25,3 +25,5 @@ node --test integrations/surfcore/tests/fundpilot.test.mjs
 patch121接入主人私信的FundPilot，复用既有模拟服务与账本；不会安装另一套交易引擎或给群聊开放账户权限。测试设置 `FUNDPILOT_SOURCE` 指向基金项目源码（服务器 `/opt/fundpilot`）；Windows默认本机原项目目录。基金操作、盯盘和异常会话恢复的完成记录及未验收边界见 `docs/PATCH121-FUNDPILOT-QQ-2026-10-29.md`。更新MCP源码后还需刷新宿主已有MCP子进程，确保实际工具清单更新。
 
 patch122/123增加基金名称核对、B站字幕学习及共享笔记、生成格式错误的有限续接、按稳定账号加载重要人物关系。操作计划不再混入QQ记忆，群聊不载入私信基金说明。新增检查入口：`node --test integrations/surfcore/tests/{finance-learning,conversation-logic,relationships}.test.mjs`（按终端规则展开文件名）。完成情况及软验收不足见 `docs/PATCH123-LOGIC-RELATIONSHIPS-2026-10-29.md`。
+
+patch125按主人纠正撤销自动课程与每日笔记安排：金融只加入原视频兴趣名单，和异环一样走原feed。原笔记和按需资料工具保留，旧next不再派课。当前设置见 `docs/PATCH125-CASUAL-FINANCE-2026-10-29.md`，不要按122/124历史记录恢复学习任务。
