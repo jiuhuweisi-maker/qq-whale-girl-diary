@@ -11,8 +11,8 @@ const parseArgs = value => {
   return value && typeof value === 'object' ? value : {};
 };
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const sendTool = name => /(?:^|__)qq_(?:send|reply|poke)/.test(name);
-const sendRoute = route => /^\/api\/(?:send\/|socialV2\/(?:send-|reply))/.test(route);
+const sendTool = name => /(?:^|__)qq_(?:send|reply|poke|fundpilot)/.test(name);
+const sendRoute = route => /^\/api\/(?:send\/|socialV2\/(?:send-|reply|fundpilot$))/.test(route);
 
 // One process owns this ledger. Two fsynced slots are shared with the proven legacy engine.
 export function createWhaleRuntime({ root, config, control, now = Date.now, disk = fs, log = () => {}, clean = x => x }) {

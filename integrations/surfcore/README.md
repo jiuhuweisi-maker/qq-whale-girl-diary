@@ -9,6 +9,7 @@ node integrations/surfcore/tests/legacy-control.test.cjs
 node integrations/surfcore/tests/runtime.test.mjs
 node integrations/surfcore/tests/bridge-integration.test.mjs <已生成适配的上游目录>
 node integrations/surfcore/tests/bili-listener.test.mjs <原版或已适配的上游目录>
+node --test integrations/surfcore/tests/fundpilot.test.mjs
 ```
 
 `build.mjs` 遇到锚点漂移或重复安装会停止，不靠模糊替换。依赖使用上游 lockfile；先 `npm ci --ignore-scripts`，只运行已审查的 SDK 补丁。`import-memory.mjs` 读取仓库外 JSON 设置，保留原始文件，生成带来源和群私隔离的索引与活动记忆。`verify-live.mjs` 在服务器只读校验实际安装文件、连接、记忆索引和配置，不生成模型回合、不发 QQ。
@@ -20,3 +21,5 @@ node integrations/surfcore/tests/bili-listener.test.mjs <原版或已适配的�
 新工具包括旧记忆检索、文本文件读取、原图库检索与发送、按当前明确请求画卡通图。表情、颜文字、小括号与普通英文不按配额删除。桌宠和语音包不安装，语音工具关闭。自动更新关闭，防止上游覆盖适配。
 
 上线状态、未验收部分及 DSH 交接见 `docs/PATCH114-SURFCORE-2026-10-28.md`。不要把离线检查通过说成真实群管理、所有附件格式或自然度已经全部验收。
+
+patch121接入主人私信的FundPilot，复用既有模拟服务与账本；不会安装另一套交易引擎或给群聊开放账户权限。测试设置 `FUNDPILOT_SOURCE` 指向基金项目源码（服务器 `/opt/fundpilot`）；Windows默认本机原项目目录。基金操作、盯盘和异常会话恢复的完成记录及未验收边界见 `docs/PATCH121-FUNDPILOT-QQ-2026-10-29.md`。更新MCP源码后还需刷新宿主已有MCP子进程，确保实际工具清单更新。
