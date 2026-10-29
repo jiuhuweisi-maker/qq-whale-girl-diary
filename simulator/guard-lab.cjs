@@ -48,7 +48,7 @@ date() { if [ "$1" = '+%s' ]; then printf '%s\n' "$SIM_NOW"; else printf '10-26 
       const r = cp.spawnSync(bash, ['--noprofile', '--norc', slash(candidate)], { encoding: 'utf8', windowsHide: true, timeout: 20000, env: { ...process.env, BASH_ENV: slash(prelude), SIM_PYTHON: slash(python), SIM_COMMAND_LOG: slash(cmdlog), SIM_LOGIN: login, SIM_DOCKER_LOG: logs, SIM_NOW: String(now) } });
       if (r.status !== 0) throw new Error('guard sandbox failed: ' + id + '/' + r.status);
     }
-    once(1793008800); if (shouldReconnect) once(1793008860);
+    once(1_793_008_800); if (shouldReconnect) once(1_793_008_860);
     const commands = fs.readFileSync(cmdlog, 'utf8').split('\n').filter(Boolean), reconnects = commands.filter(x => x === 'docker exec snowluma supervisorctl restart qq');
     const forbidden = commands.filter(x => x.startsWith('BLOCKED') || /docker (?:restart|stop|start) /.test(x));
     results.push({ id, shouldReconnect, reconnects: reconnects.length, passed: reconnects.length === (shouldReconnect ? 1 : 0) && forbidden.length === 0, commands, state: fs.existsSync(path.join(stateDir, '.snowluma-alive')) ? fs.readFileSync(path.join(stateDir, '.snowluma-alive'), 'utf8').trim() : null, note: shouldReconnect ? 'Second confirmed-offline probe at +60 seconds must respect 15-minute retry cooldown' : 'No confirmed login failure, no reconnect' });
