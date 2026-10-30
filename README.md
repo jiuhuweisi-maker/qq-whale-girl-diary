@@ -1,3 +1,16 @@
+# 鲸戒 QQ 机器人 · SurfCore 适配
+
+现行架构是 **DSH + SurfCore 0.6.20 + SnowLuma/OneBot**。Git 保存可重建的代码、配置模板和离线测试；私人记忆、角色、凭据、收藏与账本不在仓库中。
+
+- 新部署：[完整部署说明](docs/DEPLOY-SURFCORE.md) 和 [模板入口](deploy/README.md)
+- 本轮检查：[遗忘与功能考古](docs/FORGOTTEN-AUDIT-2026-10-30.md)
+- 运维接手：[AGENTS.md](AGENTS.md) 和 [10月30日任务书](docs/CODEX-BRIEF-2026-10-30.md)
+
+旧安装器已停用。下面保留当时的历史记录，其中 NapCat、旧主动聊天、收藏与记忆描述不代表当前行为；不要据此恢复旧 cron 或启动第二个客户端。
+
+<details>
+<summary>展开历史部署与养成记录</summary>
+
 # 🐋 云上鲸鱼娘养成实录 — DeepSeek Harness × SnowLuma × QQ 群
 
 把一只 AI 鲸鱼娘养进了我的 QQ 群：她住在阿里云 2C2G 轻量服务器上，
@@ -229,3 +242,5 @@ docs/       bridge-patches.md 补丁全记录 · QQ-DUTY-LOG-live.md 实况值�
 ## 感谢
 
 - [NapCat](https://github.com/NapNeko/NapCatQQ) · [dsh-qq-bridge](https://github.com/Yuuyuko-uu/dsh-qq-bridge) · [memecub](https://memecub.com/zh/tag/%E9%B2%B8%E9%B1%BC%E5%A8%98) · [DSH](https://github.com/deepseek-ai) 生态同行（groupmate / NimuQDock 的设计启发了本版人设）
+
+</details>

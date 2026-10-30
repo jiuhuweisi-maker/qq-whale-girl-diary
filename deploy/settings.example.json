@@ -1,0 +1,15 @@
+{
+  "surfcoreRoot": "/opt/whale-surfcore/staging-c174ed0",
+  "dshHome": "/root/.dsh",
+  "ownerQQ": "REPLACE_WITH_OWNER_QQ",
+  "botQQ": "REPLACE_WITH_BOT_QQ",
+  "groupQQ": "REPLACE_WITH_GROUP_QQ",
+  "provider": "REPLACE_WITH_DSH_PROVIDER_ID",
+  "model": "REPLACE_WITH_DSH_MODEL_ID",
+  "reasoningEffort": "low",
+  "onebotHttp": "http://127.0.0.1:3000",
+  "onebotWs": "ws://127.0.0.1:3003",
+  "onebotTokenFile": "/opt/qq-cs/.onebot-http-token",
+  "dshBase": "http://127.0.0.1:3080",
+  "consolePort": 13100
+}

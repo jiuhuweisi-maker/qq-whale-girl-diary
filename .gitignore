@@ -2,3 +2,13 @@ simulator/.private/
 simulator/runs/
 simulator/*.local.json
 simulator/transports/
+node_modules/
+.env
+.env.*
+*.local.json
+*.sqlite
+*.sqlite-*
+**/credentials.json
+**/config.json
+**/.dsh/
+**/state/

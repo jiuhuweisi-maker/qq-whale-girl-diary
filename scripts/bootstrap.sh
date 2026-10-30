@@ -1,4 +1,6 @@
 #!/bin/bash
+printf '%s\n' '此安装器属于旧 NapCat 架构，已停用。新部署请按 docs/DEPLOY-SURFCORE.md 操作。不会修改任何服务或配置。' >&2
+exit 64
 # ⚠️ 历史遗留(NapCat时代安装器)：会拉NapCat容器、改Docker自启策略。当前新家=SnowLuma+DSH桥，
 #    严禁在本机运行本脚本(同号双客户端会互踢)。重建流程看 docs/SNOWLUMA.md 与 docs/REBUILD.md。(v93注,10-26)
 # 鲸鱼娘新机一键落位：把本仓库的脚本/配置模板放到老服务器同款位置

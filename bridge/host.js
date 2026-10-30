@@ -898,7 +898,7 @@ export function apply(ctx) {
     if (发送窗口.length > 40) 发送窗口.splice(0, 发送窗口.length - 40)
     return null
   }
-  async function 发一个(base, action, 体, allowed = () => true) {
+  async function 发一个(base, action, 体, allowed = () => true, trace135 = null) {
     if (action === 'send_group_msg' && 群静默中()) { 记账('🤐 群静默中，一条群发被挡'); return { ok: true, 说: '群静默挡' } }
     const 是图 = Array.isArray(体 && 体.message) && 体.message.some((x) => x && x.type === 'image')
     const 闸 = await 节流发送(是图)
@@ -915,7 +915,7 @@ export function apply(ctx) {
     try {
       const r = await fetch(带票52(`${base}/${action}`), {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', 'x-whale-origin':trace135 ? 'owner-command' : 'legacy-bridge', ...(trace135 ? {'x-whale-delivery-id':trace135} : {}) },
         body: JSON.stringify(体),
         signal: AbortSignal.timeout(25000),  // v91发送保险丝：超时算失败但不重发(防重复消息)
       })
@@ -1467,8 +1467,13 @@ export function apply(ctx) {
         const key = 'surfcore-control:private:' + id
         if (!消息账.data.inbox[key]) {
           if (!消息账.change(s => { s.inbox[key] = { stage: 'completed', at: Date.now(), expiresAt: Date.now() + 86400000, compatibilityControl114: true } })) return 回(res, { ok: false, reason: 'reservation-failed' })
-          await 执行主人指令(config, command, text)
+          // The compatibility sender deliberately waits up to 9s, while this
+          // IPC caller has an 8s deadline. Acknowledge durable acceptance first;
+          // the command sends its own private receipt when actually complete.
+          const work135 = 执行主人指令(config, command, text, id)
           消息账.change(s => { s.privateQuiet114 = { until: 禁言到, forever: 无限禁言 } })
+          void work135.then(() => 消息账.change(s => { s.privateQuiet114 = { until: 禁言到, forever: 无限禁言 } }))
+            .catch(() => 记账('主人指令后台执行未确认；保留已接收记录，不自动重试'))
         }
         return 回(res, { ok: true, handled: true, intent: 'owner-command', ...state() })
       }
@@ -2260,6 +2265,18 @@ export function apply(ctx) {
     }
   }
 
+  // patch135: broadcast intent BEGIN
+  function 解析群代发135(文) {
+    const raw = String(文 || '').trim(), force = /^[/／>＞]/.test(raw)
+    const text = raw.replace(/^[/／>＞]+/, '').trim()
+    if (!force && (/^[「『“"'【\[]/.test(raw) || /先别(?:发|说|通知)|(?:等|待)我.{0,8}(?:点头|确认|同意|批准|看完)|确认(?:后|了)再发|(?:还没|尚未)(?:决定|同意)|先(?:写|拟|看).{0,8}(?:文案|草稿)/.test(text))) return null
+    const hit = text.match(/^(?:现在)?(?:去群里说|替我说|群里发|跟?群里(?:说|发)(?:一句|一声)?|通知群(?:里)?|帮我发(?:到|去|进)?群(?:里)?)[\s:：，,]*([\s\S]+)$/)
+    if (!hit || !hit[1].trim()) return null
+    if (!force && /^(?:什么|啥|哪句|哪条|哪张|点什么|些什么)/.test(hit[1].trim())) return null
+    if (!force && /(?:可以吗|行吗|好吗|要不要|能不能)[？?。!！]*$/.test(hit[1])) return null
+    return { cmd: '群里说', arg: hit[1].trim() }
+  }
+  // patch135: broadcast intent END
   function 解析主人指令(文) {
     const 原始 = String(文 || '').trim()
     if (!原始) return null
@@ -2279,8 +2296,8 @@ export function apply(ctx) {
     if (m) return { cmd: '闭嘴', arg: m[1] || '' }
     m = 剥.match(/^日志[  ]*(\d{1,2})?$/)
     if (m) return { cmd: '日志', arg: m[1] || '' }
-    m = 剥.match(/^(去群里说|替我说|群里发)[  ]+([\s\S]+)$/)
-    if (m && m[2].trim()) return { cmd: '群里说', arg: m[2].trim() }
+    const 群令135 = 解析群代发135(原始)
+    if (群令135) return 群令135
     m = 剥.match(/^(?:发|开|来|整|甩)[  ]*(?:张|个)?[  ]*(?:鲸元券|抽奖)$/)
     if (m) return { cmd: '券' }
     const 管106 = 解析管命令106(原始)
@@ -2307,8 +2324,7 @@ export function apply(ctx) {
     if (/^(?:开口|解除静音|恢复说话|可以(?:继续)?说(?:话)?了?|继续说)/.test(净)) 打分({ cmd: '开口' }, 3)
     if (/^(?:翻?日志|看看日志)/.test(净)) { 打分({ cmd: '日志', arg: (t.match(/(\d{1,2})/) || [])[1] || '' }, 3) }
     if (/^(?:重置|清空)?冷却/.test(净) && 净.length <= 8) 打分({ cmd: '冷却' }, 3)
-    m = t.match(/(?:^|[，。！？；、\s])(?:去群里说|替我说|群里发|跟?群里(?:说|发)(?:一句|一声)?|通知群(?:里)?|帮我发(?:到|去|进)?群(?:里)?)[\s:：，,]*(.+)$/s) // patch63: 触发词须居句首或标点后，治你在群里发误劫持
-    if (m && m[1].trim()) 打分({ cmd: '群里说', arg: m[1].trim() }, 3)
+    // Deferred, quoted and discussed broadcasts remain conversation, not actions.
     if (!候选.length) return null
     候选.sort((a2, b2) => b2.分 - a2.分)
     if (候选.length > 1 && 候选[0].分 === 候选[1].分 && 候选[0].令.cmd !== 候选[1].令.cmd) {
@@ -2325,11 +2341,12 @@ export function apply(ctx) {
     } catch (e) { return '' }
   }
 
-  async function 执行主人指令(配置, 令, 原文) {
+  async function 执行主人指令(配置, 令, 原文, 源135 = '') {
+    const 操作票135 = part => 源135 ? createHash('sha256').update('owner-command:' + 源135 + ':' + part).digest('hex') : null
     const 答 = async (文) => {
       const 果 = await 发一个(配置.NapCat, 'send_private_msg', {
         user_id: Number(配置.私聊QQ), message: [{ type: 'text', data: { text: String(文).slice(0, 500) } }],
-      })
+      }, () => true, 操作票135('private-receipt'))
       if (!果.ok) 记账('指令回执发不出去：' + JSON.stringify(果.数据).slice(0, 120))
     }
     记账(`主人指令：${String(原文).slice(0, 40)}`)
@@ -2421,7 +2438,7 @@ export function apply(ctx) {
       if (令.cmd === '群里说') {
         if (!配置.转群 || !配置.群号) return 答('❌ 群通道没开或没群号')
         const 文 = String(令.arg).slice(0, 300)
-        const 果 = await 发一个(配置.NapCat, 'send_group_msg', { group_id: Number(配置.群号), message: [{ type: 'text', data: { text: 文 } }] })
+        const 果 = await 发一个(配置.NapCat, 'send_group_msg', { group_id: Number(配置.群号), message: [{ type: 'text', data: { text: 文 } }] }, () => true, 操作票135('group-broadcast'))
         加缓冲('p' + Number(配置.私聊QQ), { text: '（桥务通报：刚才那句「' + 文.slice(0, 40) + '」进群，是桥照主人的话代发的——' + (果.ok ? '已经发出去了' : '不过没发出去') + '。不是你亲口说的，知道就好，不用复述不用接话）', images: [], mid: '', route: 'private', at: 0, speaker: Number(配置.私聊QQ), name: '桥' }) // patch64: 代发知会她，主人点头的
         return 答(果.ok ? `✅ 已代发进群：「${文.slice(0, 40)}」` : '❌ 群发失败：' + JSON.stringify(果.数据).slice(0, 120))
       }

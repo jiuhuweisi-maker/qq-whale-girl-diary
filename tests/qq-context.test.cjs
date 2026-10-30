@@ -22,7 +22,8 @@ const lifecycle = source.slice(source.indexOf('  async function 跟进并记路�
 const events = source.slice(source.indexOf('  function 收到事件('), source.indexOf('  // ---------- 路由（将来'));
 const nudges = source.slice(source.indexOf('  路线(`${路由前缀}/nudge`'), source.indexOf('  // patch20 戳一戳感知'));
 const pokes = source.slice(source.indexOf('  const 上次戳 = new Map()'), source.indexOf('  // 手动试一发'));
-const parser = source.slice(source.indexOf('  function 解析主人指令('), source.indexOf('  function 读DEEPSEEK密钥('));
+const broadcast = source.includes('// patch135: broadcast intent BEGIN') ? block('// patch135: broadcast intent BEGIN', '// patch135: broadcast intent END') : '';
+const parser = broadcast + '\n' + source.slice(source.indexOf('  function 解析主人指令('), source.indexOf('  function 读DEEPSEEK密钥('));
 
 function runtime() {
   let now = Date.parse('2026-10-26T09:40:00Z');

@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 # ---------- /opt/qq-cs/balance_warn.py ----------
-import json, os, re, time, random, urllib.request
-CFG = "/root/.dsh/qq-bridge-config.json"
-STATE = "/opt/qq-cs/.bal_state.txt"
-LOG = "/opt/qq-cs/balance_warn.log"
+import json, os, re, time, random, hashlib, urllib.request
+CFG = os.environ.get('WHALE_CONFIG', "/root/.dsh/qq-bridge-config.json")
+OPS = os.environ.get('WHALE_OPS_DIR', '/opt/qq-cs')
+STATE = os.path.join(OPS, '.bal_state.txt')
+LOG = os.path.join(OPS, 'balance_warn.log')
 def log(x):
     with open(LOG, "a", encoding="utf-8") as f:
         f.write(time.strftime("%m-%d %H:%M ") + str(x) + "\n")
@@ -51,13 +52,14 @@ def main():
         pool = ["余额只剩 ¥%s 了……我从现在开始省着说话，安静不是吵架，是省电喵⚡" % b,
                 "紧急播报：口粮 ¥%s，主人再不投币我就要变成群里的一张静态头像了🐋" % b]
     txt = random.choice(pool)
-    dest = os.environ.get("BAL_DEST", "group")
+    dest = os.environ.get("BAL_DEST", cfg.get('余额通知方向', 'private'))
     if dest == "group":
         api, body = N + "/send_group_msg", {"group_id": int(cfg["群号"]), "message": txt}
     else:
         api, body = N + "/send_private_msg", {"user_id": int(cfg["私聊QQ"]), "message": txt}
     try:
-        req = urllib.request.Request(api, data=json.dumps(body).encode(), headers={"content-type": "application/json"})
+        intent = hashlib.sha256(('balance:'+today+':'+str(tier)+':'+str(cfg['私聊QQ'])).encode()).hexdigest()
+        req = urllib.request.Request(api, data=json.dumps(body).encode(), headers={"content-type": "application/json", 'X-Whale-Delivery-Id':intent, 'X-Whale-Origin':'balance-warn'})
         j = json.loads(urllib.request.urlopen(req, timeout=12).read().decode())
         okk = j.get("status") == "ok"
     except Exception as e:
@@ -67,4 +69,4 @@ def main():
         log("已发余额预警(tier%d ¥%s %s)" % (tier, b, dest))
     else:
         log("预警没发出去(¥%s)" % b)
-main()
+if __name__ == '__main__': main()

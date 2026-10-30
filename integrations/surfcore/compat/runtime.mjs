@@ -181,11 +181,16 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
     });
     try {
       // Persisted before the side effect; a lost reply is uncertainty, not a retry signal.
-      const receipt = await transport(message);
+      const deliveryId = digest([key, id]);
+      const receipt = await transport(message, {deliveryId});
       change(d => { d.outbox[id].status = 'sent'; d.outbox[id].receipt = receipt; });
+      try { log('[鲸戒发送] ' + JSON.stringify({scope:key.split(':')[0], conversation:digest(key).slice(0,16), deliveryId, messageId:receipt?.message_id ?? null, status:'sent'})); }
+      catch { /* The confirmed durable receipt remains authoritative if diagnostics fail. */ }
       return receipt;
     } catch (error) {
       if (ledger.healthy) change(d => { d.outbox[id].status = 'uncertain'; });
+      try { log('[鲸戒发送] ' + JSON.stringify({scope:key.split(':')[0], conversation:digest(key).slice(0,16), status:'uncertain'})); }
+      catch { /* Do not replace the original transport error with a logging error. */ }
       throw error;
     }
   }

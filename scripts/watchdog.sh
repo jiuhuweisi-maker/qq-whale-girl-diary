@@ -1,4 +1,22 @@
 #!/bin/bash
+# patch135: SurfCore has per-conversation sessions. A retired legacy session or
+# legacy heartbeat is not evidence that the current backend needs a restart.
+exec 9>/opt/qq-cs/.watchdog.lock
+flock -n 9 || exit 0
+WD_BACKEND=$(python3 /opt/qq-cs/runtime_health.py --backend 2>/dev/null)
+if [ "$WD_BACKEND" = "surfcore" ]; then
+  for s in dsh whale-ws; do
+    systemctl is-active "$s" --quiet || systemctl restart "$s"
+  done
+  WD_STATUS=$(python3 /opt/qq-cs/runtime_health.py --notify 2>/dev/null)
+  printf '%s SurfCore %s\n' "$(date '+%F %T')" "$WD_STATUS" >> /opt/qq-cs/watchdog.log
+  python3 /opt/qq-cs/balance_warn.py >/dev/null 2>&1 || true
+  exit 0
+fi
+if [ "$WD_BACKEND" != "legacy" ]; then
+  printf '%s backend probe unavailable; no speculative restart\n' "$(date '+%F %T')" >> /opt/qq-cs/watchdog.log
+  exit 1
+fi
 # v93: 旧NapCat风险旗不再整体短路看门狗(本脚本无QQ进程动作，掉线判定归guard v3)；旗在则仅记痕
 if [ -e "/opt/qq-cs/.napcat-risk-paused" ]; then
   echo "$(date '+%F %T') 注意：历史遗留风险旗存在(不影响本看门狗职责)" >> /opt/qq-cs/watchdog.log
