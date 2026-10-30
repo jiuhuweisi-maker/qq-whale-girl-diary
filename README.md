@@ -4,6 +4,7 @@
 
 - 新部署：[完整部署说明](docs/DEPLOY-SURFCORE.md) 和 [模板入口](deploy/README.md)
 - 本轮检查：[遗忘与功能考古](docs/FORGOTTEN-AUDIT-2026-10-30.md)
+- 已批准的历史归档：[原件与清单](archive/2026-10-30/README.md)
 - 运维接手：[AGENTS.md](AGENTS.md) 和 [10月30日任务书](docs/CODEX-BRIEF-2026-10-30.md)
 
 旧安装器已停用。下面保留当时的历史记录，其中 NapCat、旧主动聊天、收藏与记忆描述不代表当前行为；不要据此恢复旧 cron 或启动第二个客户端。

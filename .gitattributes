@@ -1,0 +1,2 @@
+# Preserve archived checkout bytes and their recorded checksums.
+archive/2026-10-30/** -text

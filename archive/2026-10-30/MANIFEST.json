@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "ownerDecision": "archive individually, do not delete",
+  "date": "2026-10-30",
+  "entries": [
+    {
+      "original": "scripts/proactive.py",
+      "archived": "archive/2026-10-30/scripts/proactive.py",
+      "sha256": "8ad5ee029d8eb6aebfd788a5f82543c17e4051b603555b67d9a7031f5a9f7c0c",
+      "originalEntry": "inactive-pointer",
+      "pointerSha256": "280f85796dbbedbbfa7dc840cb7c6e432caeca2b61cb54da2238d9d114a4f077",
+      "sourceGitSha256": "8ad5ee029d8eb6aebfd788a5f82543c17e4051b603555b67d9a7031f5a9f7c0c",
+      "checkoutNewlineDifference": false
+    },
+    {
+      "original": "scripts/private_bubble.py",
+      "archived": "archive/2026-10-30/scripts/private_bubble.py",
+      "sha256": "af91e2fbeb4ed55940c30d004020c8ecdbfdc09d28e5cc0cf71063e193c1dd60",
+      "originalEntry": "inactive-pointer",
+      "pointerSha256": "76e54678cb7fb355fe1d6990a55e8196ff8c277b6a8780ca192f6d89afc08714",
+      "sourceGitSha256": "af91e2fbeb4ed55940c30d004020c8ecdbfdc09d28e5cc0cf71063e193c1dd60",
+      "checkoutNewlineDifference": false
+    },
+    {
+      "original": "scripts/reflect.py",
+      "archived": "archive/2026-10-30/scripts/reflect.py",
+      "sha256": "59d92c732b7fd67195a79acd685fb240eb18f8755c74d2ee7090ded5f5a43919",
+      "originalEntry": "inactive-pointer",
+      "pointerSha256": "a9bc58a4c0b3c3180210005f2f9376323437ea0069227395355d2be6af414de2",
+      "sourceGitSha256": "281a568c1a572c02d17a1d8b6b8894daa633717cd2e369cc739c35d3ab7fca34",
+      "checkoutNewlineDifference": true
+    },
+    {
+      "original": "scripts/cs.py",
+      "archived": "archive/2026-10-30/scripts/cs.py",
+      "sha256": "7ee0f9e6266d8ab98598556556bc9dadfb7292ddf6a57ce2cfd3935427671c5f",
+      "originalEntry": "inactive-pointer",
+      "pointerSha256": "29cfe28c6f0cc083a7f30fad3bd701ec990e1e23d8ff790e2a76f2846e3e8a81",
+      "sourceGitSha256": "cb69d005e87714422d82913c7fe71491f446f06a3442ef909cf1a3772a58176e",
+      "checkoutNewlineDifference": true
+    },
+    {
+      "original": "scripts/daily_report.py",
+      "archived": "archive/2026-10-30/scripts/daily_report.py",
+      "sha256": "c38c7cec57a96b22075bf2e78fe2100aa3e31b552acfcee379a3d39033231c30",
+      "originalEntry": "inactive-pointer",
+      "pointerSha256": "f1ad68bf9149f4ec1ae3b60dbe294bc384047b3a0ddd523c41c87d5c06375c12",
+      "sourceGitSha256": "1644ab13b613c90c688e009344042fe839904874005e44cf8a4600f12148216d",
+      "checkoutNewlineDifference": true
+    },
+    {
+      "original": "scripts/bootstrap.sh",
+      "archived": "archive/2026-10-30/scripts/bootstrap.sh",
+      "sha256": "e01a8af269c29f0032f33f754124fedb6aabe8ebd0cb64c86e0555b874a482a0",
+      "originalEntry": "inactive-pointer",
+      "pointerSha256": "2cfd4edd9e7c2e537d76e37af45df7b0e25eaad7f06032902c9aca5b9b80c095",
+      "sourceGitSha256": "e01a8af269c29f0032f33f754124fedb6aabe8ebd0cb64c86e0555b874a482a0",
+      "checkoutNewlineDifference": false
+    },
+    {
+      "original": "scripts/napcat-risk-guard.sh",
+      "archived": "archive/2026-10-30/scripts/napcat-risk-guard.sh",
+      "sha256": "f30441bcd44c04a89799e27583575b7e6c57e5a06e25fbe3761fbf83ad1c38ff",
+      "originalEntry": "inactive-pointer",
+      "pointerSha256": "b3612cd33ef88ed26c845c3f8e89da4b447db209bcaa6b8c7486557329c14ab8",
+      "sourceGitSha256": "3482db02788721a5582cc52ac3f8310aacb1da8b41d649f2c2e1e2d18ec19776",
+      "checkoutNewlineDifference": true
+    },
+    {
+      "original": "deploy/napcat-compose.example.yml",
+      "archived": "archive/2026-10-30/deploy/napcat-compose.example.yml",
+      "sha256": "7279aa246700fdca850b5ed2908c36cbacf5e9184246399ecf76da19aa5b2b34",
+      "originalEntry": "moved-to-archive",
+      "sourceGitSha256": "a725f38d90ca0dcc6a32f9dc86c584d821a7a347cce0cc5a9ad7f45293975f52",
+      "checkoutNewlineDifference": true
+    },
+    {
+      "original": "deploy/napcat-risk-guard.service",
+      "archived": "archive/2026-10-30/deploy/napcat-risk-guard.service",
+      "sha256": "e72fe60736edddfffc26fe483b3e9a185781b3bcd293e58267de969f1c6b9dd9",
+      "originalEntry": "moved-to-archive",
+      "sourceGitSha256": "661c3dc9e792e33b30035da7d0aff7a7954f2e696888e6c894c0ad5c74e1a498",
+      "checkoutNewlineDifference": true
+    }
+  ],
+  "sourceCommit": "9dd3952ca55fa95e40e61ccb03f5511e4f2021e2"
+}
