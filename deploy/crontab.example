@@ -2,7 +2,8 @@
 40 12,22 * * * bash /opt/qq-cs/live_backup.sh
 5,35 * * * * python3 /opt/qq-cs/memory_store.py >> /opt/qq-cs/cron.log 2>&1
 17,47 * * * * bash /opt/qq-cs/watchdog.sh
-5 20 * * * /usr/bin/python3 /opt/qq-cs/whale_lottery.py >> /opt/qq-cs/lottery.log 2>&1
+# 定时抽奖默认停用，保留主人手动发券；明确需要自动开奖时再启用：
+# 5 20 * * * /usr/bin/python3 /opt/qq-cs/whale_lottery.py >> /opt/qq-cs/lottery.log 2>&1
 */2 * * * * /opt/qq-cs/snowluma-guard.sh
 # 现有生产机还运行下列版本通知，但脚本属其私有运维配置；新部署先自行配置再启用：
 # 20 12 * * * /opt/qq-cs/version_check.sh

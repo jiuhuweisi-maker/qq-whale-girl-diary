@@ -12,6 +12,7 @@ test('fresh generation is complete, private and never activates services',{skip:
   const cfg=JSON.parse(fs.readFileSync(path.join(root,'config.json')));assert.equal(cfg.ownerQQ,'10001');assert.deepEqual(cfg.allow,{private:['10001'],groups:['70001']});
   assert.equal(cfg.role.maxInjectChars,20000);assert.equal(cfg.voice.enabled,false);assert.equal(cfg.socialV2.tools.sendVoice,false);assert.equal(cfg.snowluma.accessToken,'fixture-onebot-token');
   assert.equal(cfg.socialV2.tokenGuard.privateMaxWakesPerDay,0);
+  assert.equal(cfg.socialV2.tokenGuard.maxWakesPerDay,0);
   const control=await import(pathToFileURL(path.join(result.controlPackage,'lib/host.js')));assert.equal(typeof control.apply,'function');assert(control.inject.includes('sessions'));
   const before=fs.readFileSync(path.join(root,'config.json'),'utf8');assert.throws(()=>initialize(settings),/已有文件/);assert.equal(fs.readFileSync(path.join(root,'config.json'),'utf8'),before);
   const legacy=JSON.parse(fs.readFileSync(path.join(dshHome,'qq-bridge-config.json')));assert.equal(legacy.聊天后端,'surfcore');assert.equal(legacy.余额通知方向,'private');

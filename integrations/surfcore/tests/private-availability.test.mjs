@@ -30,6 +30,12 @@ test('zero private daily limit permits background wakes but preserves cost, gap 
   assert.equal(evaluateWakeBudget({key:input.key,now,wakeTimes:[now-1000],guard:unlimited}).reason,'gap');
   assert.equal(evaluateWakeBudget({key:'group:7001',now,wakeTimes,guard:unlimited}).reason,'day');
 });
+test('zero group daily limit keeps budget and short-term rate protection',()=>{
+  const unlimited={...guard,maxWakesPerDay:0},wakeTimes=Array(1000).fill(now-3600000),key='group:7001';
+  assert.equal(evaluateWakeBudget({key,now,wakeTimes,guard:unlimited,direct:true}).blocked,false);
+  assert.equal(evaluateWakeBudget({key,now,wakeTimes,guard:unlimited,direct:true,cost:8}).reason,'cost');
+  assert.equal(evaluateWakeBudget({key,now,wakeTimes:[now-1000],guard:unlimited}).reason,'gap');
+});
 const night=at('2026-10-30T00:45:00'),morning=at('2026-10-30T08:00:00');
 const state={lastIncomingAt:night-30000,recentMessages:[{isSelf:true,plain:'明早见，晚安呀 (｡･ω･｡)',time:night-1000}]};
 const next={mode:'diving',infinite:true,sleepUntil:null,triggers:{question:true}};

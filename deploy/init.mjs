@@ -26,7 +26,7 @@ export function initialize(settings) {
   config.consolePort=Number(settings.consolePort)||13100;config.consoleToken=secret();config.consoleHost='127.0.0.1';
   config.role={...config.role,maxInjectChars:20000};config.admin={uin:String(settings.ownerQQ),displayName:'主人',gentle:false};
   config.voice={...config.voice,enabled:false};config.socialV2.tools.sendVoice=false;
-  config.socialV2.tokenGuard={...config.socialV2.tokenGuard,privateMaxWakesPerDay:0};
+  config.socialV2.tokenGuard={...config.socialV2.tokenGuard,privateMaxWakesPerDay:0,maxWakesPerDay:0};
   config.whaleCompat={controlBase:settings.dshBase,auditKeyFile:path.join(dshHome,'qq-bridge-audit-key'),
     personaFile:path.join(character,'persona.md'),styleFile:path.join(character,'CHAT-STYLE.md'),
     relationshipFile:path.join(character,'important-people.json'),legacyMemoryDir:legacy,cutover:Math.floor(Date.now()/1000)};

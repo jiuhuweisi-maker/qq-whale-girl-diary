@@ -16,6 +16,7 @@ import {proactiveDelay} from '../compat/proactive-clock.mjs';
 import {legacyMedia} from '../compat/legacy-media.mjs';
 import {interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan} from '../compat/private-availability.mjs';
 const root = path.resolve(process.argv[2]);
+const stickerSemantics = await import(pathToFileURL(path.join(root,'src/sticker-semantics.js')));
 const { cleanOutput, requestedLiterals } = await import(pathToFileURL(path.join(root, 'whale-compat/hygiene.mjs')));
 // Expose the same runtime in the upstream's existing VM harness; no replacement parser/router.
 const harnessPath = path.join(root, 'scripts/audit-bridge-harness.mjs');
@@ -36,7 +37,7 @@ class SimDate extends Date {
 const disk = { ...fs, openSync(file, mode, ...args) { if (mode === 'r' && fs.statSync(file).isDirectory() && process.platform === 'win32') { const fd = -1000 - descriptors.size; descriptors.add(fd); return fd; } return fs.openSync(file, mode, ...args); }, fsyncSync(fd) { if (!descriptors.has(fd)) fs.fsyncSync(fd); }, closeSync(fd) { if (descriptors.has(fd)) descriptors.delete(fd); else fs.closeSync(fd); } };
 const legacyDir=fs.mkdtempSync(path.join(os.tmpdir(),'whale-stickers-'));fs.writeFileSync(path.join(legacyDir,'happy.png'),Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64'));fs.writeFileSync(path.join(legacyDir,'INDEX.tsv'),'happy.png\t开心测试图\n');
 const h = await bridgeHarness({ config: { whaleCompat: { cutover: Math.floor(Date.now()/1000)-1,stickerDir:legacyDir }, purpose: { enabled: false }, social: { enabled: false }, voice: { enabled: false }, biliBridge: { enabled: false }, socialV2: { enabled: true, tokenGuard: { enabled: false }, send: { maxPerMinute: 100, maxPerHour: 500 } } }, globals: {
-  Date:SimDate,createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, control: async () => structuredClone(control) }),
+  ...stickerSemantics,Date:SimDate,safeFetchBuffer:async url=>{assert.equal(url,'https://public.invalid/sticker');return{buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64')};},createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, control: async () => structuredClone(control) }),
   createFundPilot:options=>createFundPilot({...options,disk,request:async(route,data)=>({mode:'paper',liveTrading:false,cashFen:100000,...(data?{order:data}:{})})}),recordSessionResult,
   renderConversationMemory, createLegacyReader, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,relationshipBlock,composeConfirmedPersona,contextualFollowUp,proactiveDelay,legacyMedia,interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan,discoverDshSessionCookie: () => ''
 } });
@@ -65,6 +66,10 @@ try {
     assert(h.buildWakePromptV2('private:123','private').includes('主人当前新私信不按后台次数截断'));
     assert.equal(h.tokenGuardWakeBlock('private:123',st,{direct:true,reason:'proactiveCheck'}).reason,'day');
     assert.equal(h.tokenGuardWakeBlock('group:456',st,{direct:true,reason:'private'}).reason,'day');
+    h.cfg.socialV2.tokenGuard.maxWakesPerDay=0;h.cfg.socialV2.tokenGuard.privateMaxWakesPerDay=0;
+    assert(h.buildWakePromptV2('group:456','question').includes('本会话不设每日唤醒次数上限'));
+    assert(h.buildWakePromptV2('private:123','private').includes('本会话不设每日唤醒次数上限'));
+    h.cfg.socialV2.tokenGuard.maxWakesPerDay=20;h.cfg.socialV2.tokenGuard.privateMaxWakesPerDay=40;
     h.cfg.socialV2.tokenGuard.enabled=false;
   });
   await test('actual intake preserves same-name stable users and order', async()=> { await h.handleIncoming('group',456,event(51,201,'玩游戏吗'),h.cfg); await h.handleIncoming('group',456,event(52,202,'晚上吃啥'),h.cfg); await h.handleIncoming('group',456,event(53,201,'我说周六'),h.cfg); const m=h.getSocialV2State('group:456').recentMessages; assert.deepEqual(Array.from(m.slice(-3),x=>String(x.userId)),['201','202','201']); assert(m.at(-1).plain.includes('周六')); });
@@ -88,6 +93,16 @@ try {
     const r=await fetch(base+'/api/socialV2/fundpilot',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1','x-agent-token':st.agentToken,'x-whale-request-id':'11111111-1111-1111-1111-'+String(id).padStart(12,'0'),'x-whale-tool':'qq_fundpilot','x-whale-args':Buffer.from(JSON.stringify(args)).toString('base64')},body:JSON.stringify(args)});assert.equal(r.status,200);assert.equal((await r.json()).cashFen,100000);
   });
   await test('fund tool cannot fall back to console credentials without a private token',async()=>{const r=await fetch(base+'/api/socialV2/fundpilot',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1'},body:JSON.stringify({key:'private:123',action:'status'})});assert.equal(r.status,403);});
+  await test('native QQ sticker uses the durable transport and a replay never resends',async()=>{
+    const key='private:123',st=h.getSocialV2State(key),sid=await h.ensureSession(key),args={key,token:st.agentToken,stickerId:'fixture-sticker'};
+    h.whale.onEvent(key,sid,{type:'turn/start',data:{turn:'native-sticker'}});
+    const headers={ 'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1','x-agent-token':st.agentToken,'x-whale-request-id':'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','x-whale-tool':'qq_send_sticker','x-whale-args':Buffer.from(JSON.stringify(args)).toString('base64')};
+    h.whale.onEvent(key,sid,{type:'tool/call',data:{name:'mcp__snowluma__qq_send_sticker',callId:'native-sticker',arguments:JSON.stringify(args)}});
+    const send=()=>fetch(base+'/api/socialV2/send-sticker',{method:'POST',headers,body:JSON.stringify({key,stickerId:args.stickerId})}).then(r=>r.json());
+    const before=h.calls.http.filter(r=>r.url.endsWith('/send_private_msg')).length,a=await send();assert(a.ok,JSON.stringify(a));const b=await send();assert(b.ok,JSON.stringify(b));
+    assert.equal(h.calls.http.filter(r=>r.url.endsWith('/send_private_msg')).length-before,1);
+    const receipt=h.whale.ledger.data.outbox[`${sid}:native-sticker:0`];assert.equal(receipt.status,'sent');assert(receipt.picture&&receipt.receipt.message_id);
+  });
   await test('actual financial limit still blocks generation and explains it once in owner DM',async()=>{
     const st=h.getSocialV2State('private:123');h.cfg.socialV2.tokenGuard.enabled=true;
     const day=new Date().toLocaleDateString('sv-SE'),usageFile=path.join(h.temp,'dsh/surfcore/token-usage-daily.json');
