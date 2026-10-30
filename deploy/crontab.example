@@ -4,6 +4,7 @@
 17,47 * * * * bash /opt/qq-cs/watchdog.sh
 5 20 * * * /usr/bin/python3 /opt/qq-cs/whale_lottery.py >> /opt/qq-cs/lottery.log 2>&1
 */2 * * * * /opt/qq-cs/snowluma-guard.sh
-20 12 * * * /opt/qq-cs/version_check.sh
+# 现有生产机还运行下列版本通知，但脚本属其私有运维配置；新部署先自行配置再启用：
+# 20 12 * * * /opt/qq-cs/version_check.sh
 35 22 * * * python3 /opt/qq-cs/daily_report_v2.py >> /opt/qq-cs/cron.log 2>&1
 # 旧 proactive/private_bubble/reflect/cs 等不在当前运行表；文件保留供考古。

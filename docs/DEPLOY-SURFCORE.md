@@ -87,7 +87,7 @@ node integrations/surfcore/tests/bridge-integration.test.mjs /opt/whale-surfcore
 - B站：在 SurfCore 设置中登录自己的机器人账号，再绑定主人；按需要启用评论/动态与预算。本仓库默认关闭 B站自动启动，QQ可先独立验收。保留原角色，语音/桌宠仍关闭。遇到412按退避等待，不切代理、反复换票或高频重试。
 - 旧记忆：使用 `integrations/surfcore/import-memory.mjs` 生成新的只读导入快照；原文件保留，群私范围分开。不要用别人的记忆替代自己的。
 - FundPilot：本仓库仅有适配器，基金服务与模拟账本是独立项目，不随机器人仓库附送。未安装时不宣称基金工具已就绪；不要连接真实券商或银行卡。
-- 定时任务：`deploy/crontab.example` 是现行运维参考，不自动安装整张表。备份路径、日报主人、余额通知方向和抽奖是否启用，应先按自己的需求确认。退役的旧主动聊天 cron 不应恢复。
+- 定时任务：`deploy/crontab.example` 是运维参考，不自动安装整张表。先将需要的Python脚本与依赖的 `memory_archive.py` 放到 `/opt/qq-cs/`；启用日报还须放入 `report-no-tools.mjs` 和 `report-no-tools.patch.yml`，路径改了也要对应修改覆盖文件中的模块路径。备份路径、日报主人、余额通知方向和抽奖是否启用，应先按自己的需求确认。现有生产机的私有版本通知脚本未附送，新模板保持注释。退役的旧主动聊天 cron 不应恢复。
 
 ## 更新与回滚
 
