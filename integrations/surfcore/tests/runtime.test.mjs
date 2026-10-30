@@ -55,4 +55,18 @@ await check('internal English-only notices are suppressed while cute text surviv
 await check('voice, mass mention and ignored target cannot escape through segments', async () => { const f = fixture(); await f.w.syncControl(); await tool(f); for (const segments of [[{ type: 'record', data: { file: 'x' } }], [{ type: 'at', data: { qq: 'all' } }, ...text('hi')], [{ type: 'at', data: { qq: '1003' } }, ...text('hi')]]) await assert.rejects(f.w.send('group:7001', segments, async () => ({}))); });
 await check('ledger corruption fails closed and never invokes login recovery', async () => { const f = fixture(); await f.w.syncControl(); await f.w.incoming('group:7001', f.event, () => {}); for (const k of f.disk.files.keys()) if (/whale-delivery\.[01]$/.test(k)) f.disk.files.set(k, Buffer.from('broken')); const next = createWhaleRuntime(f.options); assert.equal(next.status().healthy, false); await assert.rejects(next.syncControl()); });
 await check('known account text is rejected before the actual transport or outbox write',async()=>{const f=fixture();f.cfg.ownerQQ='87654321';await f.w.syncControl();await tool(f);let sends=0;await assert.rejects(()=>f.w.send('group:7001',text('账号87654321'),()=>{sends++;}),/改用昵称/);assert.equal(sends,0);assert.equal(Object.keys(f.w.ledger.data.outbox).length,0);});
+await check('owner availability notice is one DM across restart and calendar midnight', async()=>{
+  const f=fixture();f.clock.now=Date.parse('2026-10-29T23:55:00+08:00');await f.w.syncControl();const sent=[];
+  await f.w.ownerNotice('night-rest',async(body,id)=>{sent.push({body,id});return{message_id:1};});
+  f.clock.now+=20*60000;const reboot=createWhaleRuntime(f.options);await reboot.syncControl();
+  assert.equal((await reboot.ownerNotice('night-rest',async()=>{throw Error('duplicate');})).skipped,'duplicate');
+  assert.equal(sent.length,1);assert.equal(sent[0].body.user_id,1001);assert(sent[0].body.message[0].data.text.includes('晚安'));
+});
+await check('uncertain owner notice never retries and explicit private silence is respected',async()=>{
+  const f=fixture();await f.w.syncControl();let sends=0;
+  await assert.rejects(f.w.ownerNotice('budget',async()=>{sends++;throw Error('remote received then timed out');}));
+  assert.equal((await f.w.ownerNotice('budget',async()=>{sends++;})).skipped,'duplicate');assert.equal(sends,1);
+  const g=fixture();g.control.privateQuietForever=true;await g.w.syncControl();assert.equal((await g.w.ownerNotice('budget',async()=>{throw Error('quiet');})).skipped,'unavailable');
+  assert.equal((await g.w.ownerNotice('arbitrary',async()=>{throw Error('unknown');})).skipped,'unavailable');
+});
 console.log('PASS_ALL ' + passed);

@@ -1,11 +1,22 @@
-const fs=require('fs'),vm=require('vm'),test=require('node:test'),assert=require('node:assert/strict'),path=require('path');
-const source=fs.readFileSync(path.join(__dirname,'../bridge/host.js'),'utf8');
-const block=source.split('// patch135: broadcast intent BEGIN')[1].split('// patch135: broadcast intent END')[0];
-const parse=vm.runInNewContext(block+';解析群代发135');
-test('planning, approval requests and quotations never execute broadcasts',()=>{
-  for(const text of ['等我点头以后，去群里说 今晚八点','先拟个文案，群里发 今晚八点','去群里说 今晚八点，先别发','群里发 今晚八点可以吗？','「去群里说 今晚八点」','我刚才让你去群里说什么来着','群里发什么好？'])assert.equal(parse(text),null,text);
+const fs=require('fs'),test=require('node:test'),assert=require('node:assert/strict'),path=require('path');
+const {createRuntime,ID}=require('../simulator/lib/production-runtime.cjs');
+const sourcePath=path.join(__dirname,'../bridge/host.js');
+const headers={authorization:'Bearer '+'offline-test-'.repeat(5)};
+test('all former broadcast requests remain ordinary private conversation',async()=>{
+  const r=createRuntime({sourcePath});r.setConfig({聊天后端:'surfcore',接管起点:Math.floor(r.clock.now/1000)-1});
+  let id=700;
+  for(const text of ['去群里说 今晚八点','群里发 今晚八点','帮我发到群里：今晚八点','/群里发 先别发呆了','替我说 晚上好','等我点头以后，去群里说 今晚八点','通知群里 大家晚安']){
+    const m=r.add({id:++id,sender:'A',time:r.clock.now,channel:'private',segments:[{type:'text',data:{text}}]});
+    const result=await r.requestRoute('surfcore-control',{channel:'private',messageId:String(m.message_id)},headers);
+    assert.equal(result.handled,false,text);
+  }
+  assert.equal(r.deliveries.filter(x=>x.action==='send_group_msg').length,0);
 });
-test('clear direct commands keep the original content',()=>{
-  for(const text of ['去群里说 今晚八点','帮我发到群里：今晚八点','群里发 今晚八点']){const result=parse(text);assert.equal(result.cmd,'群里说');assert.equal(result.arg,'今晚八点');}
-  assert.equal(parse('/群里发 先别发呆了').arg,'先别发呆了');
+test('debug commands cannot resurrect forwarding and help does not advertise it',async()=>{
+  const r=createRuntime({sourcePath});r.setConfig({聊天后端:'surfcore'});
+  assert.equal((await r.requestRoute('master-cmd',{text:'去群里说 晚安'},headers)).ok,false);
+  assert.equal(r.deliveries.length,0);
+  const source=fs.readFileSync(sourcePath,'utf8');
+  assert(!source.includes("操作票135('group-broadcast')"));
+  assert(!source.includes('｜去群里说…'));
 });

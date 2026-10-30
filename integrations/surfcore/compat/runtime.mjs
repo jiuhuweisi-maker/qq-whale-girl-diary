@@ -5,6 +5,7 @@ import { AsyncLocalStorage } from 'node:async_hooks';
 import { createDeliveryState } from './durable-state.cjs';
 import { conversation } from './memory-scope.mjs';
 import {includesParticipantAccount} from './relationships.mjs';
+import {availabilityNotice} from './private-availability.mjs';
 
 const digest = value => crypto.createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
 const parseArgs = value => {
@@ -194,8 +195,26 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
       throw error;
     }
   }
+  // Two factual owner-only notices, independent of a model turn. Never exposed
+  // as an agent tool; group destinations and arbitrary text are impossible.
+  async function ownerNotice(kind, transport) {
+    const key = `private:${config.ownerQQ}`, notice = availabilityNotice(kind, now());
+    if (!notice || quiet(key)) return { skipped: 'unavailable' };
+    const id = `availability:${key}:${notice.label}`, assertCurrent = guard(key);
+    if (ledger.data.outbox[id]) return { skipped: 'duplicate' };
+    change(d => { d.outbox[id] = { at: now(), attempts: [now()], status: 'sending', key }; });
+    try {
+      assertCurrent();
+      const receipt = await transport({ user_id: Number(config.ownerQQ), message: [{type:'text',data:{text:notice.text}}] }, digest(id), assertCurrent);
+      change(d => { d.outbox[id].status = 'sent'; });
+      return { sent: true, receipt };
+    } catch (error) {
+      if (ledger.healthy) change(d => { d.outbox[id].status = 'uncertain'; });
+      throw error;
+    }
+  }
   function status() {
     return { healthy: ledger.healthy, ready, pendingIncoming: Object.values(ledger.data.inbox).filter(r => r.stage === 'buffered').length, uncertain: Object.values(ledger.data.outbox).filter(r => ['sending', 'uncertain'].includes(r.status)).length, calls: Object.keys(ledger.data.calls || {}).length };
   }
-  return { syncControl, incoming, recover, onEvent, action, guard, quiet, enterRequest, authorizeRequest, send, status, ledger, contexts };
+  return { syncControl, incoming, recover, onEvent, action, guard, quiet, enterRequest, authorizeRequest, send, ownerNotice, status, ledger, contexts };
 }

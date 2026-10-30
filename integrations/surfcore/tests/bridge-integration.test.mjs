@@ -14,6 +14,7 @@ import {relationshipBlock} from '../compat/relationships.mjs';
 import {composeConfirmedPersona,contextualFollowUp} from '../compat/expression-style.mjs';
 import {proactiveDelay} from '../compat/proactive-clock.mjs';
 import {legacyMedia} from '../compat/legacy-media.mjs';
+import {interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan} from '../compat/private-availability.mjs';
 const root = path.resolve(process.argv[2]);
 const { cleanOutput, requestedLiterals } = await import(pathToFileURL(path.join(root, 'whale-compat/hygiene.mjs')));
 // Expose the same runtime in the upstream's existing VM harness; no replacement parser/router.
@@ -25,14 +26,19 @@ let passed = 0;
 const test = async (name, fn) => { await fn(); passed++; console.log('PASS ' + name); };
 let control = { ok: true, epoch: 0, quietUntil: 0, privateQuietUntil: 0, privateQuietForever: false };
 const descriptors = new Set();
+let clockOffset = 0;
+class SimDate extends Date {
+  constructor(...args) { super(...(args.length ? args : [Date.now() + clockOffset])); }
+  static now() { return Date.now() + clockOffset; }
+}
 // Windows cannot fsync a directory descriptor. Only that OS operation is simulated;
 // production/Linux still uses the original fsynced engine and the real filesystem.
 const disk = { ...fs, openSync(file, mode, ...args) { if (mode === 'r' && fs.statSync(file).isDirectory() && process.platform === 'win32') { const fd = -1000 - descriptors.size; descriptors.add(fd); return fd; } return fs.openSync(file, mode, ...args); }, fsyncSync(fd) { if (!descriptors.has(fd)) fs.fsyncSync(fd); }, closeSync(fd) { if (descriptors.has(fd)) descriptors.delete(fd); else fs.closeSync(fd); } };
 const legacyDir=fs.mkdtempSync(path.join(os.tmpdir(),'whale-stickers-'));fs.writeFileSync(path.join(legacyDir,'happy.png'),Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64'));fs.writeFileSync(path.join(legacyDir,'INDEX.tsv'),'happy.png\t开心测试图\n');
 const h = await bridgeHarness({ config: { whaleCompat: { cutover: Math.floor(Date.now()/1000)-1,stickerDir:legacyDir }, purpose: { enabled: false }, social: { enabled: false }, voice: { enabled: false }, biliBridge: { enabled: false }, socialV2: { enabled: true, tokenGuard: { enabled: false }, send: { maxPerMinute: 100, maxPerHour: 500 } } }, globals: {
-  createWhaleRuntime: options => createWhaleRuntime({ ...options, disk, control: async () => structuredClone(control) }),
+  Date:SimDate,createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, control: async () => structuredClone(control) }),
   createFundPilot:options=>createFundPilot({...options,disk,request:async(route,data)=>({mode:'paper',liveTrading:false,cashFen:100000,...(data?{order:data}:{})})}),recordSessionResult,
-  renderConversationMemory, createLegacyReader, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,relationshipBlock,composeConfirmedPersona,contextualFollowUp,proactiveDelay,legacyMedia,discoverDshSessionCookie: () => ''
+  renderConversationMemory, createLegacyReader, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,relationshipBlock,composeConfirmedPersona,contextualFollowUp,proactiveDelay,legacyMedia,interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan,discoverDshSessionCookie: () => ''
 } });
 const server = h.startConsoleServer();
 if (!server.listening) await new Promise(r => server.once('listening', r));
@@ -51,6 +57,16 @@ async function send(messages, { requestId, callId, quote, at } = {}) {
 try {
   h.setMode('reserved2'); h.setSelfIdentity('鲸戒',999);
   await test('actual bridge initializes with the compatibility runtime healthy', async()=> assert(h.whale.status().healthy && h.whale.status().ready));
+  await test('actual bridge permits owner DM after 40 wakes but keeps background and group caps',async()=>{
+    h.cfg.socialV2.tokenGuard.enabled=true;
+    await h.handleIncoming('private',123,event(71,123,'早呀，醒了吗'),h.cfg);
+    const st=h.getSocialV2State('private:123');st.wakeTimes=Array(40).fill(Date.now()-3600000);
+    assert.equal(h.tokenGuardWakeBlock('private:123',st,{direct:true,reason:'private'}),null);
+    assert(h.buildWakePromptV2('private:123','private').includes('主人当前新私信不按后台次数截断'));
+    assert.equal(h.tokenGuardWakeBlock('private:123',st,{direct:true,reason:'proactiveCheck'}).reason,'day');
+    assert.equal(h.tokenGuardWakeBlock('group:456',st,{direct:true,reason:'private'}).reason,'day');
+    h.cfg.socialV2.tokenGuard.enabled=false;
+  });
   await test('actual intake preserves same-name stable users and order', async()=> { await h.handleIncoming('group',456,event(51,201,'玩游戏吗'),h.cfg); await h.handleIncoming('group',456,event(52,202,'晚上吃啥'),h.cfg); await h.handleIncoming('group',456,event(53,201,'我说周六'),h.cfg); const m=h.getSocialV2State('group:456').recentMessages; assert.deepEqual(Array.from(m.slice(-3),x=>String(x.userId)),['201','202','201']); assert(m.at(-1).plain.includes('周六')); });
   await test('actual intake duplicate does not enter unread twice', async()=> {const before=h.getSocialV2State('group:456').unread.length; await h.handleIncoming('group',456,event(53,201,'我说周六'),h.cfg); assert.equal(h.getSocialV2State('group:456').unread.length,before);});
   await test('actual file message keeps its name and its source message id', async()=> {await h.handleIncoming('group',456,event(54,123,'', [{type:'file',data:{name:'notes.md',file_id:'fake'}}]),h.cfg); const m=h.getSocialV2State('group:456').recentMessages.at(-1); assert(m.text.includes('notes.md')); assert.equal(String(m.messageId),'54');});
@@ -72,5 +88,28 @@ try {
     const r=await fetch(base+'/api/socialV2/fundpilot',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1','x-agent-token':st.agentToken,'x-whale-request-id':'11111111-1111-1111-1111-'+String(id).padStart(12,'0'),'x-whale-tool':'qq_fundpilot','x-whale-args':Buffer.from(JSON.stringify(args)).toString('base64')},body:JSON.stringify(args)});assert.equal(r.status,200);assert.equal((await r.json()).cashFen,100000);
   });
   await test('fund tool cannot fall back to console credentials without a private token',async()=>{const r=await fetch(base+'/api/socialV2/fundpilot',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1'},body:JSON.stringify({key:'private:123',action:'status'})});assert.equal(r.status,403);});
+  await test('actual financial limit still blocks generation and explains it once in owner DM',async()=>{
+    const st=h.getSocialV2State('private:123');h.cfg.socialV2.tokenGuard.enabled=true;
+    const day=new Date().toLocaleDateString('sv-SE'),usageFile=path.join(h.temp,'dsh/surfcore/token-usage-daily.json');
+    fs.writeFileSync(usageFile,JSON.stringify({version:1,day,at:Date.now(),qq:{cost:9,tokens:100},bili:{cost:0,tokens:0},other:{cost:0,tokens:0},total:{cost:9,tokens:100}}));
+    assert.equal(h.tokenGuardWakeBlock('private:123',st,{direct:true,reason:'private'}).reason,'budget');
+    const prompts=h.calls.prompts.length,before=h.calls.http.length;
+    await h.sendWakePromptV2('private:123','private');await h.sendWakePromptV2('private:123','private');
+    const sent=h.calls.http.slice(before).filter(r=>r.url.endsWith('/send_private_msg'));
+    assert.equal(h.calls.prompts.length,prompts);assert.equal(sent.length,1);assert.equal(sent[0].body.user_id,123);assert(sent[0].body.message[0].data.text.includes('费用'));
+    fs.unlinkSync(usageFile);h.cfg.socialV2.tokenGuard.enabled=false;
+  });
+  await test('actual overnight wake-config sends one owner goodnight and ends at morning',async()=>{
+    const night=Date.parse('2026-10-30T00:45:00+08:00');clockOffset=night-Date.now();
+    const st=h.getSocialV2State('private:123');st.lastIncomingAt=night-600000;st.recentMessages=[{isSelf:true,plain:'那我先歇一会儿',time:night-1000}];
+    assert(h.buildWakePromptV2('private:123','private').includes('【夜间私信】'));
+    const body={key:'private:123',config:{mode:'diving',infinite:false,sleepUntil:'2026-10-30T08:00:00+08:00'}};
+    const call=()=>fetch(base+'/api/socialV2/wake-config',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token'},body:JSON.stringify(body)}).then(r=>r.json());
+    const before=h.calls.http.length;const a=await call();assert(a.ok,JSON.stringify(a));const b=await call();assert(b.ok,JSON.stringify(b));
+    const sent=h.calls.http.slice(before).filter(r=>r.url.endsWith('/send_private_msg'));
+    assert.equal(sent.length,1);assert.equal(sent[0].body.user_id,123);assert(sent[0].body.message[0].data.text.includes('晚安'));assert(!st.wakeConfig.infinite);
+    clockOffset=Date.parse('2026-10-30T10:53:00+08:00')-Date.now();
+    assert(!h.buildWakePromptV2('private:123','private').includes('【夜间私信】'));clockOffset=0;
+  });
+  console.log('PASS_ALL ' + passed);
 } finally {await new Promise(r=>server.close(r)); await h.close();assert.equal(path.dirname(legacyDir),path.resolve(os.tmpdir()));fs.rmSync(legacyDir,{recursive:true});}
-console.log('PASS_ALL ' + passed);

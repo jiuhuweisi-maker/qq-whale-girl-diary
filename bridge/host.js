@@ -2265,18 +2265,8 @@ export function apply(ctx) {
     }
   }
 
-  // patch135: broadcast intent BEGIN
-  function 解析群代发135(文) {
-    const raw = String(文 || '').trim(), force = /^[/／>＞]/.test(raw)
-    const text = raw.replace(/^[/／>＞]+/, '').trim()
-    if (!force && (/^[「『“"'【\[]/.test(raw) || /先别(?:发|说|通知)|(?:等|待)我.{0,8}(?:点头|确认|同意|批准|看完)|确认(?:后|了)再发|(?:还没|尚未)(?:决定|同意)|先(?:写|拟|看).{0,8}(?:文案|草稿)/.test(text))) return null
-    const hit = text.match(/^(?:现在)?(?:去群里说|替我说|群里发|跟?群里(?:说|发)(?:一句|一声)?|通知群(?:里)?|帮我发(?:到|去|进)?群(?:里)?)[\s:：，,]*([\s\S]+)$/)
-    if (!hit || !hit[1].trim()) return null
-    if (!force && /^(?:什么|啥|哪句|哪条|哪张|点什么|些什么)/.test(hit[1].trim())) return null
-    if (!force && /(?:可以吗|行吗|好吗|要不要|能不能)[？?。!！]*$/.test(hit[1])) return null
-    return { cmd: '群里说', arg: hit[1].trim() }
-  }
-  // patch135: broadcast intent END
+  // patch137: private-to-group forwarding was removed at the owner's request.
+
   function 解析主人指令(文) {
     const 原始 = String(文 || '').trim()
     if (!原始) return null
@@ -2296,14 +2286,12 @@ export function apply(ctx) {
     if (m) return { cmd: '闭嘴', arg: m[1] || '' }
     m = 剥.match(/^日志[  ]*(\d{1,2})?$/)
     if (m) return { cmd: '日志', arg: m[1] || '' }
-    const 群令135 = 解析群代发135(原始)
-    if (群令135) return 群令135
     m = 剥.match(/^(?:发|开|来|整|甩)[  ]*(?:张|个)?[  ]*(?:鲸元券|抽奖)$/)
     if (m) return { cmd: '券' }
     const 管106 = 解析管命令106(原始)
     if (管106) return 管106
     // —— 自然语言兜底：精确口令没中才走这，保守防误伤 ——
-    if (净.length > 30 && !强令 && !/(去群里说|替我说|群里发|通知群)/.test(净)) return null
+    if (净.length > 30 && !强令) return null
     const 候选 = []
     const 打分 = (令, 分) => 候选.push({ 令, 分 })
     const 分钟 = (() => {
@@ -2353,7 +2341,7 @@ export function apply(ctx) {
     try {
       if (令.cmd === '冲突') return 答(令.说)
             if (令.cmd === '帮助') {
-        return 答('我会的这些，随口说就行：查余额｜余额预警开没有｜状态｜日志N｜闭嘴(可带分钟)｜开口｜冷却｜去群里说…｜禁言 谁 几分钟｜解禁 谁｜踢 谁｜发张鲸元券。前缀加 / = 铁了心发指令；我办完都会回你一声')
+        return 答('我会的这些，随口说就行：查余额｜余额预警开没有｜状态｜日志N｜闭嘴(可带分钟)｜开口｜冷却｜禁言 谁 几分钟｜解禁 谁｜踢 谁｜发张鲸元券。前缀加 / = 铁了心发指令；我办完都会回你一声')
       }
       if (令.cmd === '余额预警') {
         const 预警脚本在 = existsSync('/opt/qq-cs/balance_warn.py')
@@ -2435,13 +2423,7 @@ export function apply(ctx) {
         const 尾 = 日志.slice(-n).map((l) => `${l.时间} ${String(l.文本).slice(0, 60)}`).join('\n')
         return 答(尾 || '（账本还空）')
       }
-      if (令.cmd === '群里说') {
-        if (!配置.转群 || !配置.群号) return 答('❌ 群通道没开或没群号')
-        const 文 = String(令.arg).slice(0, 300)
-        const 果 = await 发一个(配置.NapCat, 'send_group_msg', { group_id: Number(配置.群号), message: [{ type: 'text', data: { text: 文 } }] }, () => true, 操作票135('group-broadcast'))
-        加缓冲('p' + Number(配置.私聊QQ), { text: '（桥务通报：刚才那句「' + 文.slice(0, 40) + '」进群，是桥照主人的话代发的——' + (果.ok ? '已经发出去了' : '不过没发出去') + '。不是你亲口说的，知道就好，不用复述不用接话）', images: [], mid: '', route: 'private', at: 0, speaker: Number(配置.私聊QQ), name: '桥' }) // patch64: 代发知会她，主人点头的
-        return 答(果.ok ? `✅ 已代发进群：「${文.slice(0, 40)}」` : '❌ 群发失败：' + JSON.stringify(果.数据).slice(0, 120))
-      }
+      if (令.cmd === '群里说') return 答('私信代发群功能已经取消啦')
       return 答('❌ 不认识的指令，发「帮助」看表')
     } catch (error) {
       记账('指令执行出错：' + String((error && error.message) || error))
