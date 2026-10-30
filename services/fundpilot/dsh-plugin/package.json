@@ -1,0 +1,10 @@
+{
+  "name": "dsh-fundpilot",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "index.mjs",
+  "private": true,
+  "description": "独立基金行情、模拟交易和900元停机线；没有真实下单能力",
+  "peerDependencies": { "@deepseek-ai/dsh-tools": "*" },
+  "dsh": { "bundle": { "patch": ["./cordis.patch.yml"] } }
+}

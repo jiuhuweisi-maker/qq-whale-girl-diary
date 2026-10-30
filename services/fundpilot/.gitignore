@@ -1,0 +1,5 @@
+data/
+node_modules/
+fundpilot-install.py
+*.sqlite*
+*.token

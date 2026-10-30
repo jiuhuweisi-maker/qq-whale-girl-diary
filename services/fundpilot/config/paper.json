@@ -1,0 +1,18 @@
+{
+  "mode": "paper",
+  "capitalMode": "elastic",
+  "initialCashFen": 100000,
+  "stopEquityFen": 90000,
+  "maxPositionFen": 50000,
+  "maxOrdersPerDay": 2,
+  "commissionRate": 0.0003,
+  "minimumCommissionFen": 500,
+  "maxSpreadBps": 35,
+  "maxQuoteAgeMs": 90000,
+  "positionStopLossRate": 0.03,
+  "trailingActivationRate": 0.04,
+  "trailingDrawdownRate": 0.02,
+  "activeSymbol": "159696.SZ",
+  "autoPaper": false,
+  "pollIntervalMs": 60000
+}

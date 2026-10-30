@@ -52,7 +52,7 @@ export function patchFundBridge(source) {
 export function patchFundMcp(source) {
   const at=source.lastIndexOf('await server.connect(');if(at<0)throw Error('MCP connect anchor drift');
   const code=`
-server.tool('qq_fundpilot','主人私信里的基金助手：resolve或market带query按名字搜基金和已公布净值，不限模拟盘两只；watch带当前messageId保存本人关注/持有计划、逐只确认期限和提醒条件，unwatch取消；status查原模拟账户和关注计划。advisory只作有来源的研究/提醒，不是成交，paper才是模拟买卖。歧义、A/C先确认；不能真实下单。learning/study/note沿用B站兴趣笔记。',{
+server.tool('qq_fundpilot','主人私信里的基金助手：resolve或market带query按名字搜基金和已公布净值，不限模拟盘两只；watch带当前messageId保存本人关注/持有计划、逐只确认期限和提醒条件，unwatch取消；status查模拟账户和关注计划。明确模拟买卖order可按份数或买入金额预算，虚拟资金按需补足，不设旧1000元资金上限。advisory只作有来源的研究/提醒，不是成交，paper才是模拟买卖。歧义、A/C先确认；不能真实下单。learning/study/note沿用B站兴趣笔记。',{
   key:z.string(),token:z.string(),action:z.enum(['status','market','journal','order','halt','watch','unwatch','resolve','learning','study','note']),query:z.string().max(160).optional(),note:z.object({summary:z.string().max(1200),topic:z.string().optional(),citations:z.array(z.object({from:z.number(),quote:z.string().max(100)})).max(4)}).optional(),messageId:z.union([z.string(),z.number()]).optional()
 },async args=>{try{const result=await agentApi('/api/socialV2/fundpilot',{method:'POST',headers:{'x-agent-token':args.token},body:JSON.stringify(args),timeoutMs:30000});return {content:[{type:'text',text:serializeModelData(result)}]};}catch(error){return {isError:true,content:[{type:'text',text:'这次没有确认查询或设置完成。先查状态和已保存的计划，别重复操作；模拟下单也不要换个说法重试。'+(String(error?.message||'').includes('收盘')?'现在收盘了。':'')}]};}});
 `;

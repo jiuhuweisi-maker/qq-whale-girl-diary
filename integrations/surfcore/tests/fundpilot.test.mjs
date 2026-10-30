@@ -1,10 +1,10 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';import {pathToFileURL} from 'node:url';
 import {createFundPilot,parseFundCommand} from '../compat/fundpilot.mjs';import {recordSessionResult} from '../compat/session-recovery.mjs';
-const {PaperEngine}=await import(pathToFileURL(path.join(process.env.FUNDPILOT_SOURCE||'D:/codex项目/ai基金','src/engine.mjs')));
+const {PaperEngine}=await import(process.env.FUNDPILOT_SOURCE?pathToFileURL(path.join(process.env.FUNDPILOT_SOURCE,'src/engine.mjs')):new URL('../../../services/fundpilot/src/engine.mjs',import.meta.url));
 function fixture(t,extra={}){
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'fund-qq-'));t.after(()=>fs.rmSync(root,{recursive:true,force:true}));
   let clock=Date.parse('2026-10-29T14:00:00+08:00'),events=[],sends=[],calls=[],quote={symbol:'159696.SZ',priceMills:2100,bidMills:2100,askMills:2100,timestamp:clock,source:'fixture'};
-  const engine=new PaperEngine(':memory:',{},()=>clock);engine.setQuotes([quote]);t.after(()=>engine.close());
+  const engine=new PaperEngine(':memory:',extra.engineConfig||{},()=>clock);engine.setQuotes([quote]);t.after(()=>engine.close());
   const messages=new Map([['1',{messageId:'1',userId:'1001',time:clock,plain:'模拟买入159696，100份'}]]);
   // Windows cannot fsync directories; only this test adapter stubs that operation.
   // Linux verification below uses unmodified fs and real directory sync.
@@ -13,6 +13,8 @@ function fixture(t,extra={}){
   return {root,engine,messages,calls,sends,opts,f:createFundPilot(opts),key:'private:1001',setEvents:v=>{events=v},advance:n=>{clock+=n},quote};
 }
 test('only explicit current simulation commands parse',()=>{assert.equal(parseFundCommand('模拟买入159696，100份').quantity,100);assert.equal(parseFundCommand('帮我模拟卖出588080 100份').side,'sell');for(const text of ['如果我说模拟买入159696，100份呢','不要模拟买入159696，100份','B说：模拟买入159696，100份','买入159696，100份','模拟买入000001，100份'])assert.equal(parseFundCommand(text),null);assert.throws(()=>parseFundCommand('模拟买入159696，50份'));assert.throws(()=>parseFundCommand('模拟买入159696.SH，100份'));});
+test('explicit yuan budgets and large share counts use exact units without the old quantity cap',()=>{assert.deepEqual(parseFundCommand('模拟买入易方达纳指ETF，10万元'),{action:'order',symbol:'159696.SZ',side:'buy',amountFen:10000000});assert.equal(parseFundCommand('模拟买入159696，100万份').quantity,1000000);assert.equal(parseFundCommand('模拟买入159696，0.01万元').amountFen,10000);assert.throws(()=>parseFundCommand('模拟卖出159696，100元'));assert.throws(()=>parseFundCommand('模拟买入159696，99999999999999万元'));for(const text of ['模拟买入159696，10000','如果模拟买入159696，100万元呢','不要模拟买入159696，10万元','B说：模拟买入159696，10万元'])assert.equal(parseFundCommand(text),null);});
+test('owner source amount drives one large elastic fill, not model-supplied quantity or funding',async t=>{const x=fixture(t,{engineConfig:{capitalMode:'elastic',autoPaper:false}});x.messages.get('1').plain='模拟买入易方达纳指ETF，100万元';const b={key:x.key,action:'order',messageId:'1',quantity:100,symbol:'588080.SH',amountFen:100};const r=await x.f.handle(b);assert.equal(r.symbol,'159696.SZ');assert.equal(r.requestedBudgetFen,100000000);assert(r.quantity>10000);assert(r.amountFen+r.feeFen<=100000000);assert(x.engine.snapshot().contributedFen>100000);const before=x.engine.snapshot();assert((await createFundPilot(x.opts).handle(b)).replayed);assert.equal(x.engine.snapshot().contributedFen,before.contributedFen);assert.equal(x.calls.filter(c=>c[0]==='/paper/order').length,1);});
 test('private account cannot be read by group or another person',async t=>{const x=fixture(t);for(const key of ['group:1001','private:1002'])await assert.rejects(()=>x.f.handle({key,action:'status'}));assert.equal(x.calls.length,0);});
 test('disabled integration cannot read service',async t=>{const x=fixture(t,{config:{ownerQQ:1001}});await assert.rejects(()=>x.f.handle({key:x.key,action:'status'}));});
 test('read status reports actual paper balance',async t=>{const x=fixture(t);assert.equal((await x.f.handle({key:x.key,action:'status'})).cashFen,100000);});

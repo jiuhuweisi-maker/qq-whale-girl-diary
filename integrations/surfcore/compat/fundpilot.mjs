@@ -10,34 +10,43 @@ import {createFundWatch,parseWatchMessage} from './fund-watch.mjs';
 const symbols = ['159696.SZ', '588080.SH'];
 const hash = v => crypto.createHash('sha256').update(typeof v === 'string' ? v : JSON.stringify(v)).digest('hex');
 const symbolOf = text => symbols.find(s => text.includes(s.slice(0, 6)));
+function sizedOrder(text,catalog){
+  const m=/^模拟(买入|卖出)\s*(.+?)[，,：: ]+\s*(\d+(?:\.\d{1,2})?)\s*(万|亿)?\s*(份|元|块(?:钱)?|人民币)[。！!]?$/u.exec(text);
+  if(!m)return null;
+  const query=m[2].trim(),numeric=/^(\d{6})(?:\.(SZ|SH))?$/i.exec(query);let symbol;
+  if(numeric){symbol=symbols.find(s=>s.startsWith(numeric[1]+'.'));if(!symbol)return null;if(numeric[2]&&!symbol.endsWith(numeric[2].toUpperCase()))throw Error('代码和交易所不一致，先核对一下');}
+  else {const r=resolveFund(query,catalog);if(r.status!=='found'||!r.fund.paperSupported){const e=Error(r.fund?'这只我认得，但目前模拟盘还没支持它。':r.message);e.resolution={...r,message:e.message};throw e;}symbol=r.fund.symbol;}
+  const scale=m[4]==='万'?10000n:m[4]==='亿'?100000000n:1n,command={action:'order',symbol,side:m[1]==='买入'?'buy':'sell'};
+  if(m[5]==='份'){
+    if(!/^\d+$/.test(m[3]))throw Error('份数请用100份的整数倍');
+    const quantity=BigInt(m[3])*scale;if(quantity<=0n||quantity%100n||quantity>BigInt(Number.MAX_SAFE_INTEGER))throw Error('份数请用可精确记账的100份整数倍');
+    return {...command,quantity:Number(quantity)};
+  }
+  if(command.side!=='buy')throw Error('模拟卖出请指定份数，金额买入才按预算换算');
+  const [whole,decimals='']=m[3].split('.'),amountFen=(BigInt(whole)*100n+BigInt(decimals.padEnd(2,'0')))*scale;
+  if(amountFen<=0n||amountFen>BigInt(Number.MAX_SAFE_INTEGER))throw Error('这个金额超出可精确记账范围，请核对一下');
+  return {...command,amountFen:Number(amountFen)};
+}
 export function parseFundCommand(raw,catalog=BASE_FUNDS) {
   const text = String(raw || '').trim().replace(/^(?:鲸戒[，, ]*)?(?:请|帮我|给我)?\s*/, '');
-  let m = /^模拟(买入|卖出)\s*(159696|588080)(?:\.(SZ|SH))?\s*[，,：: ]+\s*(\d+)\s*份[。！!]?$/i.exec(text);
-  if (m) {
-    const symbol = symbolOf(text);
-    if (m[3] && !symbol.endsWith(m[3].toUpperCase())) throw Error('代码和交易所不一致，先核对一下');
-    const quantity = Number(m[4]);
-    if (!Number.isSafeInteger(quantity) || quantity <= 0 || quantity % 100 || quantity > 10000) throw Error('模拟买卖按100份的整数倍来，数量再确认一下');
-    return { action: 'order', symbol, side: m[1] === '买入' ? 'buy' : 'sell', quantity };
-  }
+  const order=sizedOrder(text,catalog);if(order)return order;
   if (/^(?:暂停|停止)模拟(?:交易|买卖)[。！!]?$/u.test(text)) return { action: 'halt' };
   if (/^(?:停止|取消)盯盘[。！!]?$/u.test(text)) return { action: 'unwatch' };
   if (/^(?:开始|开启|继续)?盯盘[。！!]?$/u.test(text)) return { action: 'watch' };
-  m = /^(?:盯着?|关注)\s*(159696|588080)\s*[，,：: ]*\s*(高于|低于|涨到|跌到)\s*(\d+(?:\.\d{1,3})?)\s*元?\s*(?:就)?提醒我[。！!]?$/u.exec(text);
+  const m = /^(?:盯着?|关注)\s*(159696|588080)\s*[，,：: ]*\s*(高于|低于|涨到|跌到)\s*(\d+(?:\.\d{1,3})?)\s*元?\s*(?:就)?提醒我[。！!]?$/u.exec(text);
   if (m) {
     const priceMills = Math.round(Number(m[3]) * 1000);
     if (priceMills <= 0 || priceMills > 1000000) throw Error('提醒价格需要是有效的正数');
     return { action: 'watch', symbol: symbolOf(text), direction: ['高于','涨到'].includes(m[2]) ? 'above' : 'below', priceMills };
   }
-  const namedOrder=/^模拟(买入|卖出)\s*(.+?)[，,：: ]+\s*(\d+)\s*份[。！!]?$/u.exec(text);
   const namedWatch=/^(?:盯着?|关注)\s*(.+?)[，,：: ]*\s*(高于|低于|涨到|跌到)\s*(\d+(?:\.\d{1,3})?)\s*元?\s*(?:就)?提醒我[。！!]?$/u.exec(text);
-  const named=namedOrder||namedWatch;
+  const named=namedWatch;
   if(named){
-    const query=namedOrder?named[2]:named[1];
+    const query=named[1];
     if(/^\d{6}(?:\.(?:SH|SZ))?$/i.test(query))return null;
     const resolution=resolveFund(query,catalog);
     if(resolution.status!=='found'||!resolution.fund.paperSupported){const e=Error(resolution.fund?'这只我认得，但目前模拟盘还没支持它。':resolution.message);e.resolution={...resolution,message:e.message};throw e;}
-    const canonical=namedOrder?`模拟${named[1]}${resolution.fund.symbol}，${named[3]}份`:`盯${resolution.fund.code}，${named[2]}${named[3]}元提醒我`;
+    const canonical=`盯${resolution.fund.code}，${named[2]}${named[3]}元提醒我`;
     return parseFundCommand(canonical,catalog);
   }
   return null;
@@ -49,6 +58,7 @@ const messages = {
   ONE_POSITION_ONLY:'模拟账户现在只允许持有一只，先处理现有持仓。', INSUFFICIENT_POSITION:'模拟持仓没这么多份，数量再看一下？',
   T_PLUS_ONE_SELL_BLOCKED:'这只是T+1，今天买的还不能模拟卖，得等下个交易日。', INSUFFICIENT_CASH:'模拟余额不够这笔和手续费。',
   DAILY_ORDER_LIMIT:'今天的模拟开仓次数已经用完了，先歇一歇。', SPREAD_TOO_WIDE:'买卖价差有点大，这笔先没买。',
+  BUDGET_BELOW_ONE_LOT:'这笔预算还不够100份和模拟手续费，暂时没成交。',AMOUNT_OVERFLOW:'这个数超过系统可精确记账范围了，这笔没有执行。',
 };
 export function createFundPilot({root, config, sourceMessage, quiet=()=>false, notify=async()=>false, now=Date.now, request:override, research:researchOverride, disk=fs, log=()=>{}}) {
   disk.mkdirSync(path.join(root,'state'),{recursive:true});
@@ -112,7 +122,7 @@ export function createFundPilot({root, config, sourceMessage, quiet=()=>false, n
     save(d=>(d.commands||={})[id]={at:now(),status:'attempting'});
     try {
       let result;
-      if(command.action==='order')result=await request('/paper/order',{symbol:command.symbol,side:command.side,quantity:command.quantity,mode:'paper',requestId:id});
+      if(command.action==='order')result=await request('/paper/order',{symbol:command.symbol,side:command.side,...(command.amountFen!==undefined?{amountFen:command.amountFen}:{quantity:command.quantity}),mode:'paper',requestId:id});
       else if(command.action==='halt')result=await request('/paper/halt',{});
       else {save(d=>{d.monitorEnabled=command.action==='watch';if(command.symbol){d.rules||={};d.rules[hash(command).slice(0,24)]={...command,at:now(),fired:false};}});watches.setMonitoring(command.action==='watch');result={mode:'paper',monitoring:command.action==='watch',rule:command.symbol?command:undefined};}
       save(d=>d.commands[id]={at:now(),status:'done',action:command.action,result});return result;
