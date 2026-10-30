@@ -1,5 +1,12 @@
 // Keep conversational guidance separate from product tools and generation recovery.
 import {personAnchor} from './relationships.mjs';
+function mentionContext(message) {
+  if (!Array.isArray(message.mentions) || !message.mentions.length) return '';
+  return ' {明确@：' + message.mentions.map(m => {
+    const name = String(m.name || '').replace(/[\r\n{}]/g,' ').slice(0,80);
+    return m.userId === 'all' ? '全体成员' : `${name ? '@'+name+' ' : ''}[${personAnchor(m.userId)}]${m.isSelf ? '（你自己）' : '（其他人）'}`;
+  }).join('、') + '}';
+}
 export function scopedToolGuide(text,key,owner) {
   return key==='private:'+String(owner)?text:text.split('## 和主人一起看基金')[0].trim();
 }
@@ -10,7 +17,7 @@ export function qqPersona(text) {
 export function conversationFocus(messages=[],lastReplyAt=0) {
   const incoming=messages.filter(m=>!m.isSelf).slice(-5);
   if(!incoming.length)return '';
-  return '【当前话头】下面按发生顺序保留最近来信；新问题优先，单独问号/催问沿引用和未答问题理解，旧图片不覆盖后来的文字。先在心里核对这句是在回答谁、哪件事、事实有无依据；不必把检查过程说出来。\n'+incoming.map(m=>`[${m.time>lastReplyAt?'新来信':'背景'} #${m.messageId}]${m.userId?' ['+personAnchor(m.userId)+']':''} ${String(m.text||m.plain||'').slice(0,500)}`).join('\n');
+  return '【当前话头】下面按发生顺序保留最近来信；新问题优先，单独问号/催问沿引用和未答问题理解，旧图片不覆盖后来的文字。明确@记录保留了被叫到的真实对象；@你可以只是叫你来听，同句还@别人时，结合正文判断在说谁，不能把另一个人认成你或上一张图。先在心里核对这句是在回答谁、哪件事、事实有无依据；不必把检查过程说出来。\n'+incoming.map(m=>`[${m.time>lastReplyAt?'新来信':'背景'} #${m.messageId}]${m.userId?' ['+personAnchor(m.userId)+']':''}${mentionContext(m)} ${String(m.text||m.plain||'').slice(0,500)}`).join('\n');
 }
 export function withConversationFocus(body,lastReplyAt=0) {
   if(!body||!Array.isArray(body.newMessages||body.messages))return body;

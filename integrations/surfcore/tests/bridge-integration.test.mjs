@@ -15,13 +15,17 @@ import {composeConfirmedPersona,contextualFollowUp} from '../compat/expression-s
 import {proactiveDelay} from '../compat/proactive-clock.mjs';
 import {legacyMedia} from '../compat/legacy-media.mjs';
 import {interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan} from '../compat/private-availability.mjs';
+import {extractMentions} from '../compat/message-mentions.mjs';
 const root = path.resolve(process.argv[2]);
 const stickerSemantics = await import(pathToFileURL(path.join(root,'src/sticker-semantics.js')));
 const { cleanOutput, requestedLiterals } = await import(pathToFileURL(path.join(root, 'whale-compat/hygiene.mjs')));
 // Expose the same runtime in the upstream's existing VM harness; no replacement parser/router.
 const harnessPath = path.join(root, 'scripts/audit-bridge-harness.mjs');
 let original = fs.readFileSync(harnessPath, 'utf8');
-if(!original.includes('whale, evaluateWakeTriggerV2, ensureSession,')) {original=original.replace('    whale, ensureSession,','    whale, evaluateWakeTriggerV2, ensureSession,').replace('    ensureSession, ensureSlangLearnerSession,','    whale, evaluateWakeTriggerV2, ensureSession, ensureSlangLearnerSession,');fs.writeFileSync(harnessPath,original);}
+if(!original.includes('whale, evaluateWakeTriggerV2, ensureSession,')) original=original.replace('    whale, ensureSession,','    whale, evaluateWakeTriggerV2, ensureSession,').replace('    ensureSession, ensureSlangLearnerSession,','    whale, evaluateWakeTriggerV2, ensureSession, ensureSlangLearnerSession,');
+if(!original.includes('appendHistoryCatchupV2, historyCandidateFromRaw,')) original=original.replace('appendHistoryCatchupV2, fetchOneBotHistory,','appendHistoryCatchupV2, historyCandidateFromRaw, fetchOneBotHistory,');
+if(!original.includes('loadSocialV2State, socialV2,')) original=original.replace('sendWakePromptV2, socialV2,','sendWakePromptV2, loadSocialV2State, socialV2,');
+fs.writeFileSync(harnessPath,original);
 const { bridgeHarness } = await import(pathToFileURL(harnessPath));
 let passed = 0;
 const test = async (name, fn) => { await fn(); passed++; console.log('PASS ' + name); };
@@ -37,7 +41,7 @@ class SimDate extends Date {
 const disk = { ...fs, openSync(file, mode, ...args) { if (mode === 'r' && fs.statSync(file).isDirectory() && process.platform === 'win32') { const fd = -1000 - descriptors.size; descriptors.add(fd); return fd; } return fs.openSync(file, mode, ...args); }, fsyncSync(fd) { if (!descriptors.has(fd)) fs.fsyncSync(fd); }, closeSync(fd) { if (descriptors.has(fd)) descriptors.delete(fd); else fs.closeSync(fd); } };
 const legacyDir=fs.mkdtempSync(path.join(os.tmpdir(),'whale-stickers-'));fs.writeFileSync(path.join(legacyDir,'happy.png'),Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64'));fs.writeFileSync(path.join(legacyDir,'INDEX.tsv'),'happy.png\t开心测试图\n');
 const h = await bridgeHarness({ config: { whaleCompat: { cutover: Math.floor(Date.now()/1000)-1,stickerDir:legacyDir }, purpose: { enabled: false }, social: { enabled: false }, voice: { enabled: false }, biliBridge: { enabled: false }, socialV2: { enabled: true, tokenGuard: { enabled: false }, send: { maxPerMinute: 100, maxPerHour: 500 } } }, globals: {
-  ...stickerSemantics,Date:SimDate,safeFetchBuffer:async url=>{assert.equal(url,'https://public.invalid/sticker');return{buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64')};},createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, control: async () => structuredClone(control) }),
+  ...stickerSemantics,extractMentions,Date:SimDate,safeFetchBuffer:async url=>{assert.equal(url,'https://public.invalid/sticker');return{buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64')};},createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, control: async () => structuredClone(control) }),
   createFundPilot:options=>createFundPilot({...options,disk,request:async(route,data)=>({mode:'paper',liveTrading:false,cashFen:100000,...(data?{order:data}:{})})}),recordSessionResult,
   renderConversationMemory, createLegacyReader, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,relationshipBlock,composeConfirmedPersona,contextualFollowUp,proactiveDelay,legacyMedia,interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan,discoverDshSessionCookie: () => ''
 } });
@@ -75,6 +79,29 @@ try {
   await test('actual intake preserves same-name stable users and order', async()=> { await h.handleIncoming('group',456,event(51,201,'玩游戏吗'),h.cfg); await h.handleIncoming('group',456,event(52,202,'晚上吃啥'),h.cfg); await h.handleIncoming('group',456,event(53,201,'我说周六'),h.cfg); const m=h.getSocialV2State('group:456').recentMessages; assert.deepEqual(Array.from(m.slice(-3),x=>String(x.userId)),['201','202','201']); assert(m.at(-1).plain.includes('周六')); });
   await test('actual intake duplicate does not enter unread twice', async()=> {const before=h.getSocialV2State('group:456').unread.length; await h.handleIncoming('group',456,event(53,201,'我说周六'),h.cfg); assert.equal(h.getSocialV2State('group:456').unread.length,before);});
   await test('actual file message keeps its name and its source message id', async()=> {await h.handleIncoming('group',456,event(54,123,'', [{type:'file',data:{name:'notes.md',file_id:'fake'}}]),h.cfg); const m=h.getSocialV2State('group:456').recentMessages.at(-1); assert(m.text.includes('notes.md')); assert.equal(String(m.messageId),'54');});
+  await test('actual intake and compact wake keep self and other at identities after an image',async()=>{
+    await h.handleIncoming('group',456,event(1410,123,'',[{type:'image',data:{file:'fixture.png'}}]),h.cfg);
+    await h.handleIncoming('group',456,event(1411,123,'是咸鱼',[{type:'at',data:{qq:'999'}},{type:'at',data:{qq:'201'}}]),h.cfg);
+    const st=h.getSocialV2State('group:456'),msg=st.recentMessages.at(-1);
+    assert.deepEqual(Array.from(msg.mentions,m=>[m.userId,m.isSelf]),[['999',true],['201',false]]);
+    const snapshot=h.buildWakeSnapshotV2('group:456'),shown=snapshot.messages.find(m=>String(m.messageId)==='1411');
+    assert.deepEqual(Array.from(shown.mentions,m=>[m.userId,m.isSelf]),[['999',true],['201',false]]);
+    const prompt=h.buildWakePromptV2('group:456','atMention');assert(prompt.includes('明确@：')&&prompt.includes('（其他人）')&&prompt.includes('（你自己）'));
+  });
+  await test('real history parser and catchup retain numeric at targets without name requests',async()=>{
+    const raw=event(1412,201,'是这个',[{type:'at',data:{qq:202}}]),candidate=await h.historyCandidateFromRaw(raw);
+    assert.deepEqual(Array.from(candidate.mentions,m=>[m.userId,m.isSelf]),[['202',false]]);
+    h.appendHistoryCatchupV2('group:456',[candidate],{maxAgeMs:600000,fetched:1});
+    const msg=h.getSocialV2State('group:456').recentMessages.find(m=>String(m.messageId)==='1412');
+    assert(msg&&msg.mentions[0].userId==='202');
+  });
+  await test('long body truncation and a state reload cannot lose the at-other target',async()=>{
+    await h.handleIncoming('group',456,event(1413,123,'长话'.repeat(130),[{type:'at',data:{qq:'202'}}]),h.cfg);
+    let msg=h.getSocialV2State('group:456').recentMessages.at(-1);assert(!msg.text.includes('@202'));assert.equal(msg.mentions[0].userId,'202');
+    h.socialV2.conversations.clear();h.loadSocialV2State();
+    msg=h.getSocialV2State('group:456').recentMessages.find(m=>String(m.messageId)==='1413');
+    assert.equal(msg.mentions[0].userId,'202');assert.equal(msg.mentions[0].isSelf,false);
+  });
   await test('actual ignored sender never enters recent or unread', async()=> {h.cfg.deny.users=['203']; await h.handleIncoming('group',456,event(55,203,'@鲸戒'),h.cfg); assert(!h.getSocialV2State('group:456').recentMessages.some(m=>String(m.messageId)==='55'));});
   await test('actual quiet boundary suppresses group intake and pokes without an acknowledgement', async()=> {control.epoch++; control.quietUntil=Date.now()+600000; await h.whale.syncControl(); const before=h.getSocialV2State('group:456').unread.length; await h.handleIncoming('group',456,event(56,201,'你还在吗'),h.cfg); await h.handlePokeNotice({post_type:'notice',sub_type:'poke',group_id:456,self_id:999,user_id:201,target_id:999}); assert.equal(h.getSocialV2State('group:456').unread.length,before); assert.equal(h.calls.sent.length,0); control.quietUntil=0; await h.whale.syncControl();});
   await test('actual HTTP send reaches the fake OneBot transport with cute text intact', async()=> {const result=await send(['好耶🐟（探头）(｡･ω･｡)']); assert.equal(result.ok,true,JSON.stringify(result)); const q=h.calls.http.filter(x=>x.url.endsWith('/send_group_msg')).at(-1); assert.equal(q.body.group_id,456); assert(q.body.message.some(s=>s.type==='text'&&s.data.text.includes('🐟（探头）')));});
