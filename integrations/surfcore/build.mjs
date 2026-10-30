@@ -8,6 +8,7 @@ import { patchFundBridge,patchFundMcp } from './fundpilot-overlay.mjs';
 import {patchExpressionBridge,patchExpressionBili} from './expression-overlay.mjs';
 import {patchBiliApi,patchMyDynamics,patchForward,patchDynamicsSync,patchAuditBridge,patchCommentClassification} from './audit-overlay.mjs';
 import {patchAvailabilityBridge} from './availability-overlay.mjs';
+import {SURFCORE_UPSTREAM,OVERLAY_PATCH} from './version.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, '../..');
 const root = path.resolve(process.argv[2] || '');
@@ -199,5 +200,5 @@ const auditFiles={'src/bili-api.js':patchBiliApi,'src/bili-dynamics.js':patchDyn
 for(const [file,patch] of Object.entries(auditFiles))fs.writeFileSync(path.join(root,file),patch(fs.readFileSync(path.join(root,file),'utf8').replaceAll('\r\n','\n')));
 edits.push('audited delivery identity, Bili read backoff, dynamic lifecycle');
 const sums = Object.fromEntries(['src/bridge.js', 'src/mcp-snowluma-safe.js', 'plugins/surfcore/lib/scheduler.js','plugins/surfcore/tools/bili.mjs', ...Object.keys(auditFiles), ...fs.readdirSync(overlay).map(n => 'whale-compat/' + n)].map(name => [name, crypto.createHash('sha256').update(fs.readFileSync(path.join(root, name))).digest('hex')]));
-fs.writeFileSync(path.join(root, 'whale-overlay-manifest.json'), JSON.stringify({ upstream: 'c174ed07b7ad5c64654bf3d309dd8cbac1558737', patch: 138, edits, sums }, null, 2));
+fs.writeFileSync(path.join(root, 'whale-overlay-manifest.json'), JSON.stringify({ upstream: SURFCORE_UPSTREAM, patch: OVERLAY_PATCH, edits, sums }, null, 2));
 console.log(JSON.stringify({ patched: edits.length, files: Object.keys(sums).length }));

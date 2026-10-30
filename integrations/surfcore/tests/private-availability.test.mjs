@@ -23,6 +23,13 @@ for(const [label,change] of [
 test('canceled daily count remains active for proactive checks',()=>{
   assert.equal(evaluateWakeBudget({key:input.key,now,wakeTimes:Array(40).fill(now-3600000),guard:ownerMessageGuard(guard,{...input,reason:'proactiveCheck'})}).reason,'day');
 });
+test('zero private daily limit permits background wakes but preserves cost, gap and group guards',()=>{
+  const unlimited={...guard,privateMaxWakesPerDay:0},wakeTimes=Array(1000).fill(now-3600000);
+  assert.equal(evaluateWakeBudget({key:input.key,now,wakeTimes,guard:unlimited}).blocked,false);
+  assert.equal(evaluateWakeBudget({key:input.key,now,wakeTimes,guard:unlimited,cost:8}).reason,'cost');
+  assert.equal(evaluateWakeBudget({key:input.key,now,wakeTimes:[now-1000],guard:unlimited}).reason,'gap');
+  assert.equal(evaluateWakeBudget({key:'group:7001',now,wakeTimes,guard:unlimited}).reason,'day');
+});
 const night=at('2026-10-30T00:45:00'),morning=at('2026-10-30T08:00:00');
 const state={lastIncomingAt:night-30000,recentMessages:[{isSelf:true,plain:'明早见，晚安呀 (｡･ω･｡)',time:night-1000}]};
 const next={mode:'diving',infinite:true,sleepUntil:null,triggers:{question:true}};
