@@ -4,6 +4,8 @@ import crypto from 'node:crypto';
 import { createDeliveryState } from './durable-state.cjs';
 import {BASE_FUNDS,resolveFund,mergeFundCatalog,parsePublicFundCatalog} from './fund-catalog.mjs';
 import {createFinanceLearning} from './finance-learning.mjs';
+import {createFundResearch} from './fund-research.mjs';
+import {createFundWatch,parseWatchMessage} from './fund-watch.mjs';
 
 const symbols = ['159696.SZ', '588080.SH'];
 const hash = v => crypto.createHash('sha256').update(typeof v === 'string' ? v : JSON.stringify(v)).digest('hex');
@@ -48,15 +50,18 @@ const messages = {
   T_PLUS_ONE_SELL_BLOCKED:'这只是T+1，今天买的还不能模拟卖，得等下个交易日。', INSUFFICIENT_CASH:'模拟余额不够这笔和手续费。',
   DAILY_ORDER_LIMIT:'今天的模拟开仓次数已经用完了，先歇一歇。', SPREAD_TOO_WIDE:'买卖价差有点大，这笔先没买。',
 };
-export function createFundPilot({root, config, sourceMessage, quiet=()=>false, notify=async()=>false, now=Date.now, request:override, disk=fs, log=()=>{}}) {
+export function createFundPilot({root, config, sourceMessage, quiet=()=>false, notify=async()=>false, now=Date.now, request:override, research:researchOverride, disk=fs, log=()=>{}}) {
   disk.mkdirSync(path.join(root,'state'),{recursive:true});
   const ledger=createDeliveryState({fs:disk,hash,basePath:path.join(root,'state/fundpilot').replaceAll('\\','/'),namespace:'whale-fundpilot-116',now,diag:log});
   const ownerKey='private:'+String(config.ownerQQ);
   const learning=createFinanceLearning({root,config,disk,now});
   const catalogFile=path.join(root,'state/fund-catalog.json');
   const catalog=()=>{try{return mergeFundCatalog(JSON.parse(disk.readFileSync(catalogFile,'utf8')).funds)}catch{return BASE_FUNDS}};
-  async function refreshCatalog(){const r=await fetch('https://fund.eastmoney.com/js/fundcode_search.js',{signal:AbortSignal.timeout(12000),redirect:'error'});if(!r.ok)throw Error('名录暂时没取到');const chunks=[];let size=0;for await(const b of r.body){size+=b.byteLength;if(size>8000000){await r.body.cancel().catch(()=>{});throw Error('名录过大');}chunks.push(Buffer.from(b));}const text=Buffer.concat(chunks).toString('utf8');const funds=parsePublicFundCatalog(text);disk.writeFileSync(catalogFile+'.tmp',JSON.stringify({fetchedAt:new Date(now()).toISOString(),funds}),{mode:0o600});disk.renameSync(catalogFile+'.tmp',catalogFile);return funds.length;}
-  async function ensureCatalog(){try{const cache=JSON.parse(disk.readFileSync(catalogFile,'utf8'));if(now()-Date.parse(cache.fetchedAt)<86400000)return;}catch{}try{await refreshCatalog();}catch{log('基金名录这次没更新，沿用已核对名称，不猜代码');}}
+  const research=researchOverride||createFundResearch({root,disk,now});
+  const watches=createFundWatch({root,config,catalog,research,sourceMessage,notify,quiet,now,disk,log});
+  async function refreshCatalog(){const r=await fetch('https://fund.eastmoney.com/js/fundcode_search.js',{signal:AbortSignal.timeout(6000),redirect:'error'});if(!r.ok)throw Error('名录暂时没取到');const chunks=[];let size=0;for await(const b of r.body){size+=b.byteLength;if(size>8000000){await r.body.cancel().catch(()=>{});throw Error('名录过大');}chunks.push(Buffer.from(b));}const text=Buffer.concat(chunks).toString('utf8');const funds=parsePublicFundCatalog(text);disk.writeFileSync(catalogFile+'.tmp',JSON.stringify({fetchedAt:new Date(now()).toISOString(),funds}),{mode:0o600});disk.renameSync(catalogFile+'.tmp',catalogFile);return funds.length;}
+  let catalogFlight;
+  async function ensureCatalog(){try{const cache=JSON.parse(disk.readFileSync(catalogFile,'utf8'));if(now()-Date.parse(cache.fetchedAt)<86400000)return;}catch{}if(catalogFlight)return catalogFlight;catalogFlight=refreshCatalog().catch(()=>{log('基金名录这次没更新，沿用已核对名称，不猜代码');}).finally(()=>{catalogFlight=null;});return catalogFlight;}
   const enabled=()=>config.whaleCompat?.fundpilot?.enabled===true;
   const save=fn=>{if(!ledger.healthy||!ledger.change(fn))throw Error('模拟账户的本地记录暂时不可用，先不动它');};
   async function request(route, data) {
@@ -69,16 +74,37 @@ export function createFundPilot({root, config, sourceMessage, quiet=()=>false, n
     return body;
   }
   let busy=false;
+  async function captureOwnerMessage(key,messageId){
+    if(!enabled()||key!==ownerKey||quiet(key))return null;
+    const m=sourceMessage(key,String(messageId));
+    if(!m||String(m.userId)!==String(config.ownerQQ)||m.isSelf||(!parseWatchMessage(m.plain||m.text)&&!watches.hasPendingChoice()))return null;
+    const parsed=parseWatchMessage(m.plain||m.text);
+    await ensureCatalog();
+    try{return await watches.handle({key,messageId,action:parsed?.op==='remove'?'unwatch':'watch'},{includeResearch:false});}
+    catch{log('当前基金计划未确认保存，不向QQ输出内部错误');return null;}
+  }
+  function context(key){
+    if(key!==ownerKey||!enabled())return '';
+    const plans=watches.list().filter(p=>p.status!=='closed');
+    return plans.length?'【已保存的基金关注计划】以下是本地实际保存结果，不是成交；缺什么就接着确认，别把待确认说成正在盯，也别反复问已经保存的条件。\n'+JSON.stringify(plans.slice(-10))+'\n\n':'';
+  }
   async function handle(body) {
     if (!enabled()||body.key!==ownerKey||quiet(ownerKey))throw Error('基金助手只在主人自己的私信里使用');
-    if(body.action==='resolve'){await ensureCatalog();return {mode:'paper',...resolveFund(body.query,catalog())};}
+    if(body.action==='resolve'||(body.action==='market'&&String(body.query||'').trim())){
+      await ensureCatalog();const resolution=resolveFund(body.query,catalog());
+      return {mode:'advisory',liveTrading:false,...resolution,...(resolution.status==='found'?{research:await research.read(resolution.fund),watchPlan:watches.list().find(p=>p.code===resolution.fund.code)||null}:{})};
+    }
     if(body.action==='learning')return {mode:'paper',...learning.notes(body.query)};
     if(body.action==='study')return {mode:'paper',...(String(body.query||'').includes('BV')?await learning.collect(body.query):await learning.search(body.query))};
     if(body.action==='note')return {mode:'paper',...learning.record(body.query,body.note)};
-    if (['status','market','journal'].includes(body.action))return request('/'+body.action);
+    if (['status','market','journal'].includes(body.action)){const result=await request('/'+body.action);return body.action==='status'?{...result,watchPlans:watches.list()}:result;}
     const m=sourceMessage(body.key,String(body.messageId||''));
     if(!m||String(m.userId)!==String(config.ownerQQ)||m.isSelf||now()-Number(m.time)>600000||Number(m.time)>now()+5000)throw Error('需要你当前私信里的明确指令，旧话和引用不算下单');
-    let command;try{command=parseFundCommand(m.plain||m.text,catalog());}catch(e){if(e.resolution)return {mode:'paper',ok:false,needsClarification:true,...e.resolution};throw e;}
+    let command;try{command=parseFundCommand(m.plain||m.text,catalog());}catch(e){
+      if(['watch','unwatch'].includes(body.action)){await ensureCatalog();const watched=await watches.handle(body);if(watched.handled)return watched;}
+      if(e.resolution)return {mode:'paper',ok:false,needsClarification:true,...e.resolution};throw e;
+    }
+    if(!command&&['watch','unwatch'].includes(body.action)){await ensureCatalog();const watched=await watches.handle(body);if(watched.handled)return watched;}
     if(!command||command.action!==body.action)throw Error('这句我还不能确定要怎么操作。模拟买卖请说清基金和份数，盯盘请说提醒条件。');
     const id='qq:'+hash(ownerKey).slice(0,16)+':'+String(body.messageId);
     const old=ledger.data.commands?.[id];
@@ -88,7 +114,7 @@ export function createFundPilot({root, config, sourceMessage, quiet=()=>false, n
       let result;
       if(command.action==='order')result=await request('/paper/order',{symbol:command.symbol,side:command.side,quantity:command.quantity,mode:'paper',requestId:id});
       else if(command.action==='halt')result=await request('/paper/halt',{});
-      else {save(d=>{d.monitorEnabled=command.action==='watch';if(command.symbol){d.rules||={};d.rules[hash(command).slice(0,24)]={...command,at:now(),fired:false};}});result={mode:'paper',monitoring:command.action==='watch',rule:command.symbol?command:undefined};}
+      else {save(d=>{d.monitorEnabled=command.action==='watch';if(command.symbol){d.rules||={};d.rules[hash(command).slice(0,24)]={...command,at:now(),fired:false};}});watches.setMonitoring(command.action==='watch');result={mode:'paper',monitoring:command.action==='watch',rule:command.symbol?command:undefined};}
       save(d=>d.commands[id]={at:now(),status:'done',action:command.action,result});return result;
     }catch(e){save(d=>d.commands[id].status='uncertain');throw e;}
   }
@@ -96,6 +122,7 @@ export function createFundPilot({root, config, sourceMessage, quiet=()=>false, n
     if(!enabled()||busy||!ledger.healthy)return;
     busy=true;
     try {
+      await watches.poll();
       const journal=await request('/journal'),status=await request('/status');
       const events=journal.events||[],max=Math.max(0,...events.map(e=>e.id));
       if(ledger.data.cursor===undefined){save(d=>{d.cursor=max;d.monitorEnabled??=true;});return;}
@@ -123,5 +150,5 @@ export function createFundPilot({root, config, sourceMessage, quiet=()=>false, n
       else save(d=>{for(const n of d.pending)if(pending.some(p=>p.id===n.id))delete n.attempted;});
     }catch(e){log('基金助手本轮未完成检查：'+String(e.message).slice(0,100));}finally{busy=false;}
   }
-  return {handle,poll,ledger,refreshCatalog,status:()=>({enabled:enabled(),healthy:ledger.healthy,monitoring:ledger.data.monitorEnabled!==false,pending:ledger.data.pending?.length||0})};
+  return {handle,poll,ledger,watches,refreshCatalog,captureOwnerMessage,context,status:()=>({enabled:enabled(),healthy:ledger.healthy&&watches.ledger.healthy,monitoring:ledger.data.monitorEnabled!==false,pending:ledger.data.pending?.length||0,watchPlans:watches.list().length,watching:watches.list().filter(p=>p.status==='watching').length})};
 }

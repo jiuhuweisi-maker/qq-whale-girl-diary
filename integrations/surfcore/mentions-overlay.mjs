@@ -18,3 +18,17 @@ export function patchStickerCadence(source) {
   source = once(source, '不要把表情包当回复的唯一内容（偶尔可以，但别让群友觉得你在敷衍）。', '对方有认真问题时别只拿无关表情敷衍；普通接梗可以只回表情。');
   return source;
 }
+export function patchStickerFreedom(source) {
+  const start=source.indexOf("url.pathname === '/api/socialV2/send-sticker'"),end=source.indexOf("url.pathname === '/api/socialV2/collect-sticker'",start);
+  if(start<0||end<0)throw Error('Sticker freedom endpoint drift');
+  let section=source.slice(start,end);
+  const first=section.indexOf('            const tokenBlock = tokenGuardSendBlock(key, st, 1);'),last=section.indexOf('            const sent = await sendStickerV2(',first);
+  if(first<0||last<0)throw Error('Sticker freedom quota drift');
+  section=section.slice(0,first)+`            // Sticker battles have no count/cadence quota. Real spending still gates generation/sending.
+            const stickerBudget = evaluateBudget(bridgeDailyUsage(), bridgeBudgetLimits(), { scopes: ['qq', 'total'] });
+            if (stickerBudget.blocked) { sendJson({ ok:false,error:blockMessage(stickerBudget.hits,'Token 额度') },429); return; }
+`+section.slice(last);
+  section=once(section,'          const sendCfg = cfg.socialV2?.send ?? {};\n','');
+  section=once(section,'            const idx = st.sendTimes.indexOf(now);\n            if (idx >= 0) st.sendTimes.splice(idx, 1);\n            if (st.sendTimes.length > 500) st.sendTimes = st.sendTimes.slice(-500);\n','');
+  return source.slice(0,start)+section+source.slice(end);
+}

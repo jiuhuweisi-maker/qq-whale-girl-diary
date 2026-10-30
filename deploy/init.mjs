@@ -29,7 +29,8 @@ export function initialize(settings) {
   config.socialV2.tokenGuard={...config.socialV2.tokenGuard,privateMaxWakesPerDay:0,maxWakesPerDay:0};
   config.whaleCompat={controlBase:settings.dshBase,auditKeyFile:path.join(dshHome,'qq-bridge-audit-key'),
     personaFile:path.join(character,'persona.md'),styleFile:path.join(character,'CHAT-STYLE.md'),
-    relationshipFile:path.join(character,'important-people.json'),legacyMemoryDir:legacy,cutover:Math.floor(Date.now()/1000)};
+    relationshipFile:path.join(character,'important-people.json'),legacyMemoryDir:legacy,cutover:Math.floor(Date.now()/1000),
+    pictureCooldownMs:0,pictureGapMs:0,privatePicturesPerDay:0,groupPicturesPerHour:0};
   const legacyConfig={'NapCat':settings.onebotHttp,'聊天后端':'surfcore','私聊QQ':String(settings.ownerQQ),'她的QQ':String(settings.botQQ),
     '群号':String(settings.groupQQ),'转群':true,'转私聊':true,'总开关':true,'试运行':false,'余额通知方向':'private','接管起点':config.whaleCompat.cutover};
   const packageJson={name:'whale-control',version:'0.1.0',private:true,type:'module',main:'./lib/host.js',dsh:{bundle:{patch:['./cordis.patch.yml']}}};

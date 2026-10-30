@@ -25,6 +25,7 @@ let original = fs.readFileSync(harnessPath, 'utf8');
 if(!original.includes('whale, evaluateWakeTriggerV2, ensureSession,')) original=original.replace('    whale, ensureSession,','    whale, evaluateWakeTriggerV2, ensureSession,').replace('    ensureSession, ensureSlangLearnerSession,','    whale, evaluateWakeTriggerV2, ensureSession, ensureSlangLearnerSession,');
 if(!original.includes('appendHistoryCatchupV2, historyCandidateFromRaw,')) original=original.replace('appendHistoryCatchupV2, fetchOneBotHistory,','appendHistoryCatchupV2, historyCandidateFromRaw, fetchOneBotHistory,');
 if(!original.includes('loadSocialV2State, socialV2,')) original=original.replace('sendWakePromptV2, socialV2,','sendWakePromptV2, loadSocialV2State, socialV2,');
+if(!original.includes('whale, fundpilot, evaluateWakeTriggerV2,')) original=original.replace('whale, evaluateWakeTriggerV2,','whale, fundpilot, evaluateWakeTriggerV2,');
 fs.writeFileSync(harnessPath,original);
 const { bridgeHarness } = await import(pathToFileURL(harnessPath));
 let passed = 0;
@@ -42,7 +43,7 @@ const disk = { ...fs, openSync(file, mode, ...args) { if (mode === 'r' && fs.sta
 const legacyDir=fs.mkdtempSync(path.join(os.tmpdir(),'whale-stickers-'));fs.writeFileSync(path.join(legacyDir,'happy.png'),Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64'));fs.writeFileSync(path.join(legacyDir,'INDEX.tsv'),'happy.png\t开心测试图\n');
 const h = await bridgeHarness({ config: { whaleCompat: { cutover: Math.floor(Date.now()/1000)-1,stickerDir:legacyDir }, purpose: { enabled: false }, social: { enabled: false }, voice: { enabled: false }, biliBridge: { enabled: false }, socialV2: { enabled: true, tokenGuard: { enabled: false }, send: { maxPerMinute: 100, maxPerHour: 500 } } }, globals: {
   ...stickerSemantics,extractMentions,Date:SimDate,safeFetchBuffer:async url=>{assert.equal(url,'https://public.invalid/sticker');return{buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64')};},createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, control: async () => structuredClone(control) }),
-  createFundPilot:options=>createFundPilot({...options,disk,request:async(route,data)=>({mode:'paper',liveTrading:false,cashFen:100000,...(data?{order:data}:{})})}),recordSessionResult,
+  createFundPilot:options=>createFundPilot({...options,disk,research:{read:async fund=>({code:fund.code,name:fund.name,unitNav:1.2,asOf:'2026-10-30',measurement:'published_unit_nav',isRealtimePrice:false})},request:async(route,data)=>({mode:'paper',liveTrading:false,cashFen:100000,...(data?{order:data}:{})})}),recordSessionResult,
   renderConversationMemory, createLegacyReader, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,relationshipBlock,composeConfirmedPersona,contextualFollowUp,proactiveDelay,legacyMedia,interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan,discoverDshSessionCookie: () => ''
 } });
 const server = h.startConsoleServer();
@@ -65,7 +66,7 @@ try {
   await test('actual bridge permits owner DM after 40 wakes but keeps background and group caps',async()=>{
     h.cfg.socialV2.tokenGuard.enabled=true;
     await h.handleIncoming('private',123,event(71,123,'早呀，醒了吗'),h.cfg);
-    const st=h.getSocialV2State('private:123');st.wakeTimes=Array(40).fill(Date.now()-3600000);
+    const st=h.getSocialV2State('private:123');st.wakeTimes=Array(40).fill(Date.now());
     assert.equal(h.tokenGuardWakeBlock('private:123',st,{direct:true,reason:'private'}),null);
     assert(h.buildWakePromptV2('private:123','private').includes('主人当前新私信不按后台次数截断'));
     assert.equal(h.tokenGuardWakeBlock('private:123',st,{direct:true,reason:'proactiveCheck'}).reason,'day');
@@ -120,6 +121,22 @@ try {
     const r=await fetch(base+'/api/socialV2/fundpilot',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1','x-agent-token':st.agentToken,'x-whale-request-id':'11111111-1111-1111-1111-'+String(id).padStart(12,'0'),'x-whale-tool':'qq_fundpilot','x-whale-args':Buffer.from(JSON.stringify(args)).toString('base64')},body:JSON.stringify(args)});assert.equal(r.status,200);assert.equal((await r.json()).cashFen,100000);
   });
   await test('fund tool cannot fall back to console credentials without a private token',async()=>{const r=await fetch(base+'/api/socialV2/fundpilot',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1'},body:JSON.stringify({key:'private:123',action:'status'})});assert.equal(r.status,403);});
+  await test('actual authenticated fund tool saves an unsupported-paper fund and confirms its own conditions',async()=>{
+    fs.writeFileSync(path.join(h.temp,'state/fund-catalog.json'),JSON.stringify({fetchedAt:new Date().toISOString(),funds:[]}));
+    const key='private:123',st=h.getSocialV2State(key),sid=await h.ensureSession(key);
+    for(const [index,bodyText]of ['我准备买易方达蓝筹精选混合','这只持有三个月，净值低于1.2提醒我'].entries()){
+      const messageId=String(1420+index),ev={...event(Number(messageId),123,bodyText)};delete ev.group_id;await h.handleIncoming('private',123,ev,h.cfg);
+      const args={key,token:st.agentToken,action:'watch',messageId};h.whale.onEvent(key,sid,{type:'turn/start',data:{turn:'watch-'+index}});h.whale.onEvent(key,sid,{type:'tool/call',data:{name:'mcp__snowluma__qq_fundpilot',callId:'watch-'+index,arguments:JSON.stringify(args)}});
+      const r=await fetch(base+'/api/socialV2/fundpilot',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1','x-agent-token':st.agentToken,'x-whale-request-id':'cccccccc-cccc-cccc-cccc-'+String(index+1).padStart(12,'0'),'x-whale-tool':'qq_fundpilot','x-whale-args':Buffer.from(JSON.stringify(args)).toString('base64')},body:JSON.stringify(args)}),result=await r.json();assert.equal(r.status,200,JSON.stringify(result));assert.equal(result.plan.code,'005827');assert.equal(result.monitoring,index===1);assert.equal(result.mode,'advisory');
+    }
+  });
+  await test('owner intake saves a pending plan before any model tool call and loads it into the wake',async()=>{
+    const ev={...event(1422,123,'我准备买广发纳斯达克100ETF')};delete ev.group_id;
+    await h.handleIncoming('private',123,ev,h.cfg);
+    assert.equal(h.fundpilot.watches.list().find(p=>p.code==='159941').status,'needs_confirmation');
+    const prompt=h.buildWakePromptV2('private:123','private');assert(prompt.includes('【已保存的基金关注计划】')&&prompt.includes('159941'));
+    assert(!h.buildWakePromptV2('group:456','question').includes('【已保存的基金关注计划】'));
+  });
   await test('native QQ sticker uses the durable transport and a replay never resends',async()=>{
     const key='private:123',st=h.getSocialV2State(key),sid=await h.ensureSession(key),args={key,token:st.agentToken,stickerId:'fixture-sticker'};
     h.whale.onEvent(key,sid,{type:'turn/start',data:{turn:'native-sticker'}});
@@ -129,6 +146,21 @@ try {
     const before=h.calls.http.filter(r=>r.url.endsWith('/send_private_msg')).length,a=await send();assert(a.ok,JSON.stringify(a));const b=await send();assert(b.ok,JSON.stringify(b));
     assert.equal(h.calls.http.filter(r=>r.url.endsWith('/send_private_msg')).length-before,1);
     const receipt=h.whale.ledger.data.outbox[`${sid}:native-sticker:0`];assert.equal(receipt.status,'sent');assert(receipt.picture&&receipt.receipt.message_id);
+  });
+  await test('actual sticker endpoint allows a battle without consuming text quotas',async()=>{
+    const key='private:123',st=h.getSocialV2State(key),sid=await h.ensureSession(key),args={key,token:st.agentToken,stickerId:'fixture-sticker'};
+    Object.assign(h.cfg.whaleCompat,{pictureCooldownMs:0,pictureGapMs:0,privatePicturesPerDay:0,groupPicturesPerHour:0});
+    h.cfg.socialV2.tokenGuard.enabled=true;h.cfg.socialV2.tokenGuard.maxOutboundPerTurn=1;st.tokenTurnSent=20;
+    h.cfg.socialV2.send.maxSendPerMinute=1;h.cfg.socialV2.send.maxSendPerHour=1;st.sendTimes=[Date.now()];
+    h.whale.onEvent(key,sid,{type:'turn/start',data:{turn:'sticker-battle'}});
+    const before=h.calls.http.filter(r=>r.url.endsWith('/send_private_msg')).length;
+    for(let i=0;i<6;i++){
+      const callId='battle-'+i;h.whale.onEvent(key,sid,{type:'tool/call',data:{name:'mcp__snowluma__qq_send_sticker',callId,arguments:JSON.stringify(args)}});
+      const r=await fetch(base+'/api/socialV2/send-sticker',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1','x-agent-token':st.agentToken,'x-whale-request-id':'dddddddd-dddd-dddd-dddd-'+String(i+1).padStart(12,'0'),'x-whale-tool':'qq_send_sticker','x-whale-args':Buffer.from(JSON.stringify(args)).toString('base64')},body:JSON.stringify({key,stickerId:args.stickerId})});
+      assert.equal(r.status,200,JSON.stringify(await r.json()));
+    }
+    assert.equal(h.calls.http.filter(r=>r.url.endsWith('/send_private_msg')).length-before,6);assert(st.tokenTurnSent<=20);assert.equal(st.sendTimes.length,1);
+    h.cfg.socialV2.tokenGuard.enabled=false;h.cfg.socialV2.send.maxSendPerMinute=100;h.cfg.socialV2.send.maxSendPerHour=500;
   });
   await test('actual financial limit still blocks generation and explains it once in owner DM',async()=>{
     const st=h.getSocialV2State('private:123');h.cfg.socialV2.tokenGuard.enabled=true;

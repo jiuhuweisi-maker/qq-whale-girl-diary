@@ -167,7 +167,8 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
     if (Object.values(ledger.data.outbox).some(r => r.hash === hash && ['sending', 'uncertain'].includes(r.status))) throw new Error('相同消息仍待核对，不重试');
     const picture = message.some(s => ['image', 'mface'].includes(s.type));
     const pictureHash = picture ? digest([key, message.filter(s => ['image', 'mface'].includes(s.type))]) : '';
-    if (picture && now() - Number(ledger.data.pictures[pictureHash] || 0) < Number(config.whaleCompat?.pictureCooldownMs || 120000)) throw new Error('这张图刚发过，稍后再发');
+    const pictureCooldown = Math.max(0, Number(config.whaleCompat?.pictureCooldownMs ?? 0) || 0);
+    if (picture && pictureCooldown > 0 && now() - Number(ledger.data.pictures[pictureHash] || 0) < pictureCooldown) throw new Error('这张图刚发过，稍后再发');
     if (picture) {
       const gap = Number(config.whaleCompat?.pictureGapMs || 0);
       if (gap && now() - Number(ledger.data.pictureConversationAt?.[key] || 0) < gap) throw new Error('刚贴过图，这次先用文字聊');

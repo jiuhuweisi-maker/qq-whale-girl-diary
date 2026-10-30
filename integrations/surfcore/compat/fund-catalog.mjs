@@ -24,7 +24,7 @@ export function parsePublicFundCatalog(raw) {
 }
 export function resolveFund(query,rows=BASE_FUNDS) {
   const text=norm(query),catalog=mergeFundCatalog(rows),codes=[...new Set(text.match(/(?<!\d)\d{6}(?!\d)/g)||[])];
-  const view=r=>({...r,symbol:r.exchange?r.code+'.'+r.exchange:r.code,paperSupported:PAPER_CODES.has(r.code),sourceCheckedAt:r.sourceCheckedAt||'2026-10-29'});
+  const view=r=>({...r,symbol:r.exchange?r.code+'.'+r.exchange:r.code,paperSupported:PAPER_CODES.has(r.code),sourceCheckedAt:r.sourceCheckedAt||null});
   if(codes.length>1)return {status:'ambiguous',message:'这里有不止一个代码，先确认是哪一只。',candidates:catalog.filter(r=>codes.includes(r.code)).map(view)};
   if(codes.length===1){
     const row=catalog.find(r=>r.code===codes[0]);if(!row)return {status:'unknown',query,candidates:[]};

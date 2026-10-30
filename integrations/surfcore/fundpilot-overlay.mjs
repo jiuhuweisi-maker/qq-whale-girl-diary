@@ -20,8 +20,8 @@ export function patchFundBridge(source) {
     sourceMessage:(key,id)=>getSocialV2State(key).recentMessages.find(m=>String(m.messageId)===id),
     quiet:key=>whale.quiet(key)||socialV2.paused===true,
     notify:async(key,facts)=>{
-      if(whale.quiet(key)||socialV2.paused||isConversationBusyV2(key,getSocialV2State(key)))return false;
-      const prompt=buildWakePromptV2(key,'fundpilot')+'\\n\\n【模拟账户的新事件】\\n'+JSON.stringify(facts)+'\\n这是给主人发的私信提醒，只聊这次事件，不补答旧消息，不挂旧引用。沿用原私信口吻，像一起研究基金的朋友，保留可爱和吐槽。不固定台词，不必追问。数字、费用和模拟状态照实说；没成交不说成交，不把模拟当实盘，不保证收益。';
+      if(whale.quiet(key)||socialV2.paused||isConversationBusyV2(key,getSocialV2State(key))||tokenGuardWakeBlock(key,getSocialV2State(key),{reason:'fundpilot'}))return false;
+      const prompt=buildWakePromptV2(key,'fundpilot')+'\\n\\n【基金关注的新情况】\\n'+JSON.stringify(facts)+'\\n这是给主人发的私信提醒，只聊这次事件，不补答旧消息，不挂旧引用。沿用原私信口吻，像一起研究基金的朋友，保留可爱和吐槽。不固定台词，不必追问。mode=paper才是模拟账户事件；mode=advisory是本人确认的基金观察条件到达，并非成交或系统确认必须买入/清仓。先说触发哪条条件、数据日期和你有依据的看法；净值不当实时价格，观点不当事实，不替主人操作。数字、费用和模拟状态照实说；没成交不说成交，不把模拟当实盘，不保证收益。';
       const r=await deliverPrompt(key,prompt,{wakeReason:'fundpilot'});return r?.ok!==false;
     }});
   const fundpilotTimer=setInterval(()=>{void fundpilot.poll();},60000);fundpilotTimer.unref();
@@ -44,14 +44,17 @@ export function patchFundBridge(source) {
                 if(retry)setTimeout(()=>{if(!whale.quiet(key)&&!socialV2.paused)scheduleWakeV2(key,key.startsWith('private:')?'private':'question');},1500).unref();
                 continue;
               }`);
+  source=replaceOnce(source,'event.user_id ?? null, extractForwardIds(event.message ?? []));',`event.user_id ?? null, extractForwardIds(event.message ?? []));
+      if(kind==='private' && isOwner) await fundpilot.captureOwnerMessage(key,event.message_id ?? event.msg_id ?? '');`);
+  source=replaceOnce(source,"const antiAiLine = '【相处】", "const antiAiLine = fundpilot.context(key) + '【相处】");
   return source;
 }
 export function patchFundMcp(source) {
   const at=source.lastIndexOf('await server.connect(');if(at<0)throw Error('MCP connect anchor drift');
   const code=`
-server.tool('qq_fundpilot','主人私信里的基金助手：resolve按名称或简称核对基金；learning查已保存的金融学习笔记；study通过既有B站插件搜索或读取BV字幕；note保存带实际字幕引文的笔记。也可查行情持仓、按当前原消息模拟买卖或盯盘。认得基金不等于模拟盘支持。歧义先确认。全部虚拟资金，不能真实下单。',{
+server.tool('qq_fundpilot','主人私信里的基金助手：resolve或market带query按名字搜基金和已公布净值，不限模拟盘两只；watch带当前messageId保存本人关注/持有计划、逐只确认期限和提醒条件，unwatch取消；status查原模拟账户和关注计划。advisory只作有来源的研究/提醒，不是成交，paper才是模拟买卖。歧义、A/C先确认；不能真实下单。learning/study/note沿用B站兴趣笔记。',{
   key:z.string(),token:z.string(),action:z.enum(['status','market','journal','order','halt','watch','unwatch','resolve','learning','study','note']),query:z.string().max(160).optional(),note:z.object({summary:z.string().max(1200),topic:z.string().optional(),citations:z.array(z.object({from:z.number(),quote:z.string().max(100)})).max(4)}).optional(),messageId:z.union([z.string(),z.number()]).optional()
-},async args=>{try{const result=await agentApi('/api/socialV2/fundpilot',{method:'POST',headers:{'x-agent-token':args.token},body:JSON.stringify(args)});return {content:[{type:'text',text:serializeModelData(result)}]};}catch(error){return {isError:true,content:[{type:'text',text:'这次没有确认操作完成。先查模拟账户的状态和记录，别换个说法重复下单。'+(String(error?.message||'').includes('收盘')?'现在收盘了。':'')}]};}});
+},async args=>{try{const result=await agentApi('/api/socialV2/fundpilot',{method:'POST',headers:{'x-agent-token':args.token},body:JSON.stringify(args),timeoutMs:30000});return {content:[{type:'text',text:serializeModelData(result)}]};}catch(error){return {isError:true,content:[{type:'text',text:'这次没有确认查询或设置完成。先查状态和已保存的计划，别重复操作；模拟下单也不要换个说法重试。'+(String(error?.message||'').includes('收盘')?'现在收盘了。':'')}]};}});
 `;
   return source.slice(0,at)+code+'\n'+source.slice(at);
 }
