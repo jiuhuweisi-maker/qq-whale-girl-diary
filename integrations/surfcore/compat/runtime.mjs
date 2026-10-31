@@ -162,7 +162,8 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
     if (previous) {
       if (previous.hash !== hash) throw new Error('同一调用的内容发生变化，拒绝重发');
       if (previous.status === 'sent') return previous.receipt;
-      throw new Error('上次发送结果尚未确认，不自动重发');
+      if (previous.status !== 'failed') throw new Error('上次发送结果尚未确认，不自动重发');
+      // 145：failed=传输层明确拒发（certainFail），放行同调用重试
     }
     if (Object.values(ledger.data.outbox).some(r => r.hash === hash && ['sending', 'uncertain'].includes(r.status))) throw new Error('相同消息仍待核对，不重试');
     const picture = message.some(s => ['image', 'mface'].includes(s.type));
@@ -190,7 +191,7 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
       catch { /* The confirmed durable receipt remains authoritative if diagnostics fail. */ }
       return receipt;
     } catch (error) {
-      if (ledger.healthy) change(d => { d.outbox[id].status = 'uncertain'; });
+      if (ledger.healthy) change(d => { d.outbox[id].status = error?.certainFail === true ? 'failed' : 'uncertain'; d.outbox[id].err = String(error?.message ?? error ?? '').slice(0, 140); });
       try { log('[鲸戒发送] ' + JSON.stringify({scope:key.split(':')[0], conversation:digest(key).slice(0,16), status:'uncertain'})); }
       catch { /* Do not replace the original transport error with a logging error. */ }
       throw error;
