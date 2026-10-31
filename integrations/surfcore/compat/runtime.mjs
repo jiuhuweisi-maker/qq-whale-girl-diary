@@ -215,8 +215,26 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
       throw error;
     }
   }
+  // 核销151（主人 10-31 深夜令）：uncertain 回单自动对账。只有接口实锤才清锁，绝不重发
+  // （patch103 双发是血案）。probe(key, atMs) 由桥侧实现：±90s 内查到我自己送达的消息=实锤。
+  async function reconcileUncertain151(historyProbe) {
+    if (!ledger.healthy) return { skipped: 'ledger-unhealthy' };
+    const nowT = now();
+    const pend = Object.entries(ledger.data.outbox).filter(([, r]) => r && r.status === 'uncertain' && r.key && nowT - Number(r.at || 0) > 120000 && nowT - Number(r.at || 0) < 3600000);
+    let cleared = 0;
+    for (const [id, r] of pend) {
+      try {
+        if ((await historyProbe(r.key, Number(r.at))) === true) {
+          change(d => { if (d.outbox[id]) { d.outbox[id].status = 'sent'; d.outbox[id].reconciled = 'auto151'; } });
+          cleared += 1;
+        }
+      } catch { /* 对账失败=保持拦锁，人工裁决优先 */ }
+    }
+    return { checked: pend.length, cleared };
+  }
+
   function status() {
     return { healthy: ledger.healthy, ready, pendingIncoming: Object.values(ledger.data.inbox).filter(r => r.stage === 'buffered').length, uncertain: Object.values(ledger.data.outbox).filter(r => ['sending', 'uncertain'].includes(r.status)).length, calls: Object.keys(ledger.data.calls || {}).length };
   }
-  return { syncControl, incoming, recover, onEvent, action, guard, quiet, enterRequest, authorizeRequest, send, ownerNotice, status, ledger, contexts };
+  return { syncControl, incoming, recover, reconcileUncertain151, onEvent, action, guard, quiet, enterRequest, authorizeRequest, send, ownerNotice, status, ledger, contexts };
 }

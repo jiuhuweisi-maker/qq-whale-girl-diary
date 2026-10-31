@@ -82,4 +82,17 @@ await check('uncertain owner notice never retries and explicit private silence i
   const g=fixture();g.control.privateQuietForever=true;await g.w.syncControl();assert.equal((await g.w.ownerNotice('budget',async()=>{throw Error('quiet');})).skipped,'unavailable');
   assert.equal((await g.w.ownerNotice('arbitrary',async()=>{throw Error('unknown');})).skipped,'unavailable');
 });
+// 核销151（2026-10-31 深夜，主人令零遗留）：uncertain 自动对账——无实锤保持拦锁，有实锤才清锁放行。
+await check('reconcileUncertain151 keeps blocking without proof and releases only with it', async () => {
+  const f = fixture(); await f.w.syncControl(); await tool(f);
+  await assert.rejects(f.w.send('group:7001', text('你好'), async () => { throw new Error('timeout'); }));
+  assert.equal(f.w.status().uncertain, 1);
+  f.clock.now += 130000; // 对账窗口只处理 2 分钟前的条目
+  let r = await f.w.reconcileUncertain151(async () => false);
+  assert.equal(r.checked, 1); assert.equal(r.cleared, 0);
+  await assert.rejects(f.w.send('group:7001', text('你好'), async () => ({})), /仍待核对/); // 查无实锤=继续拦
+  r = await f.w.reconcileUncertain151(async (key, atMs) => key === 'group:7001' && atMs > 0);
+  assert.equal(r.cleared, 1); assert.equal(f.w.status().uncertain, 0);
+  let n = 0; await f.w.send('group:7001', text('你好'), async () => ++n); assert.equal(n, 1); // 21:14 误拦场景自此放行
+});
 console.log('PASS_ALL ' + passed);

@@ -27,3 +27,9 @@ patch121接入主人私信的FundPilot，复用独立模拟服务与既有账本
 patch122/123增加基金名称核对、B站字幕学习及共享笔记、生成格式错误的有限续接、按稳定账号加载重要人物关系。操作计划不再混入QQ记忆，群聊不载入私信基金说明。新增检查入口：`node --test integrations/surfcore/tests/{finance-learning,conversation-logic,relationships}.test.mjs`（按终端规则展开文件名）。完成情况及软验收不足见 `docs/PATCH123-LOGIC-RELATIONSHIPS-2026-10-29.md`。
 
 patch125按主人纠正撤销自动课程与每日笔记安排：金融只加入原视频兴趣名单，和异环一样走原feed。原笔记和按需资料工具保留，旧next不再派课。当前设置见 `docs/PATCH125-CASUAL-FINANCE-2026-10-29.md`，不要按122/124历史记录恢复学习任务。
+
+## 活体镜像（live-mirror/）与容灾（2026-10-31 深夜起，主人令"服务器单点=漏洞"）
+
+- `live-mirror/src/bridge.js` + `live-mirror/plugins/index.js|bridge.js` = 服务器 staging-c174ed0 活体代码的**脱敏镜像**（真实 QQ 号/appid 等十位数一律替换为语义占位符，凭据/IP 运行时读 config.json；导出后经敏感面预扫+隐私门双检）。compat/ 为 whale-compat 全量镜像，tests/runtime.test.mjs 直接跑在这套镜像上（31/31）。
+- **纪律**：桥端每落一次手术（145/146/147/150/151…），当晚同步本目录+compat/，与 docs/bridge-patches.md 条目同 commit 推送——三者不同步=镜像过期即漏洞。
+- 恢复场景：服务器全损时按 README+本目录+bridge-patches 备份链重建代码面；凭据/人设原文/QQ号仍在仓库外（SECRETS.md），永远不进 git。
