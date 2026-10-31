@@ -220,7 +220,7 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
   async function reconcileUncertain151(historyProbe) {
     if (!ledger.healthy) return { skipped: 'ledger-unhealthy' };
     const nowT = now();
-    const pend = Object.entries(ledger.data.outbox).filter(([, r]) => r && r.status === 'uncertain' && r.key && nowT - Number(r.at || 0) > 120000 && nowT - Number(r.at || 0) < 3600000);
+    const pend = Object.entries(ledger.data.outbox).filter(([, r]) => r && r.status === 'uncertain' && r.key && nowT - Number(r.at || 0) > 120000 && nowT - Number(r.at || 0) < 43200000);
     let cleared = 0;
     for (const [id, r] of pend) {
       try {

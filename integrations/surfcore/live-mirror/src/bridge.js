@@ -15088,14 +15088,14 @@ async function main() {
     log(`SnowLuma 首次连接未成功（将在后台自动重连并尝试自愈 WS token）: ${error?.message ?? error}`);
   });
   log('桥接已启动。按 Ctrl+C 退出。');
-  // ——核销151（主人令深夜，值班妈妈代做）：每10分钟拿接口对账 outbox 里的 uncertain 回单。
+  // ——核销151v2（23:52补量：窗1h→12h、count12→40——21:14遗留条目2.5h龄按旧窗永不可证，同文锁死到天亮；仍只实锤清锁）：每10分钟拿接口对账 outbox 里的 uncertain 回单。
   // 清锁唯一依据=发送时刻±90秒窗口内接口查到我本人消息（实锤送达）；查不到=继续拦锁等人工。
   // 绝不自动重发——patch103 双发消息血案教训。零模型调用零外发。
   setInterval(() => {
     void whale.reconcileUncertain151(async (key, atMs) => {
       const m = /^(group|private):(\d+)$/.exec(String(key || ''));
       if (!m) return false;
-      const raw = await fetchOneBotHistory(m[1], m[2], 12);
+      const raw = await fetchOneBotHistory(m[1], m[2], 40);
       if (!raw) return false;
       return raw.some((it) => String((it && it.sender && it.sender.user_id) ?? '') === String(selfUserId) && Number(it.time) * 1000 >= atMs - 90000 && Number(it.time) * 1000 <= atMs + 90000);
     }).then((r) => { if (r && Number(r.checked) > 0) log(`[核销151] uncertain 查 ${r.checked} 清 ${r.cleared}`); }).catch(() => {});
