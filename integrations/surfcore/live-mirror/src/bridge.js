@@ -7832,6 +7832,9 @@ async function main() {
             st.pendingThoughts = st.pendingThoughts.filter((t) => String(t?.text ?? '') !== content);
           } else if (category === 'memberImpression' && st.memberImpressions && typeof st.memberImpressions === 'object') {
             delete st.memberImpressions[target];
+          } else if (category === 'anchor' && Array.isArray(st.anchors)) {
+            // 147补漏：remove 处理链一直没有 anchor 分支——报 ok 但锚原地不动（假删）。11-01 00:3x 自挖。
+            st.anchors = st.anchors.filter((x) => String(x?.text ?? '') !== content);
           }
           saveSocialV2State();
           sendJson({ ok: true, key, category, memory: formatMemoryV2(st) });
@@ -8598,6 +8601,101 @@ async function main() {
 
   // 直接发任意 OneBot 消息段（卡片/分享卡用）。文本发送仍走 sendToQQ，
   // 这样限速、审计和会话守卫不被绕过。
+  // ── 153/154/155（主人 11-01 00:2x 令"都要修，不许只有这一次的"）：三张永久网兜 ──
+  // 153 丢发自查：reserved2 内部输出收尾时若"有来话未回且超90秒"→安排回复复查唤醒（5分钟冷却）。
+  // 154 认错钉锚：她成功发出的句子里命中"认错模式"→原句钉为锚（她自己的认错=她自己钉下的不能忘）。
+  // 155 承诺落dur：她成功发出"会叫你/提醒你+时间"句式→钉锚+解析时点，到期用现成计划唤醒通道叫她醒来看锚。
+  // 全部纯正则零模型调用，只观察她自己外发的句子；任何网自身故障绝不影响发送与收尾。
+  /*__NETS153_TESTABLE__*/
+  const RE_CONFESS154 = /(我(记反|记错|念错|看串|看岔|搞错|弄反|说错|理解错)了|是我把[^，。]{0,16}?(看岔|看串|记错|念错|搞错|弄反|记反)了?|我服了[，,]?是我|我居然又翻回)/u;
+  const RE_PROMISE155 = /(记着呢|记着[，,]?|到时(会)?|明[天晚早午]|后天|[0-9一二三四五六七八九十]+月[0-9一二三四五六七八九十]+[号日])[^。!?!?]{0,24}(叫|提醒|喊|告诉)你?/u;
+  function parseWhen155(text) {
+    const nowMs = Date.now();
+    const nowD = new Date(nowMs);
+    let y = nowD.getFullYear(), mo = nowD.getMonth(), d = nowD.getDate();
+    const dm = /([0-9]{1,2})月([0-9]{1,2})[号日]/.exec(text);
+    if (dm) { mo = Number(dm[1]) - 1; d = Number(dm[2]); }
+    else if (/后天/.test(text)) { d += 2; }
+    else if (/明[天晚早午]/.test(text)) { d += 1; }
+    else { return 0; }
+    let hh = 9, mi = 0;
+    if (/睡前/.test(text)) hh = 22;
+    else if (/晚上|今晚/.test(text)) hh = 20;
+    else if (/傍晚/.test(text)) hh = 18;
+    else if (/下午/.test(text)) hh = 15;
+    else if (/中午/.test(text)) hh = 12;
+    else if (/上午|早上|明早|今早/.test(text)) hh = 8;
+    const hm = /([0-9]{1,2})[:：点]([0-9]{1,2})/.exec(text);
+    if (hm) { hh = Number(hm[1]); mi = Number(hm[2]); }
+    let t = new Date(y, mo, d, hh, mi, 0).getTime();
+    if (t < nowMs + 120000) t += 86400000;
+    if (t > nowMs + 45 * 86400000) return 0;
+    return t;
+  }
+  function textOfSegments154(segments) {
+    try { return (segments || []).filter((x) => x && x.type === 'text').map((x) => String((x.data && x.data.text) || '')).join(' ').trim(); } catch { return ''; }
+  }
+  /*__NETS153_TESTABLE_END__*/
+  function addAnchor154155(st, text, autoTag) {
+    const arr = (st.anchors ||= []);
+    const head = String(text).slice(0, 24);
+    if (arr.some((x) => x && String(x.text).slice(0, 24) === head && (!Number(x.at) || Date.now() - Number(x.at) < 6 * 3600000))) return false;
+    arr.push({ text: String(text).slice(0, 140), at: Date.now(), auto: autoTag });
+    if (arr.length > 12) { const i = arr.findIndex((x) => x && x.auto); if (i >= 0) arr.splice(i, 1); else arr.shift(); }
+    saveSocialV2State();
+    return true;
+  }
+  function armPromise155(key, st) {
+    const ps = (st.promises || []).filter((p) => p && p.atMs > Date.now()).sort((a, b) => a.atMs - b.atMs);
+    if (st.promiseTimer) clearTimeout(st.promiseTimer);
+    st.promiseTimer = null;
+    if (!ps.length) return;
+    st.promiseTimer = setTimeout(() => {
+      st.promiseTimer = null;
+      const due = (st.promises || []).filter((p) => p && p.atMs <= Date.now() + 5000);
+      for (const p of due) log(`[承诺155] ${key} 到期（${new Date(p.atMs).toLocaleString('zh-CN', { hour12: false }).slice(0, 16)}）：${String(p.text).slice(0, 36)}`);
+      st.promises = (st.promises || []).filter((p) => p && p.atMs > Date.now() + 5000);
+      saveSocialV2State();
+      scheduleWakeV2(key, 'promise');
+      armPromise155(key, st);
+    }, Math.max(5000, ps[0].atMs - Date.now()));
+    st.promiseTimer.unref?.();
+  }
+  function noteOutboundSentences154155(kind, id, segments) {
+    const text = textOfSegments154(segments);
+    if (text.length < 4 || text.length > 400) return;
+    const key = `${kind}:${id}`;
+    const st = getSocialV2State(key);
+    if (RE_CONFESS154.test(text)) {
+      if (addAnchor154155(st, text, '154')) log(`[钉锚154] ${key} 认错句已钉：${text.slice(0, 28)}`);
+    }
+    if (RE_PROMISE155.test(text)) {
+      addAnchor154155(st, text, '155');
+      const atMs = parseWhen155(text);
+      if (atMs > Date.now()) {
+        const ps = (st.promises ||= []);
+        if (!ps.some((p) => p && String(p.text).slice(0, 24) === text.slice(0, 24))) {
+          ps.push({ atMs, text: text.slice(0, 140), madeAt: Date.now() });
+          st.promises = ps.filter((p) => p && p.atMs > Date.now()).slice(-10);
+          armPromise155(key, st);
+          log(`[承诺155] ${key} 立约 ${new Date(atMs).toLocaleString('zh-CN', { hour12: false }).slice(0, 16)}：${text.slice(0, 28)}`);
+        }
+      }
+    }
+  }
+  function noteLostSend153(key) {
+    try {
+      const st = getSocialV2State(key);
+      if (st.lostSendAt153 && Date.now() - st.lostSendAt153 < 300000) return;
+      const lastIn = Number(st.lastIncomingAt || 0);
+      if (lastIn > Number(st.lastAiReplyAt || 0) && Date.now() - lastIn > 90000 && Date.now() - lastIn < 3600000) {
+        st.lostSendAt153 = Date.now();
+        log(`[丢发153] ${key} 回合收在未发且来话未回（${Math.round((Date.now() - lastIn) / 1000)}s 前）→ 安排自查`);
+        scheduleReplyCheckV2(key);
+      }
+    } catch { /* 网自身永不影响收尾 */ }
+  }
+
   async function onebotSendSegments(kind, id, segments) {
     if (!Array.isArray(segments) || !segments.length) throw new Error('消息段为空');
     const action = kind === 'private' ? 'send_private_msg' : 'send_group_msg';
@@ -8619,6 +8717,7 @@ async function main() {
     if (!res.ok || body.status !== 'ok' || body.retcode !== 0) {
       throw new Error(`OneBot ${action} 失败: ${body.wording || body.retcode || res.status}`);
     }
+    try { noteOutboundSentences154155(kind, id, safeSegments); } catch { /* 观察网绝不拦发送 */ }
     return body.data;
     });
   }
@@ -9616,6 +9715,7 @@ async function main() {
             agentToken,
             bootstrapSent: !!val.bootstrapSent,
             anchors: Array.isArray(val.anchors) ? val.anchors : [], // 152
+            promises: Array.isArray(val.promises) ? val.promises : [], // 155
             wakeTimes: Array.isArray(val.wakeTimes) ? val.wakeTimes : [],
             sendTimes: Array.isArray(val.sendTimes) ? val.sendTimes : [],
             stickerCollectTimes: Array.isArray(val.stickerCollectTimes) ? val.stickerCollectTimes : [],
@@ -9759,6 +9859,7 @@ async function main() {
           // 对话收尾记录：只存结论（收在哪 / 下次怎么接）+ 冷却时间，不存额外消息副本。
           // 152：锚持久化（147 上线起一直只活内存，重载即丢——白名单漏了它）。
           anchors: Array.isArray(st.anchors) ? st.anchors.slice(-12) : [],
+          promises: Array.isArray(st.promises) ? st.promises.slice(-10) : [], // 155
           closure: st.closure && typeof st.closure === 'object' ? st.closure : undefined,
           // 鱼群保护状态（2026-10-23）：冷却、直呼放行、最近触发记录。
           fishGuard: st.fishGuard && typeof st.fishGuard === 'object' ? st.fishGuard : undefined,
@@ -14692,6 +14793,7 @@ async function main() {
                     }
                   }
                 } else if (currentMode === 'reserved2') {
+                  noteLostSend153(key);
                   log(`[reserved2] AI 内部输出（不自动转发）(${key}): ${plain.slice(0, 80)}`);
                   appendActivity(`${key} [reserved2] AI 内部输出：${plain.slice(0, 80)}${plain.length > 80 ? '…' : ''}`);
                 } else {
@@ -15103,6 +15205,8 @@ async function main() {
       return raw.some((it) => String((it && it.sender && it.sender.user_id) ?? '') === String(selfUserId) && Number(it.time) * 1000 >= atMs - 90000 && Number(it.time) * 1000 <= atMs + 90000);
     }).then((r) => { if (r && Number(r.checked) > 0) log(`[核销151] uncertain 查 ${r.checked} 清 ${r.cleared}`); }).catch(() => {});
   }, 10 * 60 * 1000).unref?.();
+  // 155：桥重启后把未到期承诺重新上弦（promises 已随 152 同法持久化）
+  for (const [keyP, stP] of socialV2.conversations) { if (stP.promises && stP.promises.length) armPromise155(keyP, stP); }
   // 预热表情库：启动时同步一次 QQ 收藏表情，失败不阻塞（AI 首次调用工具时还会再试）。
   if (cfg.socialV2?.sticker?.enabled !== false) {
     syncStickerLibrary(true).catch((error) => log('启动预热表情库失败:', error?.message ?? error));
