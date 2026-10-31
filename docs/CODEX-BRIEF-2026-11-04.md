@@ -26,12 +26,14 @@
 
 - **20:48 主人令提前整重启 dsh，已全部完成并验收（战报见 bridge-patches.md patch150 节）**：145 缓退首演活体成功（3秒干净落盘退出）；148 插件端上线当晚自证（罩住"插件抢跑拉起→桥卡事件流静默~100秒"的既有竞态——旧 12s 探针今夜必再演误杀环）；147 anchor 端到端首验通过（钉入→注入可见→拔除→零残留，QQ 零动静）；150 自断闸活体加载。GUI token 已随重启轮换（需要时 `journalctl -u dsh | grep -oE "token=[A-Za-z0-9_-]+" | tail -1` 现取）；consoleToken 未变。**新识别竞态留你根治**：插件 activation 早于 webServer bind——正解为 spawn 前等 bind 或桥内 DSH 连接退避等待，二选一由你定，改前对照 patch150 节现场证据；另 7493 区 `notifyOwnerOnError` 是假实现（只打日志不发送），修不修、怎么修听主人，别顺手"补全"出新的外发路径。
 - 144 三件（hygiene v108 层/出站清洁计数/watchdog 缓拉）10-31 15:47 已上线已验，见 bridge-patches.md「patch144 补录」。
-- 复核清单（只看不改）：①node --check 双文件；②runtime.test.mjs 30项；③anchor 已手工端到端验过，剩余观察=她自然钉入的意向（social-v2.json anchors 非测试残留）；④send-failures.jsonl 是否开始有真实条目（有=145在兜住死在门口的，逐条看归因）；⑤收件侧丢失首例（缓退窗口吞一条普通群话，定性自然忽略）——若命中主人消息或 @ 她才值得动机制，见 patch150 节。
+- **漏洞清零三件套（主人 23:2x 令"全修，包括够不着的；不动性格；不产生新问题"）10-31 深夜完成**：H1 勘误=收件侧本有双班补看（13383 区），20:48 漏捞是 bootstrapSent 安全闸正确拦截+maxAge 超窗的有界取舍，**机制未动**；H2 自断阈值 40→80（direct 私聊 60/h 会误触 40）；H3 **核销151**：uncertain 回单唯一自动清锁路径，**铁律=只有接口实锤（±90s 内查到本人消息）才清锁，查不到永远拦等人工，绝不自动重发**（103 双发血案）——别把它"改进"成自动重发；v2 自纠把窗从 1h 放宽到 12h、probe count 12→40（初版参数下 21:14 遗留条目永不可证=滞留变种，见 bridge-patches 151v2 节教训）。
+- **代码容灾镜像（新纪律）**：`integrations/surfcore/live-mirror/`+`compat/` = 活体代码**脱敏**镜像（真实 QQ 号/appid 换语义占位符，服务器真身不动）。每落一次桥端手术，当晚**代码=账本=镜像三同步**同 commit 推送，不同步=镜像过期即漏洞。tests/runtime.test.mjs 直接跑在镜像上，现 **31 项**（含 reconcile151 用例）。
+- 复核清单（只看不改）：①node --check 双文件；②runtime.test.mjs **31 项**；③anchor 已手工端到端验过，剩余观察=她自然钉入的意向（social-v2.json anchors 非测试残留）；④send-failures.jsonl 首批真实条目已裁决完毕（21:14 超时+21:20 待核对=主人私信零漏回，见 23:05 判定节）——后续新条目按"接口实锤→151 自动清/人工看"走；⑤收件侧定性=有界设计取舍非漏洞（H1 勘误），主人消息若命中重启窗口再议；⑥23:37 与 23:46 两次桥重载（主人授权窗口内，145 缓退 3.2s 全绿），当前活体链 145/146/147/148/150(80阈值)/151v2，新桥 pid 1404046。
 - 遗留观察项（未解，不算案）：reserved2 计划唤醒不计入旧桥 state"运行回合"盲区——146已把**后果**兜住（吞话自愈），计数口径本身仍是旧兼容层的事，动它前先对照旧host.js→SurfCore 迁移面。
 
 ## 回滚（如果你复核发现问题）
 
-按案回退：bridge.js.bak147→146→145、runtime.mjs.bak145、mcp-snowluma-safe.js.bak147、persona.md.bak148/147。
+按案回退：bridge.js.bak151→147→146→145、runtime.mjs.bak151/bak145、mcp-snowluma-safe.js.bak147、persona.md.bak148/147、token-budget.json.bak150→bak149。
 回滚=systemctl restart dsh 整重启（禁止插件级热重载！），重启前走静窗SOP。
 
 ——值班妈妈 2026-10-31 16:5x，主人令全兜底+交接防新题。git 链：912fabb（145/146记录）→本篇+147记录。
