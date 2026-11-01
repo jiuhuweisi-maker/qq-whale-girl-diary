@@ -1572,6 +1572,16 @@ function sanitizeMediaSummary(value, max = 60) {
 // emoji_id/emoji_package_id/key/url**（实测：sub_type 可能是 0，靠 emoji_id 区分），
 // 部分网关实现则用 mface 段。以前只留 file/url/subType/summary，emoji 字段被丢掉，
 // 一旦 get_image 取不到（市场表情不在网关缓存里），就再也没有其它可用的兜底地址。
+function flagInterrupted175(messages, deferred) {
+  // 插话标注：seq 命中"她连发进行中暂存过唤醒"的清单 → 给模型一句人话提示。
+  if (!Array.isArray(deferred) || !deferred.length || !Array.isArray(messages)) return messages;
+  return messages.map((m) => {
+    if (!m || !deferred.includes(m.seq)) return m;
+    if (m.messageId == null) return { ...m, interrupt175: '她刚在连发时这条插进来的（消息id取不到，回他时靠发送者认人）' };
+    return { ...m, interrupt175: '她刚在连发时这条插进来的。要回他就用 qq_reply 带上 replyToMessageId=' + m.messageId + '，让他知道说的是他；不想回就不回，别硬接' };
+  });
+}
+
 // ── 表情包记忆 174（主人11-01：群聊和私聊的记忆要部分互通——互通的只有"这张表情见过"，
 //    聊天内容本身绝不跨线，私聊铁律不破）：全局账本按图片指纹记 lane+时刻，
 //    重复出现（同线或跨线）就在媒体提示里带一句"见过"，让她别再整套解释。──
@@ -5716,7 +5726,10 @@ async function main() {
           const readThroughSeq = req.headers['x-agent-token'] ? noteModelMessagesV2(st, messages) : readThroughSeqV2(st);
           // 翻未读是最常见的新消息入口，同样带上表情推荐
           const stickerMatch = stickerMatchFor(messages);
-          sendJson({ ok: true, key, unreadCount: st.unread.length, ...(stickerMatch ? { stickerMatch } : {}), messages, readThroughSeq });
+          const d175 = st.deferredSeqs175 || [];
+          const messages175 = flagInterrupted175(messages, d175);
+          if (d175.length) st.deferredSeqs175 = [];
+          sendJson({ ok: true, key, unreadCount: st.unread.length, ...(stickerMatch ? { stickerMatch } : {}), messages: messages175, readThroughSeq });
           return;
         }
         if (req.method === 'GET' && url.pathname === '/api/socialV2/recent') {
@@ -13066,6 +13079,7 @@ async function main() {
       const seq = st.lastUnreadSeq || 0;
       if (!st.pendingWakeReasons.some((r) => r && r.reason === reason && r.seq === seq)) {
         st.pendingWakeReasons.push({ reason, seq });
+        st.deferredSeqs175 = [...(st.deferredSeqs175 || []), seq].slice(-20);
         // 有界队列：最多保留 20 条，防止消息洪峰下无限增长。
         if (st.pendingWakeReasons.length > 20) st.pendingWakeReasons.splice(0, st.pendingWakeReasons.length - 20);
       }
@@ -13302,6 +13316,7 @@ async function main() {
       const seq = st.lastUnreadSeq || 0;
       if (!st.pendingWakeReasons.some((r) => r && r.reason === reason && r.seq === seq)) {
         st.pendingWakeReasons.push({ reason, seq });
+        st.deferredSeqs175 = [...(st.deferredSeqs175 || []), seq].slice(-20);
         // 有界队列：最多保留 20 条，防止消息洪峰下无限增长。
         if (st.pendingWakeReasons.length > 20) st.pendingWakeReasons.splice(0, st.pendingWakeReasons.length - 20);
       }
