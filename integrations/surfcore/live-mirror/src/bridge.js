@@ -1572,6 +1572,37 @@ function sanitizeMediaSummary(value, max = 60) {
 // emoji_id/emoji_package_id/key/url**（实测：sub_type 可能是 0，靠 emoji_id 区分），
 // 部分网关实现则用 mface 段。以前只留 file/url/subType/summary，emoji 字段被丢掉，
 // 一旦 get_image 取不到（市场表情不在网关缓存里），就再也没有其它可用的兜底地址。
+async function sendCustomFaceNative178(kind, id, emojiId, replyId179) {
+  // 原生自定义表情通道（SnowLuma send_custom_face）：按收藏表 emoji_id 服务端查找发送，
+  // 不下载不转码——客户端呈现 sub_type=1 表情样式，动画保真，与真人表情面板一致。
+  const httpUrl = String(cfg.snowluma?.httpUrl || 'http://127.0.0.1:3000').replace(/\/+$/, '');
+  const params = kind === 'private'
+    ? { user_id: Number(id), emoji_id: String(emojiId) }
+    : { group_id: Number(id), emoji_id: String(emojiId) };
+  if (replyId179 !== undefined && replyId179 !== null) params.reply_id = String(replyId179); // 原生表情也能挂引用条(179)；SnowLuma不认会1400确定未发→降级带reply图片段
+  const res = await fetch(`${httpUrl}/send_custom_face`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-whale-origin': 'surfcore',
+      ...(cfg.snowluma?.accessToken ? { authorization: `Bearer ${cfg.snowluma.accessToken}` } : {})
+    },
+    body: JSON.stringify(params),
+    signal: AbortSignal.timeout(20000)
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || body.status !== 'ok' || body.retcode !== 0) {
+    const err = new Error(`send_custom_face 失败: ${body.wording || body.retcode || res.status}`);
+    // certainNotSent178：协议层校验直接拒绝（没碰 QQ）才允许安全降级重发；
+    // 超时/5xx/未知一律 false——宁可这条失败让 AI 换招，不冒双发险。
+    err.certainFail = err.certainNotSent178 = (res.status >= 400 && res.status < 500)
+      || [100, 1400, 1404].includes(Number(body.retcode))
+      || /is required|not in the saved sticker list|unknown action/i.test(String(body.wording ?? ''));
+    throw err;
+  }
+  return body.data;
+}
+
 function flagInterrupted175(messages, deferred) {
   // 插话标注：seq 命中"她连发进行中暂存过唤醒"的清单 → 给模型一句人话提示。
   if (!Array.isArray(deferred) || !deferred.length || !Array.isArray(messages)) return messages;
@@ -2502,13 +2533,20 @@ async function main() {
       segments.push({ type: 'at', data: { qq: at } });
     }
     // 在桥接内完成带 DNS 固定、逐跳校验和大小限制的下载；不能把 URL 交给网关重新抓取。
+    // 178/179：QQ 收藏来源 → 原生表情通道（小图动画表情样式，可挂引用）；
+    // 需要 @ 或本条无引用时照常；本地抓图库条目/无id 维持旧图片段通道。
+    const nativeAt179 = segments.some((s) => s.type === 'at');
+    const nativeReplySeg179 = segments.find((s) => s.type === 'reply');
+    const useNative178 = entry.source === 'qq' && !!entry.id && !nativeAt179 && !nativeReplySeg179; // 179b：带引用的斗图走旧图片段——SnowLuma 原生 reply 参数名未能证实，引用条可靠性优先于表情样式，静默丢引用不可接受
     let image;
-    try {
-      image = await safeFetchBuffer(url, MAX_MEDIA_BYTES);
-    } catch (error) {
-      throw new Error(`表情 ${entry.id} 的图片下载失败（QQ CDN 网络异常或地址已失效）：${error?.message ?? error}`);
+    if (!useNative178) {
+      try {
+        image = await safeFetchBuffer(url, MAX_MEDIA_BYTES);
+      } catch (error) {
+        throw new Error(`表情 ${entry.id} 的图片下载失败（QQ CDN 网络异常或地址已失效）：${error?.message ?? error}`);
+      }
+      segments.push({ type: 'image', data: { file: 'base64://' + image.buffer.toString('base64') } });
     }
-    segments.push({ type: 'image', data: { file: 'base64://' + image.buffer.toString('base64') } });
     // 与文本发送共用 sendChain，保证“先文字后表情”的真人顺序不被并发工具调用打乱。
     let sendResolve;
     let sendReject;
@@ -2521,7 +2559,33 @@ async function main() {
         // 真人发表情前通常会有短暂停顿，避免“文字刚发完表情立刻跟上”的机械感。
         await sleep(randInt(800, 2000));
         assertSendAllowed();
-        const receipt = await onebotSendSegments(kind, id, segments);
+        let receipt;
+        if (useNative178) {
+          if (segments.length) segments.length = 0; // 179：原生段暂存，reply 改经 transport 参数
+          segments.push({ type: 'custom_face', data: { emoji_id: String(entry.id), replyId: nativeReplySeg179 ? nativeReplySeg179.data.id : null } });
+          try {
+            receipt = await onebotSendSegments(kind, id, segments);
+            log(`[表情原生178] 按收藏id发出表情样式 ${entry.id}（${kind}${nativeReplySeg179 ? '，带引用' : ''}）`);
+          } catch (errN178) {
+            if (errN178?.certainNotSent178) {
+              log(`[表情原生178] 原生通道拒绝(${errN178.message})，降级图片段重发 ${entry.id}`);
+              const cutIdx179 = segments.findIndex((s) => s.type === 'custom_face');
+              if (cutIdx179 >= 0) segments.splice(cutIdx179, 1);
+              try {
+                image = await safeFetchBuffer(url, MAX_MEDIA_BYTES);
+              } catch (errorD178) {
+                throw new Error(`表情 ${entry.id} 原生被拒后图片下载也失败：${errorD178?.message ?? errorD178}`);
+              }
+              segments.push({ type: 'image', data: { file: 'base64://' + image.buffer.toString('base64') } });
+              receipt = await onebotSendSegments(kind, id, segments);
+            } else {
+              log(`[表情原生178] 原生通道结果未知(${errN178.message})，不降级不重发 ${key}`);
+              throw errN178;
+            }
+          }
+        } else {
+          receipt = await onebotSendSegments(kind, id, segments);
+        }
         sendResolve(receipt);
       } catch (error) {
         sendReject(error);
@@ -8786,6 +8850,8 @@ async function main() {
     const params = kind === 'private' ? { user_id: Number(id), message: segments } : { group_id: Number(id), message: segments };
     const httpUrl = String(cfg.snowluma?.httpUrl || 'http://127.0.0.1:3000').replace(/\/+$/, '');
     return whale.send(`${kind}:${id}`, segments, async (safeSegments, delivery) => {
+    const cf179 = safeSegments.find((s) => s.type === 'custom_face');
+    if (cf179) return sendCustomFaceNative178(kind, id, cf179.data.emoji_id, cf179.data.replyId ?? undefined);
     params.message = safeSegments;
     const res = await fetch(`${httpUrl}/${action}`, {
       method: 'POST',

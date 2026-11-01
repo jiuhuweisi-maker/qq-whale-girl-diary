@@ -917,3 +917,13 @@ preset 第14/15条与现行 config.json 实证：SurfCore 带 collectSticker、s
 - 排查后确认**安全**项：①171 单发标点——出站无最短长度拦截（2780/2904 的 length<min 是消息条数阈值非字符数，filter(Boolean) 只剔空串），能活着发出去；②174 账本不进 git——live_backup.sh 全文核过只收 sanitize 的 3 个 md + 表情图 + GRAB-INDEX，state/ 目录整体不在收集面，seen-stickers.json/card169.json 无 PII 后门；③169 块锚点唯一、177 替换零残留（镜像 grep retry176=0）；④SnowLuma 未碰、磁盘 20G、桥语法 0。
 - 观察项（不动刀）：159 换班与 169 回炉可能先后命中同一线（多换一次脑，无害浪费）；175 标注若该轮没翻未读会滞留成"旧插话"措辞略失真（自愈、无功能损伤）；170 禁"写"字表述偏宽（正当"写日记"语境理论会误伤，靠模型语义自持，出现误伤再收窄——卡由主人定不擅动）。
 - 镜像同步 177 版：裸号0、check0、runtime 测试绿、retry176 零残留。
+
+**11-01 23:3x-23:4x patch178+179：收藏表情改原生表情样式发送（主人报"怎么按图片样式发"）——自检揪出178绕账本隐患，179补正后上岗**
+- 根因实锤：sendStickerV2 自 140 时代起就是"表情url下载成jpg→普通图片段"，协议记录 sub_type=0[图片]（同窗A/B对比：主人发的 sub_type=1[动画表情]）。附带损失：动图被转静图。
+- 探测（假emoji_id三连探，校验挡在发送前物理发不出）：SnowLuma 有原生 `send_custom_face`（emoji_id+group_id/user_id），假id回 retcode 100 "not in the saved sticker list"。库里346条收藏表情id即标准 uin_0_0_0_MD5 emoji_id。
+- **178**（bak178）：收藏来源→原生通道，失败自动降级旧图片段；错误分类 certainNotSent178（100/1400/1404/HTTP4xx=确定未发可降级；5xx/超时/未知=禁降级防双发）。离线6项全绿。
+- **自检揪出178大隐患**：原生绕过 whale.send=幂等/同内容去重/图片冷却/图片间隔/每日额度五连全绕——140当年补的耐久账本洞被178重挖。145 certainFail 同调用重试机制一并接住。
+- **179**（bak179）：改道不绕账本——新增 custom_face 段型走 whale.send 全程（runtime.mjs 认段三处：内部提示取消判/has-picture/pictureHash含内容防"不同表情共享冷却窗"）；transport 里 cf179 分派原生 fetch；降级先摘段防混段；at 需求仍旧通道。离线5项全绿（reply_id透传/certainFail双标/回执/cf分派时序/摘段）。
+- **179b 保守化**：带引用场景暂留旧图片段——SnowLuma 原生 reply 参数名无法证实（容器bundle不可见、grep.app 429、假id探不到参数校验层），未知参数多半被忽略=**静默丢引用条**，引用可靠性优先于表情样式。宁大图不丢引用，待证实参数名后再放开。
+- 上岗：23:41:09 reload（群静默89.5分/私9.6分），新桥 1564150（88s），23:42:51 DSH就绪，启动零异常；178/179/179b/runtime认段计数全核。表情库346条在位，159/169v177/174/175 家族无损。
+- 活体验收：等自然斗图回合——bridge.log 出 [表情原生178] 行且接口记录 sub_type=1 即闭环（不发测试消息）。若出现"原生通道拒绝"行=降级在工作。镜像双文件同步（桥+runtime 裸号0 check0 测试绿）。

@@ -152,7 +152,7 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
     const source = Array.isArray(segments) ? segments : [];
     const message = source.map(s => s.type === 'text' ? { ...s, data: { ...s.data, text: clean(String(s.data?.text || ''), key) } } : s).filter(s => s.type !== 'text' || s.data.text.trim());
     if(message.some(s=>s.type==='text'&&includesParticipantAccount(s.data.text,config,disk)))throw new Error('正文含有成员账号，请改用昵称后再发送；本次尚未发送');
-    if (!message.some(s => !['reply', 'at'].includes(s.type))) throw new Error('本条只有内部提示，已取消发送');
+    if (!message.some(s => !['reply', 'at', 'custom_face'].includes(s.type))) throw new Error('本条只有内部提示，已取消发送');
     if (source.some(s => ['record', 'video'].includes(s.type))) throw new Error('语音和视频发送已关闭');
     const at = message.filter(s => s.type === 'at').map(s => String(s.data.qq));
     const replies = message.filter(s => s.type === 'reply');
@@ -166,8 +166,8 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
       // 145：failed=传输层明确拒发（certainFail），放行同调用重试
     }
     if (Object.values(ledger.data.outbox).some(r => r.hash === hash && ['sending', 'uncertain'].includes(r.status))) throw new Error('相同消息仍待核对，不重试');
-    const picture = message.some(s => ['image', 'mface'].includes(s.type));
-    const pictureHash = picture ? digest([key, message.filter(s => ['image', 'mface'].includes(s.type))]) : '';
+    const picture = message.some(s => ['image', 'mface', 'custom_face'].includes(s.type));
+    const pictureHash = picture ? digest([key, message.filter(s => ['image', 'mface', 'custom_face'].includes(s.type))]) : '';
     const pictureCooldown = Math.max(0, Number(config.whaleCompat?.pictureCooldownMs ?? 0) || 0);
     if (picture && pictureCooldown > 0 && now() - Number(ledger.data.pictures[pictureHash] || 0) < pictureCooldown) throw new Error('这张图刚发过，稍后再发');
     if (picture) {
