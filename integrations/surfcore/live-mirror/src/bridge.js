@@ -15381,7 +15381,7 @@ async function main() {
         try {
           const now = fs.statSync(personaWatch169).mtimeMs;
           if (!now || now <= cardMtime169) return;
-          cardMtime169 = now;
+          let retry176 = false; // 忙线不清基线，下一轮继续试（176：防热聊撞改卡，群线永久漏新卡）
           for (const key of Object.keys(state.sessions || {})) {
             const st169 = socialV2.conversations.get(key);
             if (!st169 || st169.bootstrapSent !== true) continue;
@@ -15395,9 +15395,11 @@ async function main() {
               retireSession(key);
               log(`[卡169] 群线空闲，已换新卡重载 ${key}`);
             } else {
-              log(`[卡169] 群线热聊中，下轮冷却后自然重载 ${key}`);
+              retry176 = true;
+              log(`[卡169] 群线热聊中，基线不清，下轮继续安排回炉 ${key}`);
             }
           }
+          if (!retry176) cardMtime169 = now;
         } catch (e169) { log(`[卡169] 巡检异常：${e169 && e169.message}`); }
       }, 60 * 1000);
     }
