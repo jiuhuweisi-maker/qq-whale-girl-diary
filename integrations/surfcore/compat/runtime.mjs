@@ -152,7 +152,8 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
     const source = Array.isArray(segments) ? segments : [];
     const message = source.map(s => s.type === 'text' ? { ...s, data: { ...s.data, text: clean(String(s.data?.text || ''), key) } } : s).filter(s => s.type !== 'text' || s.data.text.trim());
     if(message.some(s=>s.type==='text'&&includesParticipantAccount(s.data.text,config,disk)))throw new Error('正文含有成员账号，请改用昵称后再发送；本次尚未发送');
-    if (!message.some(s => !['reply', 'at', 'custom_face'].includes(s.type))) throw new Error('本条只有内部提示，已取消发送');
+    // 179c：custom_face 是真内容不是内部提示，本行为排除表，179初版误加custom_face已回正
+    if (!message.some(s => !['reply', 'at'].includes(s.type))) throw new Error('本条只有内部提示，已取消发送')
     if (source.some(s => ['record', 'video'].includes(s.type))) throw new Error('语音和视频发送已关闭');
     const at = message.filter(s => s.type === 'at').map(s => String(s.data.qq));
     const replies = message.filter(s => s.type === 'reply');
