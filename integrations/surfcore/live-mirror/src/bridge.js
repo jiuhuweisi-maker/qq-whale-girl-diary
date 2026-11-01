@@ -1572,6 +1572,68 @@ function sanitizeMediaSummary(value, max = 60) {
 // emoji_id/emoji_package_id/key/url**（实测：sub_type 可能是 0，靠 emoji_id 区分），
 // 部分网关实现则用 mface 段。以前只留 file/url/subType/summary，emoji 字段被丢掉，
 // 一旦 get_image 取不到（市场表情不在网关缓存里），就再也没有其它可用的兜底地址。
+// ── 表情包记忆 174（主人11-01：群聊和私聊的记忆要部分互通——互通的只有"这张表情见过"，
+//    聊天内容本身绝不跨线，私聊铁律不破）：全局账本按图片指纹记 lane+时刻，
+//    重复出现（同线或跨线）就在媒体提示里带一句"见过"，让她别再整套解释。──
+const SEEN_STICKERS_FILE174 = new URL('../state/seen-stickers.json', import.meta.url).pathname;
+const seenStickers174 = { map: {} };
+try {
+  const raw174 = fs.readFileSync(SEEN_STICKERS_FILE174, 'utf8');
+  const parsed174 = JSON.parse(raw174);
+  if (parsed174 && typeof parsed174 === 'object') seenStickers174.map = parsed174;
+} catch { /* 首次或损坏：空账本起步 */ }
+function persistSeenStickers174() {
+  try { fs.writeFileSync(SEEN_STICKERS_FILE174, JSON.stringify(seenStickers174.map)); } catch { /* 账本写失败不影响回话 */ }
+}
+function fpOfMedia174(media) {
+  if (!media || typeof media !== 'object') return '';
+  const file = String(media.file || '').trim();
+  if (file) return 'file:' + file.split('/').pop().split('?')[0].slice(0, 64);
+  const eid = String(media.emojiId || ''), pkg = String(media.emojiPackageId || '');
+  if (eid && pkg) return 'emoji:' + pkg + ':' + eid;
+  const fid = String(media.faceId || '');
+  if (fid) return 'faceid:' + fid;
+  const url = String(media.url || '');
+  if (url) { try { return 'url:' + new URL(url).pathname.slice(-48); } catch { return ''; } }
+  return '';
+}
+function noteSeenSticker174(fp, lane) {
+  const rec = seenStickers174.map[fp];
+  if (!rec) {
+    seenStickers174.map[fp] = { at: Date.now(), lane, times: 1 };
+    const keys = Object.keys(seenStickers174.map);
+    if (keys.length > 1000) {
+      keys.sort((a, b) => seenStickers174.map[a].at - seenStickers174.map[b].at)
+        .slice(0, keys.length - 1000).forEach((k) => { delete seenStickers174.map[k]; });
+    }
+    persistSeenStickers174();
+    return null;
+  }
+  rec.times += 1;
+  const seenLane = rec.lane;
+  persistSeenStickers174();
+  const days = Math.max(1, Math.round((Date.now() - rec.at) / 86400000));
+  return { seenLane, days, times: rec.times };
+}
+function seenStickerHint174(key, mediaList) {
+  if (!Array.isArray(mediaList) || !mediaList.length) return '';
+  const lane = String(key).startsWith('private:') ? '私聊' : '群聊';
+  const bits = [];
+  for (const media of mediaList) {
+    const fp = fpOfMedia174(media);
+    if (!fp) continue;
+    const res = noteSeenSticker174(fp, lane);
+    if (!res) continue;
+    if (res.seenLane !== lane) {
+      bits.push('这条【' + res.seenLane + '】那边你也见过（约' + res.days + '天前）');
+    } else {
+      bits.push('这条你之前就见过（第' + res.times + '次）');
+    }
+  }
+  if (!bits.length) return '';
+  return '\n【表情记忆174】' + bits.join('；') + '——是老表情就接住玩，别再整套辨认或解释一遍。';
+}
+
 function extractMediaFromSegments(segments) {
   const media = [];
   for (const seg of segments ?? []) {
@@ -9138,6 +9200,14 @@ async function main() {
   }
 
   function mediaHintFor(key, messageRef, mediaList) {
+    const base = mediaHintCore174(key, messageRef, mediaList);
+    if (!base) return '';
+    const seen174 = seenStickerHint174(key, mediaList);
+    if (seen174) log('[表情记忆174] ' + key + ' 命中已见过的表情');
+    return base + seen174;
+  }
+
+  function mediaHintCore174(key, messageRef, mediaList) {
     if (!Array.isArray(mediaList) || mediaList.length === 0 || !messageRef) return '';
     if (currentMode === 'reserved2') {
       return `\n【图片/表情】本条消息包含 ${mediaList.length} 个图片/表情（消息ID=${messageRef}）。如需要查看/识别，请调用 mcp__snowluma__qq_get_message_images，参数 key="${key}", messageId="${messageRef}"。`;
