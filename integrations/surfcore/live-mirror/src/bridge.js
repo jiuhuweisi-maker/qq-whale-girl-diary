@@ -1985,7 +1985,7 @@ async function main() {
       return { entries: stickerEntries, syncedAt: stickerSyncedAt, fromCache: true };
     }
     try {
-      const count = Math.min(500, Math.max(1, Number(cfg.socialV2?.sticker?.maxListCount) || 100));
+      const count = Math.min(1500, Math.max(1, Number(cfg.socialV2?.sticker?.maxListCount) || 100));
       const response = await bot.request('fetch_custom_face_detail', { count });
       if (!response || response.status !== 'ok' || response.retcode !== 0) {
         throw new Error(`fetch_custom_face_detail 失败: ${response?.wording || response?.retcode || 'unknown'}`);

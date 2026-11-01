@@ -934,3 +934,11 @@ preset 第14/15条与现行 config.json 实证：SurfCore 带 collectSticker、s
 - 179c 修复（两次才修对，第二次记档防再犯）：第一次回正时注释与 throw 同行把 `throw new Error('本条只有内部提示…')` 整段注释掉，且把下一行"语音视频关闭"顶成 if 主体（双坏，node --check 照过——语法合法语义全歪）；第二次按破行重建：条件+throw 原样一行、注释单放一行。custom_face 回归"真内容"，picture/pictureHash 两处包含表保留（方向本来就对）。
 - **实弹闭环（主人授权「自检的时候发个消息测试下」）**：00:26:46 reload 上 179c → 00:31:33 relay 直连 `send_custom_face` 真 emoji_id（收藏库第一张袋鼠）→ `retcode:0` 回执 291339564 → 接口回查 `sub_type=1 [动画表情]` 落地主人私信。**真 id 服务端接受，这是 178/179 从未验过的最后一环。** 工具全链路（sendStickerV2→whale.send→cf179 分派）等主人下一轮自然斗图看 `[表情原生178] 按收藏id发出` 日志行，机制同源。
 - 立规入册：AGENTS.md 排障纪律新增「发送通道改动=实弹验收」条（私信真发一条+接口回查才算完，群聊仍禁测试消息）；午查提醒已并入 179c 验收。镜像 runtime 同步（裸号0 check0）。
+
+**11-02 01:0x-01:5x patch180 + 181（识图与收藏线，DSH 运维线熔断移交；全程详单 docs/HANDOFF-2026-11-02-NIGHT.md）**
+- **180 同步扩容**：live bridge.js L1988 syncStickerLibrary `Math.min(500,...)`→`Math.min(1500,...)`（收藏>500 旧上限会瞎）。**改前没留 .bak180**（只有 .bak179；下次直改必先 cp，已写进交接）。node --check 过；静默窗判定（群最后一条 22:11、私聊 00:47 后无进向）后 01:5x `systemctl restart dsh` 生效：旧 pid 1569007→新 1581783，relay retcode 0、心跳 28s。镜像本笔同步同一行。
+- **181 收藏写读实证（措辞作废归 codex）**：`add_custom_face`{file:"base64://<b64>"} retcode 0 回真 emoji_id，**服务端不验图内容**（探针塞过一条 "hello"，秒删+已向主人自首）；`delete_custom_face`{emoji_id} 可用；`fetch_custom_face_detail` count 须 ≥2000（小 count 静默截假数）。128 时代「收藏不可写(1404)」仅对旧接口成立——卡侧条款更新是 codex  turf。
+- **181 撤销还原**：主人令「图库的不需要了」→ 按 /tmp/addfav.log 逐条撤销今晚批量入库 306 张（306/306 成功），收藏面板回主人原版 347，独立读法复验残留 0。第一版撤销只删 1 张：emoji_id 被日志截 40 位、匹配器拿 24 位前缀比 32 位全 hex，永远配不上——日志记 id 不许截、复验必须独立正确读法。
+- **181 识图写回（熔断令前落定部分）**：目标 761 张（收藏 347 ∪ 图库 414 独有），已识别 591 写回 state/stickers.json（备份 .bak181）：收藏侧填 content/keywords 272 条，主人手写 localNote 与已有 content 共 15 条全跳过；图库侧新增 source=local 304 条（url 留空防当收藏表情误发；sync filter 保 non-qq 条目，reload 后 652 条存活复验 ✓）。缺口 184（收藏60/图库124，清单 .ops/gap-*.json，图库本地文件全在位不需重下载）。
+- **熔断令**：视觉 fan-out 烧穿主人余额，02:0x 主人令停线全交 codex。成本闸入交接：**单批（≤25张）≤¥0.8、单轮 ≤¥20、任何超限即停线上报**；续跑前须主人充值并点头。新规矩（主人钦定，机制侧 collectStickerV2 早已在用 add_custom_face，卡侧措辞归 codex）：以后她收图/拿图直接收进 QQ 表情包收藏，图库不再批量入库。
+- 未闭环移交：B站四条投诉大盘查（@缺失/评论腔/B站见闻不回流QQ/分享群空头支票）**一行没查**——排查子代理刚起步被熔断令掐停；双回合重复回复（00:41/00:44）仍排后；[表情原生178] 全链日志行仍待自然回合观测。
