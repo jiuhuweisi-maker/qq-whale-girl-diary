@@ -810,3 +810,11 @@ preset 第14/15条与现行 config.json 实证：SurfCore 带 collectSticker、s
 - **费用实数**：今日实际 2.68¥（qq 2.53+bili等0.15，token-usage-daily.json 实测）=正常带；昨日 8.064¥ 异常日照旧报备。
 - **157 仍未带载**：dsh web ActiveEnterTimestamp=10-31 20:48，今天没重启过，评分加成待其下次重启生效（数据层pin双行不受影响、已在位）。本机GUI端口变化=主人桌面端启动，与服务器dsh web无关联。
 - **新缺口（自查发现）**：11-06办证承诺是22:53主人开口——**说在155上线(00:19)之前**，st.promises里没登记（只有锚兜底），"三层保险"实际两层。补装已排23:25静默窗（schedule-55e9858b）：手动塞 promises{atMs=11-06 08:00}+立即重载桥。**教训入规**：桥内存态会随时落盘覆盖手改，凡手改 state/*.json 必须"改完秒重启用启动scan带载"，禁止改盘不重启裸等。
+
+**11-01 14:0x-14:2x 换班159（主人钦定"全自动"+20G盘利用）**
+- **成本真相**：低挡位=单价，会话肥度=量。今日实测 she 每步重放上下文中位 48.6 万 token（私聊会话峰值 67.8 万/步、群 48.7 万）——每回复一次=全价吞一遍整个下午。昨日同量级 token 花 8.06、今日 2.68，差异全在缓存命中率（miss 全价、hit 便宜）。会话 17 小时未换班，只增不减。
+- **官方通道考古**：dsh 原生有换班先例（10-24 留档 before-session-rotation×2，手动换目标会话id）。SurfCore 桥内 `retireSession()` 即官方正门：撤映射+轮token+`stopSessionWork`+`archiveSession` 远端归档——**旧档永久留盘**（胖会话档案仅 7.2M，20G 余量够存几年）；`bootstrapSent=false` 保证新会话首醒自带全套人格+记忆卡+锚+永不忘段=不失忆。10-24 集体失忆血案的"preset 清单未知绝不退役"铁律照抄进网。
+- **159 机制**：gauge 读 token-usage.jsonl 尾 240 行，按 key 取当前 sid 行的 `b.cacheHit` 峰值=每步上下文肥度。**只认在册 sid**（自查自伤 bug：换班后旧会话肥行残留会把新会话立刻再退役——sid 隔离护栏，实跑验证）。判定纯函数 `fatDecision159`（NETS 测试块内）：肥(默认≥250k/步)+闲(≥20min 无收发)+不忙(无在途/pending)+preset已知+6h 冷却+每 key 日 cap3。命中→retireSession→台账 rotate159.json→承诺定时器随 st 幸存并 re-arm（armPromise155 兜挂）。cfg.autoRotate159 可调 {enabled,ctxLimit,idleMin,cooldownMs,perDay}。3min 首扫+10min 周期，.unref。
+- **验证**：服务器 node --check ✓；七场景离线 harness ✓；本地套新增 159 用例（从 live-mirror 实提取 NETS 块 eval）=**32/32 PASS_ALL**。镜像同步时揪出**两个漏网路人 QQ 号**（10-23 问候试验田 33 开头、@示例 23 开头——不在原脱敏清单里！）已补替身占位，裸号归零。**脱敏清单永久扩充：路人甲/乙两个QQ号（真值只记在仓库外脱敏映射表）**。
+- **上线时点**：159 代码就位+验证毕，**随今晚 23:25 静默窗与 11-06 承诺定时器补装同一次重载生效**（现在主人在热聊，SOP 不动桥）。生效后预期当晚首班：私聊 678k 肥会话闲下来即换，新会话从 ~60k 起步，后续每步单价成本应现数量级下降；151/153/154/155 全不受影响。
+- 备份 bridge.js.bak159。

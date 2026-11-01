@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { createWhaleRuntime } from '../compat/runtime.mjs';
 let passed = 0;
 const check = async (name, fn) => { await fn(); console.log('PASS ' + name); passed++; };
@@ -94,5 +95,23 @@ await check('reconcileUncertain151 keeps blocking without proof and releases onl
   r = await f.w.reconcileUncertain151(async (key, atMs) => key === 'group:7001' && atMs > 0);
   assert.equal(r.cleared, 1); assert.equal(f.w.status().uncertain, 0);
   let n = 0; await f.w.send('group:7001', text('你好'), async () => ++n); assert.equal(n, 1); // 21:14 误拦场景自此放行
+});
+// 换班159（2026-11-01 主人钦定全自动换班）：从 live-mirror 提取 NETS 测试块实跑 fatDecision159 七场景。
+await check('fatDecision159 rotates only fat idle cooled sessions within daily caps', async () => {
+  const src = fs.readFileSync(new URL('../live-mirror/src/bridge.js', import.meta.url), 'utf8');
+  const m = src.match(/\/\*__NETS153_TESTABLE__\*\/([\s\S]*?)\/\*__NETS153_TESTABLE_END__\*\//);
+  assert.ok(m, 'NETS testable block must exist in mirror');
+  const fatDecision159 = new Function(m[1] + '; return fatDecision159;')();
+  const now = 1793600000000;
+  const L = { ctxLimit: 250000, idleMin: 20, cooldownMs: 21600000, perDay: 3, dayKey: '2026-11-01' };
+  const base = { ctx: 678000, idleMs: 25 * 60000, busy: false, presetKnown: true, rotAt: 0, day: '', count: 0, now, limits: L };
+  assert.ok(fatDecision159(base), 'fat idle preset-known must rotate');
+  assert.equal(fatDecision159({ ...base, busy: true }), null);
+  assert.equal(fatDecision159({ ...base, presetKnown: false }), null);
+  assert.equal(fatDecision159({ ...base, idleMs: 10 * 60000 }), null);
+  assert.equal(fatDecision159({ ...base, ctx: 120000 }), null);
+  assert.equal(fatDecision159({ ...base, rotAt: now - 3 * 3600000 }), null);
+  assert.equal(fatDecision159({ ...base, day: L.dayKey, count: 3 }), null);
+  assert.ok(fatDecision159({ ...base, day: '', count: 3 }), 'day rollover resets cap');
 });
 console.log('PASS_ALL ' + passed);

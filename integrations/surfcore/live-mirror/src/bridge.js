@@ -8635,6 +8635,15 @@ async function main() {
   function textOfSegments154(segments) {
     try { return (segments || []).filter((x) => x && x.type === 'text').map((x) => String((x.data && x.data.text) || '')).join(' ').trim(); } catch { return ''; }
   }
+  function fatDecision159(o) {
+    if (!o || o.busy || !o.presetKnown) return null;
+    const L = o.limits || {};
+    if (!(o.ctx >= (L.ctxLimit === undefined ? 250000 : L.ctxLimit))) return null;
+    if (!(o.idleMs >= (L.idleMin === undefined ? 20 : L.idleMin) * 60000)) return null;
+    if (o.rotAt && o.now - o.rotAt < (L.cooldownMs === undefined ? 21600000 : L.cooldownMs)) return null;
+    if (o.day === L.dayKey && (o.count || 0) >= (L.perDay === undefined ? 3 : L.perDay)) return null;
+    return '上下文 ' + Math.round((o.ctx || 0) / 1000) + 'k/步';
+  }
   /*__NETS153_TESTABLE_END__*/
   function addAnchor154155(st, text, autoTag) {
     const arr = (st.anchors ||= []);
@@ -8723,7 +8732,7 @@ async function main() {
   }
 
   // B站视频卡片：默认发 com.tencent.structmsg 新闻链接卡（普通分享卡，点开进 B站）。
-  // 为什么不再默认走小程序：QQ 侧 B站小程序（appid <B站小程序APPID>）已下架，点卡片提示
+  // 为什么不再默认走小程序：QQ 侧 B站小程序（appid <B站小程序appid>）已下架，点卡片提示
   // 「小程序已下架」，而 appid 写死在 SnowLuma 的 get_mini_app_ark 里，桥接改不了。
   // `share.cardMode = 'miniapp'` 仍可手动切回（确认小程序恢复后再说）。
   // 返回 true 表示至少有卡片发出去了，调用方就不用再让 AI 在正文里发链接。
@@ -11314,7 +11323,7 @@ async function main() {
   }
 
   // 好友列表缓存：QQ 对「非好友」的私聊一律 result=16（请先添加对方为好友）。
-  // 2026-10-23 实测：问候目标 <群友QQ号A> 根本不在好友列表 —— 提示词修好了、工具也调了，
+  // 2026-10-23 实测：问候目标 <路人甲QQ> 根本不在好友列表 —— 提示词修好了、工具也调了，
   // 仍然发不出去，而且只在日志里留一行。所以发之前先查一次，并把原因推给管理员。
   let friendListCache = { at: 0, ids: null };
   async function greetingFriendCheck(uin) {
@@ -11999,7 +12008,7 @@ async function main() {
       const sample = arr.slice(-30).map((m) => `${m.sender}：${m.text}`).join('\n');
       const promptText = '【主动搭话】你一直在群里潜水看大家聊天。结合下面最近的消息，挑一个你自己觉得有意思的点，主动说一句。\n'
         + '要求：用你自己的口吻（按人格卡），1~2 句，短、可爱；可以软软地轻微调侃，但不许刻薄、不许骂人。\n'
-        + '如果你想 @ 某个人，就把回复写成「@QQ号 内容」，例如「@<群友QQ号B> omm今天好安静呀」；'
+        + '如果你想 @ 某个人，就把回复写成「@QQ号 内容」，例如「@<路人乙QQ> omm今天好安静呀」；'
         + 'QQ 号从下面发送者名字后面的括号里查，不用 @ 就正常说。\n'
         + '不要解释，直接输出要说的话。\n\n'
         + `【最近的聊天】\n${sample}`;
@@ -15207,6 +15216,73 @@ async function main() {
   }, 10 * 60 * 1000).unref?.();
   // 155：桥重启后把未到期承诺重新上弦（promises 已随 152 同法持久化）
   for (const [keyP, stP] of socialV2.conversations) { if (stP.promises && stP.promises.length) armPromise155(keyP, stP); }
+  // ── 159：全自动换班（主人11-01钦定）。肥上下文=成本倍增器：每步重放整坨历史，
+  // cacheHit 就是每步被重新计费的上下文规模。它过阈值且她闲下来，就走官方
+  // retireSession 通道退役换班——旧会话由 dsh 归档留在盘上（一晚上换班也就几 MB，
+  // 20G 空余够存好几年），记忆卡/锚/承诺按 conversationKey 记账完全不受换班影响，
+  // 新会话首醒自带 bootstrap+卡=不失忆。护栏：preset 清单未知绝不退役（10-24 血案
+  // 同族）、忙时绝不退役、每 key 每日上限、换班冷却。cfg.autoRotate159 可配
+  // {enabled:false, ctxLimit, idleMin, cooldownMs, perDay}。
+  {
+    const ROT_FILE = path.join(STATE_DIR, 'rotate159.json');
+    let rot159 = {};
+    try { rot159 = JSON.parse(fs.readFileSync(ROT_FILE, 'utf8')) || {}; } catch (e) { rot159 = {}; }
+    const saveRot159 = () => {
+      try { fs.writeFileSync(ROT_FILE + '.tmp', JSON.stringify(rot159)); fs.renameSync(ROT_FILE + '.tmp', ROT_FILE); }
+      catch (e) { log('[换班159] 台账落盘失败:', e && e.message); }
+    };
+    const contextGauge159 = (limitRows) => {
+      const by = {};
+      try {
+        const lines = fs.readFileSync(TOKEN_USAGE_FILE, 'utf8').split('\n');
+        for (const ln of lines.slice(Math.max(0, lines.length - 1 - (limitRows || 240)))) {
+          if (!ln.trim()) continue;
+          let d = null; try { d = JSON.parse(ln); } catch (e) { continue; }
+          if (!d || d.k !== 'turn' || !d.key) continue;
+          // 159护栏：只算当前在册会话的行——换班后旧会话的肥行残留必须忽略，
+          // 否则开机首扫会拿旧账把新会话立刻再次退役（自伤循环）。
+          if (d.sid && state.sessions[d.key] && d.sid !== state.sessions[d.key]) continue;
+          const hit = Number(d.b && d.b.cacheHit) || 0;
+          const e = by[d.key] || (by[d.key] = { ctx: 0, lastAt: 0 });
+          if (hit > e.ctx) e.ctx = hit;
+          if ((d.t || 0) > e.lastAt) e.lastAt = d.t;
+        }
+      } catch (err) { return by; }
+      return by;
+    };
+    const scan159 = () => {
+      try {
+        if (cfg.autoRotate159 && cfg.autoRotate159.enabled === false) return;
+        if (dshPresetIds.length === 0) return;
+        const gauge = contextGauge159(240);
+        const now = Date.now();
+        const dayKey = new Date(now + 8 * 3600000).toISOString().slice(0, 10);
+        const busyLimits = Object.assign({ ctxLimit: 250000, idleMin: 20, cooldownMs: 21600000, perDay: 3, dayKey }, cfg.autoRotate159 || {});
+        for (const key of Object.keys(state.sessions)) {
+          const g = gauge[key];
+          if (!g || !g.ctx) continue;
+          const st = socialV2.conversations.get(key);
+          const idleMs = now - Math.max((st && st.lastIncomingAt) || 0, (st && st.lastAiReplyAt) || 0, g.lastAt || 0);
+          const busy = pending.has(key) || v2TurnStartAt.has(state.sessions[key]);
+          const rot = rot159[key] || {};
+          const decision = fatDecision159({ ctx: g.ctx, idleMs, busy, presetKnown: true, rotAt: rot.at, day: rot.day === dayKey ? rot.day : '', count: rot.day === dayKey ? rot.count : 0, now, limits: busyLimits });
+          if (!decision) continue;
+          log('[换班159] ' + key + ' ' + decision + '（阈值 ' + Math.round(busyLimits.ctxLimit / 1000) + 'k），已闲 ' + Math.round(idleMs / 60000) + ' 分钟 → 退役换班，旧档归档留盘');
+          try {
+            retireSession(key);
+            rot159[key] = { at: now, day: dayKey, count: (rot.day === dayKey ? (rot.count || 0) : 0) + 1, ctx: g.ctx };
+            saveRot159();
+            const st2 = socialV2.conversations.get(key);
+            if (st2 && st2.promises && st2.promises.length) armPromise155(key, st2);
+            log('[换班159] ' + key + ' 完成，下一条消息将开新会话并自带完整记忆卡');
+          } catch (e) { log('[换班159] 换班失败(不重试):', (e && e.message) || e); }
+        }
+      } catch (e) { log('[换班159] 扫描异常:', (e && e.message) || e); }
+    };
+    setTimeout(scan159, 3 * 60 * 1000).unref?.();
+    setInterval(scan159, 10 * 60 * 1000).unref?.();
+  }
+
   // 预热表情库：启动时同步一次 QQ 收藏表情，失败不阻塞（AI 首次调用工具时还会再试）。
   if (cfg.socialV2?.sticker?.enabled !== false) {
     syncStickerLibrary(true).catch((error) => log('启动预热表情库失败:', error?.message ?? error));
