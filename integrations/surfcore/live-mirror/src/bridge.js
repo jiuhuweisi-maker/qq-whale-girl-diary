@@ -15368,40 +15368,49 @@ async function main() {
     setInterval(scan159, 10 * 60 * 1000).unref?.();
   }
 
-  // ── 169：卡改了，回炉重装（主人11-01拍板"生效=立刻"的兑现补丁）──
-  // 人格/表达卡是会话开场一次性注入的（firstWake/bootstrapSent），中途改卡进行中的
-  // 会话看不见。这里盯卡的 mtime：变过就退役对应会话，下一条消息自动带全新完整卡。
-  // 私聊线直接换；群线只在不在热聊（pending 无、无进行回合）时才换，热聊先记账等冷却后自然换。
+  // ── 169v177：卡改了，回炉重装（每线独立版本账本版）。
+  //    169 初版盯全局 mtime：群忙不清基线会让私聊被反复退役（176 引入的连锁），
+  //    清基线又会让群线永久漏新卡（169 原始洞）；桥停机窗口改卡重启后也看不见。
+  //    177：每条线自己记"我消费过哪个 mtime"，账本持久在 state/card169.json——
+  //    退役只打自己那行、桥重启不丢账、待首发的线下一发本就现读新卡直接对账不空退役。──
   try {
     const personaWatch169 = cfg.whaleCompat && cfg.whaleCompat.personaFile;
     if (personaWatch169) {
-      let cardMtime169 = 0;
-      try { cardMtime169 = fs.statSync(personaWatch169).mtimeMs; } catch { cardMtime169 = 0; }
+      const CARD_SEEN_FILE177 = new URL('../state/card169.json', import.meta.url).pathname;
+      let cardConsumed177 = {};
+      try { cardConsumed177 = JSON.parse(fs.readFileSync(CARD_SEEN_FILE177, 'utf8')) || {}; } catch { cardConsumed177 = {}; }
+      let bootMtime177 = 0;
+      try { bootMtime177 = fs.statSync(personaWatch169).mtimeMs; } catch {}
+      const persistConsumed177 = () => { try { fs.writeFileSync(CARD_SEEN_FILE177, JSON.stringify(cardConsumed177)); } catch { /* 记账失败下轮重来 */ } };
+      let init177 = false;
+      for (const key of Object.keys(state.sessions || {})) {
+        if (!(key in cardConsumed177)) { cardConsumed177[key] = bootMtime177; init177 = true; } // 无账线：当前版视为已消费，防开机误炸
+      }
+      if (init177) persistConsumed177();
       setInterval(() => {
         try {
           const now = fs.statSync(personaWatch169).mtimeMs;
-          if (!now || now <= cardMtime169) return;
-          let retry176 = false; // 忙线不清基线，下一轮继续试（176：防热聊撞改卡，群线永久漏新卡）
+          if (!now) return;
+          let dirty177 = false;
           for (const key of Object.keys(state.sessions || {})) {
+            if (!(key in cardConsumed177)) { cardConsumed177[key] = now; dirty177 = true; continue; } // 白天的新线：firstWake 天生带的就是当前卡，免役记账
+            if (now <= (cardConsumed177[key] || 0)) continue; // 本线已吃过这版卡
             const st169 = socialV2.conversations.get(key);
-            if (!st169 || st169.bootstrapSent !== true) continue;
-            if (key.startsWith('private:')) {
-              retireSession(key);
-              log(`[卡169] 私聊线已换新卡重载 ${key}`);
-              continue;
-            }
+            if (!st169 || st169.bootstrapSent !== true) { cardConsumed177[key] = now; dirty177 = true; continue; } // 下发本就现读新卡，不用回炉
             const busyNow169 = pending.has(key) || (v2TurnStartAt && v2TurnStartAt.has(state.sessions[key]));
-            if (!busyNow169) {
+            if (key.startsWith('private:') || !busyNow169) {
               retireSession(key);
-              log(`[卡169] 群线空闲，已换新卡重载 ${key}`);
+              cardConsumed177[key] = now;
+              dirty177 = true;
+              log(`[卡169v177] ${key.startsWith('private:') ? '私聊' : '群'}线已换新卡重载 ${key}`);
             } else {
-              retry176 = true;
-              log(`[卡169] 群线热聊中，基线不清，下轮继续安排回炉 ${key}`);
+              log(`[卡169v177] 群线热聊中，这版卡先欠着，空了就安排 ${key}`);
             }
           }
-          if (!retry176) cardMtime169 = now;
+          if (dirty177) persistConsumed177();
         } catch (e169) { log(`[卡169] 巡检异常：${e169 && e169.message}`); }
       }, 60 * 1000);
+      log('[卡169v177] 巡岗就绪（每线独立版本账本，card169.json 持久，桥重启不丢账）');
     }
   } catch (e169) { log(`[卡169] 装载失败：${e169 && e169.message}`); }
 
