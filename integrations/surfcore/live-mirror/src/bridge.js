@@ -11323,7 +11323,7 @@ async function main() {
   }
 
   // 好友列表缓存：QQ 对「非好友」的私聊一律 result=16（请先添加对方为好友）。
-  // 2026-10-23 实测：问候目标 <路人甲QQ> 根本不在好友列表 —— 提示词修好了、工具也调了，
+  // 2026-10-23 实测：问候目标 路人甲QQ 根本不在好友列表 —— 提示词修好了、工具也调了，
   // 仍然发不出去，而且只在日志里留一行。所以发之前先查一次，并把原因推给管理员。
   let friendListCache = { at: 0, ids: null };
   async function greetingFriendCheck(uin) {
@@ -12008,7 +12008,7 @@ async function main() {
       const sample = arr.slice(-30).map((m) => `${m.sender}：${m.text}`).join('\n');
       const promptText = '【主动搭话】你一直在群里潜水看大家聊天。结合下面最近的消息，挑一个你自己觉得有意思的点，主动说一句。\n'
         + '要求：用你自己的口吻（按人格卡），1~2 句，短、可爱；可以软软地轻微调侃，但不许刻薄、不许骂人。\n'
-        + '如果你想 @ 某个人，就把回复写成「@QQ号 内容」，例如「@<路人乙QQ> omm今天好安静呀」；'
+        + '如果你想 @ 某个人，就把回复写成「@QQ号 内容」，例如「@路人乙QQ omm今天好安静呀」；'
         + 'QQ 号从下面发送者名字后面的括号里查，不用 @ 就正常说。\n'
         + '不要解释，直接输出要说的话。\n\n'
         + `【最近的聊天】\n${sample}`;
@@ -15282,6 +15282,41 @@ async function main() {
     setTimeout(scan159, 3 * 60 * 1000).unref?.();
     setInterval(scan159, 10 * 60 * 1000).unref?.();
   }
+
+  // ── 169：卡改了，回炉重装（主人11-01拍板"生效=立刻"的兑现补丁）──
+  // 人格/表达卡是会话开场一次性注入的（firstWake/bootstrapSent），中途改卡进行中的
+  // 会话看不见。这里盯卡的 mtime：变过就退役对应会话，下一条消息自动带全新完整卡。
+  // 私聊线直接换；群线只在不在热聊（pending 无、无进行回合）时才换，热聊先记账等冷却后自然换。
+  try {
+    const personaWatch169 = cfg.whaleCompat && cfg.whaleCompat.personaFile;
+    if (personaWatch169) {
+      let cardMtime169 = 0;
+      try { cardMtime169 = fs.statSync(personaWatch169).mtimeMs; } catch { cardMtime169 = 0; }
+      setInterval(() => {
+        try {
+          const now = fs.statSync(personaWatch169).mtimeMs;
+          if (!now || now <= cardMtime169) return;
+          cardMtime169 = now;
+          for (const key of Object.keys(state.sessions || {})) {
+            const st169 = socialV2.conversations.get(key);
+            if (!st169 || st169.bootstrapSent !== true) continue;
+            if (key.startsWith('private:')) {
+              retireSession(key);
+              log(`[卡169] 私聊线已换新卡重载 ${key}`);
+              continue;
+            }
+            const busyNow169 = pending.has(key) || (v2TurnStartAt && v2TurnStartAt.has(state.sessions[key]));
+            if (!busyNow169) {
+              retireSession(key);
+              log(`[卡169] 群线空闲，已换新卡重载 ${key}`);
+            } else {
+              log(`[卡169] 群线热聊中，下轮冷却后自然重载 ${key}`);
+            }
+          }
+        } catch (e169) { log(`[卡169] 巡检异常：${e169 && e169.message}`); }
+      }, 60 * 1000);
+    }
+  } catch (e169) { log(`[卡169] 装载失败：${e169 && e169.message}`); }
 
   // 预热表情库：启动时同步一次 QQ 收藏表情，失败不阻塞（AI 首次调用工具时还会再试）。
   if (cfg.socialV2?.sticker?.enabled !== false) {
