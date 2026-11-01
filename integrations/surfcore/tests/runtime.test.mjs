@@ -113,5 +113,8 @@ await check('fatDecision159 rotates only fat idle cooled sessions within daily c
   assert.equal(fatDecision159({ ...base, rotAt: now - 3 * 3600000 }), null);
   assert.equal(fatDecision159({ ...base, day: L.dayKey, count: 3 }), null);
   assert.ok(fatDecision159({ ...base, day: '', count: 3 }), 'day rollover resets cap');
+  const L2 = { idleMin: 20, cooldownMs: 21600000, perDay: 3, dayKey: '2026-11-01' };
+  assert.ok(fatDecision159({ ...base, ctx: 200000, limits: L2 }), 'defaults the 150k threshold');
+  assert.equal(fatDecision159({ ...base, ctx: 100000, limits: L2 }), null, 'default 150k spares lean sessions');
 });
 console.log('PASS_ALL ' + passed);

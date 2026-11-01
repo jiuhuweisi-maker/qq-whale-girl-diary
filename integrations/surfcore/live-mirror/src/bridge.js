@@ -8638,7 +8638,7 @@ async function main() {
   function fatDecision159(o) {
     if (!o || o.busy || !o.presetKnown) return null;
     const L = o.limits || {};
-    if (!(o.ctx >= (L.ctxLimit === undefined ? 250000 : L.ctxLimit))) return null;
+    if (!(o.ctx >= (L.ctxLimit === undefined ? 150000 : L.ctxLimit))) return null;
     if (!(o.idleMs >= (L.idleMin === undefined ? 20 : L.idleMin) * 60000)) return null;
     if (o.rotAt && o.now - o.rotAt < (L.cooldownMs === undefined ? 21600000 : L.cooldownMs)) return null;
     if (o.day === L.dayKey && (o.count || 0) >= (L.perDay === undefined ? 3 : L.perDay)) return null;
@@ -15257,7 +15257,7 @@ async function main() {
         const gauge = contextGauge159(240);
         const now = Date.now();
         const dayKey = new Date(now + 8 * 3600000).toISOString().slice(0, 10);
-        const busyLimits = Object.assign({ ctxLimit: 250000, idleMin: 20, cooldownMs: 21600000, perDay: 3, dayKey }, cfg.autoRotate159 || {});
+        const busyLimits = Object.assign({ ctxLimit: 150000, idleMin: 20, cooldownMs: 21600000, perDay: 3, dayKey }, cfg.autoRotate159 || {});
         for (const key of Object.keys(state.sessions)) {
           const g = gauge[key];
           if (!g || !g.ctx) continue;
