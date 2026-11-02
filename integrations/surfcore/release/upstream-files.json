@@ -1,0 +1,1394 @@
+[
+  {
+    "file": "src/admin-identity.js",
+    "sha256": "9c679527c457c26f9daca8ce09827e6745143e59927b64311f553ad0dfba490e"
+  },
+  {
+    "file": "src/bili-api.js",
+    "sha256": "d5cc93a9887f3d4e5be37eb64ae99939c4051bbfefed0df1406d4ee6a6ccdce7"
+  },
+  {
+    "file": "src/bili-card.js",
+    "sha256": "c4dc79df7c58cf31c5beae9799efe53114a52c21cb7ccd57d3d7d404ffb05077"
+  },
+  {
+    "file": "src/bili-dynamics.js",
+    "sha256": "a9583e177490bb010aaa652a86fa3129e7be30ca072b7cb52bd002dc03a4a7dd"
+  },
+  {
+    "file": "src/bili-memory.js",
+    "sha256": "7152ef52504b3052d77b47a4e14259969b6b996f65b3168cd6f3e19746e750be"
+  },
+  {
+    "file": "src/bili-share-scheduler.js",
+    "sha256": "c0d6941c7b5fa6db5e96be6ae8f17bf4d95b6e85830d3132d75a15b5efc43a56"
+  },
+  {
+    "file": "src/bridge.js",
+    "sha256": "0b08bbb15230718d3005f42aa4dfff7d261b87112aae20a1c0ebf755cb451311"
+  },
+  {
+    "file": "src/character-persona.js",
+    "sha256": "aedfc943807f8d355a87ff2e3f8ffc72ddddb77bfac2f48e21d4ccc7e8eb6f32"
+  },
+  {
+    "file": "src/conversation-closure.js",
+    "sha256": "6a9cc2efc6d6b14fad4670225cb01fb3145ac0cb730ac3516734830eea830e73"
+  },
+  {
+    "file": "src/dsh-client.js",
+    "sha256": "486abc011901f9c1f48828182270c109a37e00f70d8327b952f921d52d3ff78f"
+  },
+  {
+    "file": "src/dsh-port.js",
+    "sha256": "60bdd24a575df85e4d0b8a79470c52d298463d930728567d04ca95f9787bc995"
+  },
+  {
+    "file": "src/fish-guard.js",
+    "sha256": "07523b5dfd17640b49e39d2b3c591c7364fe1a70a25e939fe7951c3144573d75"
+  },
+  {
+    "file": "src/forward.js",
+    "sha256": "4cea21026b69a4fabe2bcefbd5c1576941916bfe1564866060cf23b597ea1fde"
+  },
+  {
+    "file": "src/greeting-schedule.js",
+    "sha256": "226a358b157a6d233935e81e852229876253222f6bdd33ad817865db4c2d2702"
+  },
+  {
+    "file": "src/history-catchup.js",
+    "sha256": "2772d8442979610a5ad7e91ff155f5a71058ba486385dd5bc8ad0387598ecd2c"
+  },
+  {
+    "file": "src/identity-guard.js",
+    "sha256": "02d09b24d16ece535e02ec1cbfd21b258618cf734c22e2e9e0197462eacdce91"
+  },
+  {
+    "file": "src/mcp-host-server.js",
+    "sha256": "6f5822885cfd838fa220b87339fb78fde68830223ade2f9f0107718cd2504919"
+  },
+  {
+    "file": "src/mcp-snowluma-safe.js",
+    "sha256": "ffcf934eadce8bb984483802f991486f9e58ea3e377889439ee3b872114b45ad"
+  },
+  {
+    "file": "src/mcp-web-search-safe.js",
+    "sha256": "3b3d442e599b51bcbe35ea83f8bf85e2f55212ed3582a3b5a2a948ff017c70c6"
+  },
+  {
+    "file": "src/md-to-plain.js",
+    "sha256": "45b929e680473b99a66ba4957582e43601b3a2b2eb33f5b67fafd6d9c01089ee"
+  },
+  {
+    "file": "src/memory-card.js",
+    "sha256": "6f1d5d1239f78f4615353481da03daceae633f33cef7e342332bdcbc53a464e2"
+  },
+  {
+    "file": "src/model-prices.js",
+    "sha256": "06d717cff7967f54b93077d3e631d656466c5df72fce083212fab44ab7e6e91b"
+  },
+  {
+    "file": "src/preset-prompt.js",
+    "sha256": "68c548bfee805359881ccc3996fdfc5704c4a9db657e073811f1ffcb604434ae"
+  },
+  {
+    "file": "src/purpose-engine.js",
+    "sha256": "0b2f4554949671aa8bd787639856a83e161cf7fb6316e588b5c781f047c6dcf8"
+  },
+  {
+    "file": "src/qq-model-view.js",
+    "sha256": "60cf9fbd1aa1b85c90885efd66c72f9c23fd663c4d7b7ff509bc494a151072b9"
+  },
+  {
+    "file": "src/role-card.js",
+    "sha256": "cc24ccd4a6fcc8326ff5138f0f0e1df76e20fffc8dbec545f122da49afd38627"
+  },
+  {
+    "file": "src/safe-fetch.js",
+    "sha256": "8f39ee9761542b24a6d809384cd87e42297b7c6e7b7c7275cb44e1695b4b3e9d"
+  },
+  {
+    "file": "src/self-identity.js",
+    "sha256": "c28ff3661b2ad1b46f3b66c5f8f3f5e33013d3fca09642e013f2da38e36f0f4f"
+  },
+  {
+    "file": "src/self-test.js",
+    "sha256": "6fc5f2201d43050e0c59de0597b6526e78a3b7e77a1d79f9a7485d0a3829c770"
+  },
+  {
+    "file": "src/send-voice-lib.js",
+    "sha256": "bb9e20187644fc6b816b015a39a56122d515cf1e949c55569b68034da2627da1"
+  },
+  {
+    "file": "src/sensitive.js",
+    "sha256": "5b995729e191a33e89aa41028ab6aa3c7598dffe0aaa1081c326af4dff1ebe1e"
+  },
+  {
+    "file": "src/share-mode.js",
+    "sha256": "70bf32a8d8d1423dd3e9386df34d8d787f89307fb9af89dcf7d086c94c67dd72"
+  },
+  {
+    "file": "src/slang-learner.js",
+    "sha256": "8d51fa76144f068c8299112a10642d5e840615a56992e786c8696e9e1b296b60"
+  },
+  {
+    "file": "src/snowluma-conn.js",
+    "sha256": "30e2332763c35c7af892bb7d9406bf4c6bb62d343ce4101c6a4fe4e053183432"
+  },
+  {
+    "file": "src/state-acl.mjs",
+    "sha256": "37259cb0d5d59906f664bfb28c2ce85e628cd486f4489506ffff4b22efa40437"
+  },
+  {
+    "file": "src/sticker-lib.js",
+    "sha256": "028ed8f0bc17ac3420b6b3511a5e5837c4d1e74097af8c88ae96e5bf64af6689"
+  },
+  {
+    "file": "src/sticker-semantics.js",
+    "sha256": "7130347bffae637d24f151ec19fa4592fb9a10625153085755d831d002a5511b"
+  },
+  {
+    "file": "src/token-budget.js",
+    "sha256": "fbaf0e1358c842a00909ee7169539cc844dda96cc07d0203e37836425ab9aa7a"
+  },
+  {
+    "file": "src/token-guard.js",
+    "sha256": "531ce4923f891637e06b7f82ec827048741129650da513a6322ea85407e62e7e"
+  },
+  {
+    "file": "src/token-ledger.js",
+    "sha256": "90e3de30335d56d73a1ae6dffac7079b3d87d0eaeeaca68c28b121074f87d2e2"
+  },
+  {
+    "file": "src/v2-wait.js",
+    "sha256": "88eef2d2f240e93ceb865fc9fc78d480df2219fafbd72b4e5a6f7ae1e5c8ed36"
+  },
+  {
+    "file": "src/voice-core.js",
+    "sha256": "8bc41fb3a430e4740e6344dda609d90e6131ae120651b062386f67acf8146cf1"
+  },
+  {
+    "file": "src/voice-packs.js",
+    "sha256": "8e4cf7df387f895e6421d4572c6b9480ca2942b822dc4b2e9cdaaf52546430c6"
+  },
+  {
+    "file": "src/voice-tts.js",
+    "sha256": "cbecd6777648dea9f2364bd8b0398b200ff3e864313a0e1bdf68445033fc6b34"
+  },
+  {
+    "file": "src/web-search.js",
+    "sha256": "00d940305c9d9c7667d1fa528c00f416b362ee01f8771e00a6e32de7f7ce8575"
+  },
+  {
+    "file": "plugins/surfcore/cordis.patch.yml",
+    "sha256": "56e7a1620501155cb004c9dcd43f50b074bf2cd0742c607bfbbbeeaae47b1c0c"
+  },
+  {
+    "file": "plugins/surfcore/extensions/bili-live/index.js",
+    "sha256": "de16919464c37db34adbd9a28fedd9765ddb6b79c7877b2ab34530a1983bba7b"
+  },
+  {
+    "file": "plugins/surfcore/extensions/bili-live/manifest.json",
+    "sha256": "711288a8c11dd3a5661be1b182c945196e03101a7806261b74db4095e5ea83b4"
+  },
+  {
+    "file": "plugins/surfcore/extensions/sts2/index.js",
+    "sha256": "8bfba5a3d213dfcae8e8946f2b74a6b1e2afd982352dc875e42e08a2c2e1bcfd"
+  },
+  {
+    "file": "plugins/surfcore/extensions/sts2/manifest.json",
+    "sha256": "907668d979fb19d224b6fe3036a25b655ab792884104e3bf87dcf7803c0e4274"
+  },
+  {
+    "file": "plugins/surfcore/lib/align.js",
+    "sha256": "a831b2330b896df196fdfd971e6c453e4e57b02dbf7e8c240fd78924a0c3603b"
+  },
+  {
+    "file": "plugins/surfcore/lib/automation.js",
+    "sha256": "4c40546af45a257496b4a9f97ca4316c9e52836f8609666e704c44ee4b5b2e74"
+  },
+  {
+    "file": "plugins/surfcore/lib/bili-qr-login.mjs",
+    "sha256": "85a2598cc10e5747238bc79fbe7dccfeaf82a7e194b8a2bedb509d6da9e9cb4a"
+  },
+  {
+    "file": "plugins/surfcore/lib/bridge.js",
+    "sha256": "854f7b471bac49b7dbac1a19d82a8cd2f4f844e4fc5b523be1ebb8c5858e6739"
+  },
+  {
+    "file": "plugins/surfcore/lib/characters.js",
+    "sha256": "25f0d20a51c92201bfe828d455268dc2e8228193726c27305a8bf9e7f1adde9b"
+  },
+  {
+    "file": "plugins/surfcore/lib/client.js",
+    "sha256": "189c6e3ba3c7c4dd51a35c141fb65ca465c61058724c851341503a4c37073d95"
+  },
+  {
+    "file": "plugins/surfcore/lib/doctor.js",
+    "sha256": "929b00994fb0d351213a59a607838bd2fd1e8dcd6002decbac1983579c2ff13e"
+  },
+  {
+    "file": "plugins/surfcore/lib/extensions.js",
+    "sha256": "8c6e90e3e6176897c9043e674a406839f7d7d16b6e2c5d624912de9cc02ce391"
+  },
+  {
+    "file": "plugins/surfcore/lib/http-guard.js",
+    "sha256": "aaf260b93b0e4e58fc69a22e59cad635bcae260f3fb96aa6d17980d55f86bf86"
+  },
+  {
+    "file": "plugins/surfcore/lib/index.js",
+    "sha256": "a5d841133357b0e53e0c5c514c5801daed0f134f7216a92f105fded6a338ba87"
+  },
+  {
+    "file": "plugins/surfcore/lib/memory-card.js",
+    "sha256": "bb8089d6635c54a810290fa6cb093177f946d9a93f35591b168da324a8624e74"
+  },
+  {
+    "file": "plugins/surfcore/lib/memory.js",
+    "sha256": "ac0631e714a614d5b4f8d6fdae3a94b4b89163cbe078f98d0506f1ed5b85ebeb"
+  },
+  {
+    "file": "plugins/surfcore/lib/paths.js",
+    "sha256": "cdbf74c9ecb8265b97741051c89bc1330c7d42281a652a07480d481795d1ea7d"
+  },
+  {
+    "file": "plugins/surfcore/lib/persona.js",
+    "sha256": "a48ef4b5bea5b77ac7babd293d321190b9651c8de0b1d51467c34daeea19a8dc"
+  },
+  {
+    "file": "plugins/surfcore/lib/pet-api.js",
+    "sha256": "1c3ef6ab8331d3ed3774af9c118ec73d1b6cfe9d6982f5fdfa85969909a84379"
+  },
+  {
+    "file": "plugins/surfcore/lib/pet-chat.js",
+    "sha256": "b1a820567632336accdd7ed17b912e213cf27d8008467bcaa9ceed3b313061fc"
+  },
+  {
+    "file": "plugins/surfcore/lib/pet-purpose.js",
+    "sha256": "7503875ff3e573b5c2c55783e354c6175cd1e5393083bc67f233a808322b2630"
+  },
+  {
+    "file": "plugins/surfcore/lib/pet.js",
+    "sha256": "432358654468848aab5c7f06b83017204714bb9f3fd9834e68443ffdbcd9fd02"
+  },
+  {
+    "file": "plugins/surfcore/lib/platforms.js",
+    "sha256": "ce89c0c821b237954ebd8aac502a04e1916d31d5d071f53b9436825f4a44b692"
+  },
+  {
+    "file": "plugins/surfcore/lib/privacy.js",
+    "sha256": "4d982476df0b104e4ef9884f1bcae121795dcf4bdca7a288788ed0ee16c880d8"
+  },
+  {
+    "file": "plugins/surfcore/lib/qq-fish-guard.js",
+    "sha256": "4c37db4f212ac0eeeda7dd04bcbcd28128c05d901eb887457b2fdd632a3a4cfd"
+  },
+  {
+    "file": "plugins/surfcore/lib/qq-mode.js",
+    "sha256": "6538c105a2f83b2184835e026e2dc877ae11b67620406b34842129a3f4efaf56"
+  },
+  {
+    "file": "plugins/surfcore/lib/scheduler.js",
+    "sha256": "c151b71e76860d27307ed557340d7e700122a427d66733388ca70d963888e858"
+  },
+  {
+    "file": "plugins/surfcore/lib/store.js",
+    "sha256": "f476f5ef633384fee50cc53a1bc66ce2cb2558687cc73840f7d9e9a37f0c5e05"
+  },
+  {
+    "file": "plugins/surfcore/lib/token-budget.js",
+    "sha256": "94ce9b564d1e41b0089b220295b18422a29238703cb5f5f3acadaa4b2e8cd74b"
+  },
+  {
+    "file": "plugins/surfcore/lib/token-usage-pure.js",
+    "sha256": "e0a2f63ca545485d17295926739c933315c60c774a44991d78b969f2080dc567"
+  },
+  {
+    "file": "plugins/surfcore/lib/updates.js",
+    "sha256": "f6180a3da4bfb33bc6c8b623ca96c6c56c845b16197f735afa47e59a32e2512b"
+  },
+  {
+    "file": "plugins/surfcore/lib/voice-health.js",
+    "sha256": "34ce2f6091bd1b3a8a5f3352cff85c0a17eaa82decc37580a000e7cdc48753b4"
+  },
+  {
+    "file": "plugins/surfcore/locale/en.json",
+    "sha256": "0bd070e7bca89970bb44d597b7477377f873b6ee171e0b077e73e6b63cf715fe"
+  },
+  {
+    "file": "plugins/surfcore/locale/zh.json",
+    "sha256": "c486b2bb88a5eb6febf7da54fa3d09681bd2afc48aab23b08c1b4d9042bc8b57"
+  },
+  {
+    "file": "plugins/surfcore/package.json",
+    "sha256": "0eda227bca21e25126c270d6d9dcfb65fa344a3c7993b71ab3beee1580c12615"
+  },
+  {
+    "file": "plugins/surfcore/platforms/tieba/manifest.json",
+    "sha256": "6f0364282c6cc5c881ae0075c17af68623adf0e73377a5d2e0b7e8921a939c7c"
+  },
+  {
+    "file": "plugins/surfcore/presets/qq-chat-v2.patch.yml",
+    "sha256": "7975f79cf0604495151cdfb2da8e6a66c97ae40f114bd5608fafca00bf681554"
+  },
+  {
+    "file": "plugins/surfcore/presets/qq-chat.patch.yml",
+    "sha256": "43fe95af8911eefe0313f4276c05c69f8102df5d51988abdf9f243c88b57febf"
+  },
+  {
+    "file": "plugins/surfcore/qq-tool-restrict.mjs",
+    "sha256": "1715b13d59c7ee90ae97be4579140f87dbe87ab3701727d347678c49ba998153"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-admin-bili-prompt.mjs",
+    "sha256": "e592637d04104bfb3a8e306d7657d9fa8f4518dfc16ed0d71840a808dd6d7994"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-admin-config-api.mjs",
+    "sha256": "50ae0e181eb393c9eecc66e45502fd36b60135dd36228bc91e7b49fcade2556f"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-align-label-api.mjs",
+    "sha256": "a50a27464a5ecfdaa56249dddb2538c1e572103e064d19bfb452f437985de14f"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-align.mjs",
+    "sha256": "c678bbbf5afd1cf125c2471b9c5dcd24e521e6c6459a419d878224ca7232f5a4"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-automation-config-api.mjs",
+    "sha256": "de4437fcb7d4085adbb117d24c2cdc5e49c889221a1c0644cf01dca387db4d2a"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-bili-automation.mjs",
+    "sha256": "17fbc5866583ad1858b31c2198eb71de51bae00666041c238cba635d3a038925"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-bridge-status.mjs",
+    "sha256": "3183ea7a90acea2b45d613d08b1f7217be515a080e84446684c903355e59f088"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-character-api.mjs",
+    "sha256": "ec49f43f960028d63ac4a23ddfcd134e55820ef1f2c3eca68e1540c0f02d0681"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-client-contract.mjs",
+    "sha256": "529bc2bc549eece57929c2947aa28e6f4ef1c14f57f9ceb865f7df6c422ad290"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-doctor.mjs",
+    "sha256": "5695c0e54b8e7cf5d64e64d97dbdfe538cded1a5447ea59376ce6fc6910efa76"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-host-smoke.mjs",
+    "sha256": "be5f408c153419ba26fa42821ba3c1a1fae98bf1049a38ac242d6fe0a7b85e79"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-http-guard.mjs",
+    "sha256": "18d3cf84f0c22c3b7d2e38b8404533c65427100c70fe142cc5cfae284987a7d8"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-kind-signals.mjs",
+    "sha256": "5eceba1abab66559e80019bb3aad8d67c2b008919f0bee5c1264094a6dd22078"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-memory-card-api.mjs",
+    "sha256": "d89f3d13b1e863ef4bc901d35a2ff2db3a7c192b90b7ad66b0287e6f72e8d210"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-msgfeed-oid.mjs",
+    "sha256": "85a0a89cefb8b680c4009ad2c2ffb80afcf26614e7f1631022ade44a2a3df59b"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-persona.mjs",
+    "sha256": "378597f134875c9d27eb22073b685474e96696d13accc16a39cc0e5fbde4ad63"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-pet-api.mjs",
+    "sha256": "903979316c7ca6eaefaf58beb26bdb92d5bdfd480e2a23252fd1258ebae5184c"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-pet-chat.mjs",
+    "sha256": "cb0ec4f3d0a524c24b2979cd8e75e1311e66d7f736acec4628e65b6abc07a7e4"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-pet-dir-guard.mjs",
+    "sha256": "0d30c2839eca36381a0a779aa8634a64ead919a25e7d53d4fc44544d5d1364c7"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-pet-install-guards.mjs",
+    "sha256": "06a074c0c279e095d3f90afdb244af567e76b7e4a6bbbe8c1722e56d50c5d247"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-pet-uninstall-keep.mjs",
+    "sha256": "fcfc6e92f41327cd97427e734ea7ea7150f74241ff62e8816221964e10589036"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-pet-update.mjs",
+    "sha256": "5062b8b08d1c2fb496a68d7b319d5ed86a27531b60319dc495c49433a83f81e6"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-platform-start-host.mjs",
+    "sha256": "5ced4750807840ea449ceb79160f96504c349cd422537bda27d2a9e072121415"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-privacy.mjs",
+    "sha256": "227f618f6c1c891262ad3785c911f1d43fef6d66dd4952f8345d3a924ed7c0f8"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-store.mjs",
+    "sha256": "eb01d67194d60e7b9813d926c78d7505df73aa015b390c1e9fd51ac6a53d9180"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-ui-contrast.mjs",
+    "sha256": "680d37d76bb6aa0aa46bb0349b4ff10ae0dfeb09771ef9bf9229a390968cd43b"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-update-helper-env.mjs",
+    "sha256": "4d4a3493c46635ee74cad92bf9cbf495f2615829c32c61fd0c9854c40748d8f4"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-updates-pending.mjs",
+    "sha256": "224a7e5deacb284568e0d80d85c089a4012891194033499ddea1bfa0bd1d7fd2"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-updates-version.mjs",
+    "sha256": "1a2f6a25d2c51e994ff649d5a27fa6326dc3d7195857c169823aa9a2b3146785"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-updates-voice.mjs",
+    "sha256": "1eff8018e4ae55e952f708aad111d44b297a8d4e4c7ab1b594937c9eed6c153a"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-updates.mjs",
+    "sha256": "ec49af35dc4efd9089b0bcf1ce4ceb0dd22683a1cb1374d2965fb8f3bc41316b"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-voice-flatten.mjs",
+    "sha256": "b60f08ab32f25d6973f4dec7138a951dd4adf075832d466f035f3d6d1dd0a5c2"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-voice-health.mjs",
+    "sha256": "dbe63b8cdb7409d35079d9211d21c9ef72d583ddfdf1a1769436980b7449a8cb"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-voice-progress-instance.mjs",
+    "sha256": "e9f0116d1a35a6eab7e307d789c0146c49d9e6d6665622ff3efe6517dac0681a"
+  },
+  {
+    "file": "plugins/surfcore/scripts/ui-inspect.mjs",
+    "sha256": "ac3724832de8f87e9313cc942c6db7bd2c7d699e046b3f8aac2d695e46fd50b4"
+  },
+  {
+    "file": "plugins/surfcore/scripts/ui-purpose.mjs",
+    "sha256": "f833c4c7840b8b646cdc0769b4c953c9c4985b41ac28096fcb7ef275f5d673d1"
+  },
+  {
+    "file": "plugins/surfcore/scripts/ui-settings-editable.mjs",
+    "sha256": "8449bcc9652b7a552bc809e66a3a90bd8954659a6a011843c78736361294b138"
+  },
+  {
+    "file": "plugins/surfcore/scripts/ui-share-shot.mjs",
+    "sha256": "dfa4199265946cc8b6ce875f6e2446bdcbc12272eb1b061bfc5f7505866c628b"
+  },
+  {
+    "file": "plugins/surfcore/scripts/ui-shot.mjs",
+    "sha256": "76d70cdb69fcd7269a6a0fe406eee73a5d04154974e5f986147c231f6c28c924"
+  },
+  {
+    "file": "plugins/surfcore/scripts/ui-tabs.mjs",
+    "sha256": "a62253391220b95567bcd9a63485427f37853e73877dab8ed52aa94f15fb2a8b"
+  },
+  {
+    "file": "plugins/surfcore/tools/bili.mjs",
+    "sha256": "5a35cdd72c3754e3f84a8c45d1e5623ae6e5315ce34f36ba06bf0b02c5e3a59b"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/attack.mjs",
+    "sha256": "61a613dd30967815749eb051ebba7bae051ad2fd81174a73ee18b3fcd14d4796"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/bili-watch.mjs",
+    "sha256": "bedc1d7b2c0147d8dd20da916a4ab1743ecf8ab7db3242ee5ff4653a2bc324ce"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/comment-await.mjs",
+    "sha256": "590f39f0dcd86d84f0f0c37d86468639c17562c086b480609661938d7a6d0d81"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/comment-del.mjs",
+    "sha256": "963aa56cd07940238ed3b2ce60f5af82af649ee8d54dafa087291c3f61965053"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/comment-digest.mjs",
+    "sha256": "ffc036e5f2bf13e5d09f9a3e64efbbbcc831800ad5cc534d911e1f6cb6249e06"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/comment.mjs",
+    "sha256": "c3cd50fb4b2613e261647c2c5920fcbcc8b8b7caa6f3b9723ca0e3ae9427f9d1"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/daily.mjs",
+    "sha256": "0e1647424ab347f0ddb0ff468b7c78ab809a43ce78daa859a8540d156a6511e2"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/danmaku-await.mjs",
+    "sha256": "0e01212945c5ebd5cac32b18e4c6aaa0d6eebb19dab195a501797b48fae7858c"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/danmaku.mjs",
+    "sha256": "693b0d48e4ce612601beed88c9a3568ba53c5a2d6d0ad95354b9b4b7af77cd7f"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/debrief.mjs",
+    "sha256": "32ed5009d1de905dfed3bb81d00698f9f00caa8d012c85c896e41bca7275c0fa"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/deps.mjs",
+    "sha256": "0b535a8226c9ef6d08250f9c0e96e94ecaf1a03a90322329cca8a52b016a51ea"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/diary.mjs",
+    "sha256": "755f658b341df2d328cb9b4b890fa7bf18791be12324793580c40d97221b2b6f"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/dm-await.mjs",
+    "sha256": "71a9c55ae623296ee0da0b2fb4121e101a2cb2b8ec45894a9df0209aa49d3d25"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/dm.mjs",
+    "sha256": "084df8efc659ce807ddfec3776260aeef7677d3239c3a43f865f7f6ea8358b7d"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/dynamic-image.mjs",
+    "sha256": "ca409aa0f6ebdcd412b6aacf34826a419bb2bd808ef4cf190bbb1936cde9b0d9"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/dynamic.mjs",
+    "sha256": "e1a7b9bea469ed5fd2f4919a95a3932db1916bca9d5db18bb009de17c02a7fee"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/edit-dynamic.mjs",
+    "sha256": "5ef0baf114a9d5880817993ee07dbbadfc0f60f05db59c2ae1d5149b7999e3d3"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/fav.mjs",
+    "sha256": "aba8502e3f28ea999b5c54a0ff79b89954f823e7e7269a3bc68e1c665f5153c9"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/feed.mjs",
+    "sha256": "f2593fa5761246a50c66cbd4e3a611f0e9f36fbc7213c6cfcf0e1e8456a39e23"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/fish-guard.mjs",
+    "sha256": "ebbb8c98576bcf761b792de861d62326b9dab0b988ad721e0b372d7b7c8c54e4"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/gamefeed.mjs",
+    "sha256": "adc87fdb65bc8ab03028459f4445886a19235df8b7b2b1258735d6d991b2297a"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/likes.mjs",
+    "sha256": "b551adc9495ac47b93b8d0d3ca915002195a07058dde1c85ac219372df105b4d"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/notify.mjs",
+    "sha256": "1d69f02d1f39ac81e37e5173a10cdc5679722d102ab46eb292f96aa5ece004c5"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/prefs.mjs",
+    "sha256": "4fd409588372f475ef6edafa9b58165c975638f5e4c2a0da1f92fef614ae9b1b"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/quota.mjs",
+    "sha256": "68505bbb62c4f60a869e229b7597981cca9ab617da636b30c4297b864bf3a772"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/reply-draft.mjs",
+    "sha256": "add5fdfd11884ee929a97ca37bf927574e29d67358a994915d042cb016b784c7"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/score.mjs",
+    "sha256": "d841b4208059662b2db656640eefc1dda08face3714726153ffac15317a08bca"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/search.mjs",
+    "sha256": "f65d032bb8ec8b3210cf17137a95c9d25e35fe907d764e803d5e2618d678bef9"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/selftest.mjs",
+    "sha256": "fc794a2f9b622b4f61dd7c82fd61ee8ca96d727f372fd83b262a9527d4f9edf6"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/share-dynamic.mjs",
+    "sha256": "8ca0e362a46cc94d138f411926903aac8bf78cf8582c22a426d9459513443d65"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/subtitles.mjs",
+    "sha256": "d2cad7cf158dd553c60d8fb21c02159f645802b6528c41453ad29516c24bcd19"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/video-content.mjs",
+    "sha256": "b391b298ab79649ab9c97e1d2f77fe6492fa546bdc04fdb6107836c9ca8383b9"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/watch-history.mjs",
+    "sha256": "52fbd2953b6ac2dcbe41e515fc33ec951ba50520ab3c2a95176134e725e26562"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/whale-night.mjs",
+    "sha256": "5e9ab08cc203f7c4d3eb4a1826a27401aefc85566ea5cfe7068969fb749f90ae"
+  },
+  {
+    "file": "plugins/surfcore/tools/diagnostics/fetch-covers.mjs",
+    "sha256": "56aa3339998f473296a95dc9a779f03613efcf8a1a0cc8d1bd1b1cd5dfc3288e"
+  },
+  {
+    "file": "plugins/surfcore/tools/diagnostics/whois.mjs",
+    "sha256": "cbc5038e6308e29c7f6f13b29898dc6ef4604c47bb6e8bb556c9c4cbff352c6f"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/attacks.mjs",
+    "sha256": "c6549e5f6eb85b76d297de08fff99ffde6caacab30b4319831b342af3a772581"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/config.mjs",
+    "sha256": "06d33d5b7b51000a4ee628662c2acff01a2eb44a90ce0238df9db0cb06bc1045"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/feed-core.mjs",
+    "sha256": "c3cac851f1723ab53e2b645daef6c93defe263bd3daa5b3659947477031c6f03"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/ffmpeg.mjs",
+    "sha256": "17d06d77f301db715a96264077d651301ca85ad1a7d49834cb51572c14857d3f"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/fish-guard.mjs",
+    "sha256": "7f19513e33987606add2bf309fb295908990cefefc50ec97fe8559d248ba20e4"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/forward.mjs",
+    "sha256": "6b777ec9f4e1f0e2ef00a2198cb1c7c0b2132c4c3e6cd080a0436ff0adda266a"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/free-gate.mjs",
+    "sha256": "bbdc70bddb16e432240b30447c009f9e918e096772a88c1db4c973815fc4a8f9"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/games.mjs",
+    "sha256": "e1265ac0ce2843f2084332893ed8fa0319a76bf40d737992645faba7947ce8b6"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/kind-signals.mjs",
+    "sha256": "294e88412695c4c7e402d79240a06105647ee727f46e77167bd88d682aa9d277"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/kinds.mjs",
+    "sha256": "c5a9ce58cbdc5a54c4509d6e06dc82814d84fd5357d80c8d7cee749419856fb4"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/limits.mjs",
+    "sha256": "c093550262cfff674fedddb77b6a3a7a99c311ca59a2e9404acbbe922280e70e"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/msgfeed.mjs",
+    "sha256": "4ca582cbdd8c2208730a376c8196d8e1d744a263106a655d4f60e8cedde9ea88"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/my-dynamics.mjs",
+    "sha256": "a2e8cbff07b95732d72e63665e5c093cef4797fc14459f613957f7a55ae15479"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/night-schedule.mjs",
+    "sha256": "0b7554f9c044f5e7bc9e086a8a3cd90a32ca88223f017681931de2091c303c52"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/outbound-guard.mjs",
+    "sha256": "3d745ed01705f8434cb51e3b665161ae99a078019518dbb34c155d65003bf110"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/pins.mjs",
+    "sha256": "000fe32c911bea10fdfbd96d6da8952e69c241fa747c83d644e7a4f08bf2f381"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/pref-scan.mjs",
+    "sha256": "cbe760ae5127e95af087d60b0c9fc2188e606dd57fabdeca3d02820e7afd4098"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/quota-gate.mjs",
+    "sha256": "74022e2360b103cbcbea01f95493a6ca2653523d4643e372b0f15497d6a63648"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/scores.mjs",
+    "sha256": "36b50a7703badc18080bcc10a773c1bba86b7484ede65e5667cf3eab81416d50"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/share-dynamic.mjs",
+    "sha256": "63b7d2c81c0beea57b44012f89e9d6a518076b649c1f64fe09b7da1bfa5184d1"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/state-paths.mjs",
+    "sha256": "3537a00f68486e68295269123e22a0852e9aa7c79c57a2b10b84772adecb4b97"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/watch-actions.mjs",
+    "sha256": "150b2c9c317b1dd5fe3824b4326c42e2df808f7c6caf3b1786b0c186d15e3123"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/watch-history.mjs",
+    "sha256": "d41cbc005385d6337cc63b230011bd22a34f7cca83591015c1c0b6a2e7901fd0"
+  },
+  {
+    "file": "plugins/surfcore/tools/templates/config.example.json",
+    "sha256": "f008235624912a47245536cc2268df71f245541e9457d7db0393f6e6301f702d"
+  },
+  {
+    "file": "plugins/surfcore/tools/verify/comment-exists.mjs",
+    "sha256": "4a9c6bc1adafd2cd461bb7eb575ac70a160eaace96a615cf8b57c539500f3990"
+  },
+  {
+    "file": "plugins/surfcore/tools/verify/dryrun.mjs",
+    "sha256": "035231657bd4a81c4b3adcbfde4167e31cf735934e896ba97ed464acf8529e0b"
+  },
+  {
+    "file": "plugins/surfcore/tools/verify/dynamic-inspect.mjs",
+    "sha256": "e9d0c46dbb6a8db003a3f6b17f88069577ffd803c7ce8e38b407d084d2b74b8e"
+  },
+  {
+    "file": "plugins/surfcore/tools/verify/mention-check.mjs",
+    "sha256": "f6117f845107d939798ad3b71949b6837c5d86320f888706f72218b59cd406f9"
+  },
+  {
+    "file": "plugins/surfcore/tools/verify/session.mjs",
+    "sha256": "1f819fbfa428f2b805595e4ef1043fdf51dbe6cd31bb814d4c490dbe9310f613"
+  },
+  {
+    "file": "plugins/surfcore/tools/verify/thread.mjs",
+    "sha256": "c66c33b72633546b2eeb0160eb18b4e12c4d84bb8b7450e8d5ed3717f5791d01"
+  },
+  {
+    "file": "plugins/surfcore/tools/verify/verify-reply.mjs",
+    "sha256": "cf8eb14ccecb9b4ce8b1a218666a1f6130757e90866c0223e86d0a9c9c05b800"
+  },
+  {
+    "file": "plugins/surfcore/tools/verify/watch-replies.mjs",
+    "sha256": "61265cdfe9e6fa91bf617d10cb9c248ebd1f45bd9a6b200454e265e990db7078"
+  },
+  {
+    "file": "dsh/agent-presets/qq-chat/agent.cordis.yml",
+    "sha256": "5cc726ecda7c24e31243c3933e04849328b0a30687fa6a75f075dc71ef581227"
+  },
+  {
+    "file": "dsh/agent-presets/qq-chat/preset.yml",
+    "sha256": "864edef4886c851879a003a0407be34226bf4ddccc4e12e53f46fe68ca8ae5ea"
+  },
+  {
+    "file": "dsh/agent-presets/qq-chat/qq-tool-restrict.mjs",
+    "sha256": "231b31487014e757ecd8797e26746d58cbc2e33992da7e5ca901a14881fb52fe"
+  },
+  {
+    "file": "dsh/agent-presets/qq-chat-v2/agent.cordis.yml",
+    "sha256": "594c5215dfa133a8fdd804b1da0864c67f39c83545b1634b48044b42c131a4e9"
+  },
+  {
+    "file": "dsh/agent-presets/qq-chat-v2/preset.yml",
+    "sha256": "c304f13440e10c88912d1a7edc713cd1cb5ae106617de6b23ed2ab4dbe2df0c8"
+  },
+  {
+    "file": "dsh/agent-presets/qq-chat-v2/qq-tool-restrict.mjs",
+    "sha256": "231b31487014e757ecd8797e26746d58cbc2e33992da7e5ca901a14881fb52fe"
+  },
+  {
+    "file": "scripts/apply-update.mjs",
+    "sha256": "b4d107f170684e9bf665fd75b20fc82bf552c31e2ae21553ad7cf7f62d24d71b"
+  },
+  {
+    "file": "scripts/audit-bridge-harness.mjs",
+    "sha256": "b3832fdbcdccf15ba3d7aa5064ba0f45baceb373a9ffcc677ede1f2ae3ae7c7f"
+  },
+  {
+    "file": "scripts/bili-memory-sync.mjs",
+    "sha256": "886066ba930b3818425d0b9c8fef23ab8e8a353d632753a136ce55c956232df0"
+  },
+  {
+    "file": "scripts/build-agent-preset-patches.mjs",
+    "sha256": "1c486ca09b8c571df38e4c02d8f8e7eb0c4d2ba40e099ef68c0ad3a2f76832d8"
+  },
+  {
+    "file": "scripts/check-onebot-status.mjs",
+    "sha256": "f5fc2b4310d68b09169492df8fd19c13b782123a9ab1586f0aab5bf035d25d12"
+  },
+  {
+    "file": "scripts/check-session-integrity.mjs",
+    "sha256": "eccb21d91be392817a712b10df5cfb64628551d6d0de2b21325eb7fe6498d6cc"
+  },
+  {
+    "file": "scripts/clean-dead-workspaces.mjs",
+    "sha256": "21a33fbcc15086779bc622c360021983cb4b2837fd4e4d8887a334ddaf9c4bec"
+  },
+  {
+    "file": "scripts/console-ui-contracts.json",
+    "sha256": "009e12de8b4a35967790534f8c823cd165a92873a3d6eb5694dd4a3a5c9e86f8"
+  },
+  {
+    "file": "scripts/console-ui-fixture.mjs",
+    "sha256": "201531ada1bd934f1c9990c849e98ed431893d0b385fff4dec53d94b4c7323e8"
+  },
+  {
+    "file": "scripts/console-ui-legacy-ids.json",
+    "sha256": "390979191ccde48361742ab7b324d166b1491ef721498e02547d515fd53af39c"
+  },
+  {
+    "file": "scripts/detect-profile.mjs",
+    "sha256": "1498ea9ef76a4232d1cdec0c23533c522fef9296d445c1897ae566fde88d4d82"
+  },
+  {
+    "file": "scripts/diagnose-acl.mjs",
+    "sha256": "02c0495ee77351b414ba937555a43e407e437ca9493a9b2c73af00adf2a85c43"
+  },
+  {
+    "file": "scripts/dsh-modules.mjs",
+    "sha256": "5e6daf88934f51454fb1d103d156ea97820ac999893dd4fe31c10e6925edf7c4"
+  },
+  {
+    "file": "scripts/dsh-tool-names.mjs",
+    "sha256": "b5fe9f036e3f23479028ba1ef03cff388f02659db3812cd9c1862f8b548d2e42"
+  },
+  {
+    "file": "scripts/harden-state-acl.mjs",
+    "sha256": "d0e867950e07ee28b442d730b47b1e79a3cb95e6fdf21369e64e87c519a4c03d"
+  },
+  {
+    "file": "scripts/install-session-guard.mjs",
+    "sha256": "6681c2258f7ec81517bd4a2840870786e7ad13b9dba0e6bb849d21e9f7cbd4b5"
+  },
+  {
+    "file": "scripts/make-manifest.mjs",
+    "sha256": "780321a4db6d869fce2fe6722d6b87c29e1366a4da5465fcfd47d5ea27ce8296"
+  },
+  {
+    "file": "scripts/patch-dsh-session-guard.mjs",
+    "sha256": "5065db35316129da866c1302088f6b57cb3e096d0bd4646c8684bec316d22485"
+  },
+  {
+    "file": "scripts/patch-snowluma-sdk.mjs",
+    "sha256": "cc3b9da52bb0dbd23e63683b207d6a41584004eaff71229ece9eb1b74bd2ecd6"
+  },
+  {
+    "file": "scripts/privacy-rules-lib.mjs",
+    "sha256": "b78e77404dd62e65c37ed690a0d454976c6512e8cf09e6536029ce7ee26ad1f0"
+  },
+  {
+    "file": "scripts/privacy-rules.example.json",
+    "sha256": "2ba19886db061a0b4cb3db7f350b4e4fdc821c725db471b9a487e52814dd97e2"
+  },
+  {
+    "file": "scripts/privacy-scan.mjs",
+    "sha256": "ef85e2c8b9095eebb5c6b4b4b638d8f038c59c56a329977e457cd3a1a6ad97ce"
+  },
+  {
+    "file": "scripts/probe-020-protocol.mjs",
+    "sha256": "c63824aca3462f8b0ce38f88fca89a456a961eb2944ed83b025b71a6bbd5ec6b"
+  },
+  {
+    "file": "scripts/probe-020-settings.mjs",
+    "sha256": "974665e8132ce6d742986fb91acc34935f6f54a9efa90b86dab113432b026bc1"
+  },
+  {
+    "file": "scripts/probe-auth.mjs",
+    "sha256": "f194f5a472cc57bbce4a81f9d001ead25df46a7fab0f4a9e5a65119f57c3c63d"
+  },
+  {
+    "file": "scripts/probe-bili-card-formats.mjs",
+    "sha256": "0b2fa887e8d10ebb5b3b20ae2d57e7ecef1e37bad5647525ce68b1d38f20c132"
+  },
+  {
+    "file": "scripts/probe-events.mjs",
+    "sha256": "8b61e6b75228b6a0a0965dd5c5b4f718928ee2bdfea0e302978dbfa3bf6da358"
+  },
+  {
+    "file": "scripts/probe-models.mjs",
+    "sha256": "fbe20a0a9afb9310811d39f01b02aea0ac9eddda15eafc5751b7522932e43a9e"
+  },
+  {
+    "file": "scripts/probe-rpc-compat.mjs",
+    "sha256": "dc72a4f76882f69aa26a0d3d768348d605b7d14be7865848581d00e57f39040b"
+  },
+  {
+    "file": "scripts/probe-snowluma-heartbeat.mjs",
+    "sha256": "66f5534b0eb831a9ff0040e628563aa0db2b6e874e74e41a1227f8de359dcc19"
+  },
+  {
+    "file": "scripts/probe-tools.mjs",
+    "sha256": "dab58f10af506b9154610593b04f0281bd630140e7326ff5cb486581c04e2ebc"
+  },
+  {
+    "file": "scripts/probe-workspace.mjs",
+    "sha256": "c5e5401c07b71e8f9ca4aad9c6c8c2f3c82a5057c90688875012f0a619d17111"
+  },
+  {
+    "file": "scripts/purpose-inspect.mjs",
+    "sha256": "781b98813c8e9914598ede2a8ab26b23d635a741fe5d20b8b02291976fdf7179"
+  },
+  {
+    "file": "scripts/scan-dsh-tool-names.mjs",
+    "sha256": "57ac2aafcffaa1ad6af56530f3b5373f0b684953511156f2b3907e0982b2c2cb"
+  },
+  {
+    "file": "scripts/send-test-group.mjs",
+    "sha256": "4f9974dc5df7443563d464043d30b8421add3945e81a259f2a9270c34ce4d5c8"
+  },
+  {
+    "file": "scripts/send-voice.mjs",
+    "sha256": "f232b434e42b1943ec9a06de732968a9b317a9eb44558a7ac53bc40762514938"
+  },
+  {
+    "file": "scripts/setup-dsh.mjs",
+    "sha256": "1b364ede99d89eca25544211923affe625577b7446deb1553ea980845ac622af"
+  },
+  {
+    "file": "scripts/sync-dsh-port.mjs",
+    "sha256": "08a64ddcfbfc510d82619957d080c93caab9c666f3c3f910d5e8860358bf5e54"
+  },
+  {
+    "file": "scripts/tag-stickers.mjs",
+    "sha256": "c4b735b1213ccac8008427b953c2549f8134dce74250fadc85870f4db58a35d4"
+  },
+  {
+    "file": "scripts/test-admin-identity.mjs",
+    "sha256": "500dbacb6d59f47e4ea65b70df59d4291dd3fd17824fc00d2a5438502d3f0573"
+  },
+  {
+    "file": "scripts/test-admin-prompt-wiring.mjs",
+    "sha256": "ba010972c53a7aabe0e5681a50d1bad22aaaf4da9fe08c41c319cdb2cc2ff031"
+  },
+  {
+    "file": "scripts/test-agent-preset-patches.mjs",
+    "sha256": "adfc4f46d83bdee9702e021db5f949fb36cdd0bf5b4dc5f0864b0375e4658d90"
+  },
+  {
+    "file": "scripts/test-audit-bridge.mjs",
+    "sha256": "7083a0fb477736899ff67e1f97a47a06d84638c7c773a738d8649417939b21f2"
+  },
+  {
+    "file": "scripts/test-audit-protocol-helpers.mjs",
+    "sha256": "9a945ebe468d958ae8bda66480acba261e75e22396e21bbd69457a533331dcd7"
+  },
+  {
+    "file": "scripts/test-audit-protocol.mjs",
+    "sha256": "42f677c4a10e2a59c1cb9092346470516721526978e80239be0f2d67ac41826d"
+  },
+  {
+    "file": "scripts/test-audit-regressions.mjs",
+    "sha256": "0a1b9d67f2d64e628cc98585150d7150bcb5e37d9f7c68f0624d501050e368ad"
+  },
+  {
+    "file": "scripts/test-audit-security-mcp.mjs",
+    "sha256": "9655f30b1dc045afcd64f8240deb64f183460833ebacde00b93aecdda11f9235"
+  },
+  {
+    "file": "scripts/test-audit-security.mjs",
+    "sha256": "132d093de21ec3b2aab5b46c53312ce541641adfca00acaa0c059a1abd9f8ca3"
+  },
+  {
+    "file": "scripts/test-audit-setup-guards.mjs",
+    "sha256": "aed466c7f5177c827c55d7e0b457703f99bd33d25c75f1e43aba07f3dc145887"
+  },
+  {
+    "file": "scripts/test-audit-setup.mjs",
+    "sha256": "0596af5d03796bc2f5865ad800e4931d9524f9e801a32b853413d8c860ff5686"
+  },
+  {
+    "file": "scripts/test-audit.mjs",
+    "sha256": "64b1c836bd45391a9f00ccf130cbdfd53532d07d643856064ada8fb3b398af2a"
+  },
+  {
+    "file": "scripts/test-bili-card-ark.mjs",
+    "sha256": "1f631a18853ba4309adc275716f81905aa8bc559d2d886afad62a494f2c3d883"
+  },
+  {
+    "file": "scripts/test-bili-card.mjs",
+    "sha256": "421441c10c5f9c58293d33ccc95aacfb57b8d1bf7bfdf98ba0f508c68fd903e9"
+  },
+  {
+    "file": "scripts/test-bili-dynamics.mjs",
+    "sha256": "668fcd2aff13b32dc942213e802e7fa95ffe7537fd0fa330e55e31693601206b"
+  },
+  {
+    "file": "scripts/test-bili-memory.mjs",
+    "sha256": "277bbb9e27aaf444923932862f19385b0e28351d9d81712e40899248364486a8"
+  },
+  {
+    "file": "scripts/test-bili-qr-login.mjs",
+    "sha256": "dd54783f16998a029609c44cd00189f12f76675add0049ca37d2f973ce2a97f4"
+  },
+  {
+    "file": "scripts/test-bili-share-dedup.mjs",
+    "sha256": "f447e289b9cc7b589eca1abd1750c4d8fe1ccb56d65edf822a147139245dcba8"
+  },
+  {
+    "file": "scripts/test-bili-state-paths.mjs",
+    "sha256": "8045e562a430fbd4a92bc5496ca861efea73183519c3ad404e5e4eb3e6d6f141"
+  },
+  {
+    "file": "scripts/test-blacklist.mjs",
+    "sha256": "a617c5a6f106e50dc77260ecdbfff6247516b728ae1bbb66f58fa30b3d95f850"
+  },
+  {
+    "file": "scripts/test-character-store.mjs",
+    "sha256": "d478bd7b01671567537325830d5e0450ce38ba4359e1f4474640cd84b00687a8"
+  },
+  {
+    "file": "scripts/test-closure-wiring.mjs",
+    "sha256": "4846fd83dab359d73d22fc6ac53f47cd83eccb02453150050f00701cd405e646"
+  },
+  {
+    "file": "scripts/test-console-encoding.mjs",
+    "sha256": "bcf9cecce1e8ab26b96c835466daf9d432be2f73e0c518d6f9aecb6571f44686"
+  },
+  {
+    "file": "scripts/test-console-static.mjs",
+    "sha256": "f341f29714fc3e4738c10d16901c445b03647e343dec64a4a9f80c9f6e05983d"
+  },
+  {
+    "file": "scripts/test-console-ui.mjs",
+    "sha256": "3953cc4efbb08385544b80467a26e53dda6926043ffb8fd9ace4c79cc58bbd1e"
+  },
+  {
+    "file": "scripts/test-console.mjs",
+    "sha256": "382288c59e03a2d9ced89750224ba27dc591749f9a75cb22ab5ba04f425829e9"
+  },
+  {
+    "file": "scripts/test-conversation-closure.mjs",
+    "sha256": "d3a2e7d0bb98a2702d5a7050878f7370fe78e86f14adc7392e21d920f5cf1c22"
+  },
+  {
+    "file": "scripts/test-core-rev-sync.mjs",
+    "sha256": "668450adcdb26c064c1de8262e35c348648009ce9cd4bb6a7a15fbc85cbe6e68"
+  },
+  {
+    "file": "scripts/test-dsh-auth.mjs",
+    "sha256": "c992d18d796017bee0fc9105a3dc862736a3d064daee771acac49a2cec0ef0d6"
+  },
+  {
+    "file": "scripts/test-dsh-inbox-projection.mjs",
+    "sha256": "e30b27a94ef86403407a88d16483dd366375fd89a5425c0f01c33e30a861591b"
+  },
+  {
+    "file": "scripts/test-dsh-port.mjs",
+    "sha256": "3c26e533bc225f8aff6e4a60de1ac62b3a0543daee40523e71096075a7828dc1"
+  },
+  {
+    "file": "scripts/test-dsh-session-retire.mjs",
+    "sha256": "c7281c1778af2e3f7df3857240d6c6b411c6ad25c93bbb58f2105b3bf3a82538"
+  },
+  {
+    "file": "scripts/test-dsh-v2-wait.mjs",
+    "sha256": "32d4240d127d139e33782747c558a84c463aaa6665dabb164a34dbd878735c5b"
+  },
+  {
+    "file": "scripts/test-encoding.mjs",
+    "sha256": "c61ba2601941a825fc8a9d6c734854c667413ee79291e6d3d590e355d8cb2092"
+  },
+  {
+    "file": "scripts/test-feed-core.mjs",
+    "sha256": "8d0dea90761a81d4dabbb5f3aa1ffb38dadba5ddcbed2b25701aed7df5bec293"
+  },
+  {
+    "file": "scripts/test-fish-guard.mjs",
+    "sha256": "3c016befcfcfc968a16cd393ee0483ee9c9b11b823ba80cacd9ca09385ccefaf"
+  },
+  {
+    "file": "scripts/test-forward.mjs",
+    "sha256": "268506cf36080b30a523f73869a0407fe0b37fbe73e6a87ce5158dfc51f133c6"
+  },
+  {
+    "file": "scripts/test-greeting.mjs",
+    "sha256": "d38e3a9789024739535cc3cc2c0050cac9fcc33f475109f4687d89f3bc690cce"
+  },
+  {
+    "file": "scripts/test-hardening.mjs",
+    "sha256": "82f27eb40d688d8a2d720b329ace865b2aea121d53374c8295d5a3ff68f7af7b"
+  },
+  {
+    "file": "scripts/test-history-catchup.mjs",
+    "sha256": "5b0229e4809e14572a7e2225b9f743875268a414d81770887ee295745bbe33b9"
+  },
+  {
+    "file": "scripts/test-identity-guard.mjs",
+    "sha256": "62f10cff48d7eb72fafc7bf0a7afd66c7bb87a578795c6a09bfc8d0548008414"
+  },
+  {
+    "file": "scripts/test-issue-regressions.mjs",
+    "sha256": "f22b619495c53a704bcfaa96eeffbfb2b194709083389f6023a146fa9b32cc25"
+  },
+  {
+    "file": "scripts/test-mcp-exec.mjs",
+    "sha256": "7c4a58abf7aa8f0cccf638097b0a36739a68a6a2cb0357ac1883ab066ce32414"
+  },
+  {
+    "file": "scripts/test-mcp-host.mjs",
+    "sha256": "e0447396f89c6f1f0db65a23ca1aed1e2ef5f5f3e4b9fefeddb6e42602f28ebf"
+  },
+  {
+    "file": "scripts/test-mcp-safe.mjs",
+    "sha256": "551e05190863c50ca45828c1df252d5b229e994cd1bdadce057d978d82a1e5b7"
+  },
+  {
+    "file": "scripts/test-mcp-servers-stdio.mjs",
+    "sha256": "f2bc630f369f47acabe549d94ef84ca557b83b2cde498fd320809026ee43386c"
+  },
+  {
+    "file": "scripts/test-mcp-web-search.mjs",
+    "sha256": "8d06ed391313a5086bd04685e0000ecb4c41413c897b8dfadceab99fa64501fb"
+  },
+  {
+    "file": "scripts/test-md-to-plain.mjs",
+    "sha256": "9d02a8987b29403b2fd1e36fc2067220d62cdee1682a5f3c1e99cf7290fde5f2"
+  },
+  {
+    "file": "scripts/test-media-search.mjs",
+    "sha256": "9bee47c476ea2e1ff5618c38b6d97ecb4f536af0632878b400989dd53715d612"
+  },
+  {
+    "file": "scripts/test-memory-card-wiring.mjs",
+    "sha256": "c8910aaf5b32dd4763a9da3481dab04e7413060713fc7e9b83b7b369fee78753"
+  },
+  {
+    "file": "scripts/test-memory-card.mjs",
+    "sha256": "e4172c715c1a30c092617597f4b7db9c86efdf04d21a85c94947ccea38165d6f"
+  },
+  {
+    "file": "scripts/test-mux-reconnect.mjs",
+    "sha256": "21151047004cf577c943e0085ad1b1cd3f3ce5da5e2205adf813b1a07ab338e1"
+  },
+  {
+    "file": "scripts/test-night-schedule.mjs",
+    "sha256": "4273f708a71a37c988cae357150bfd2091026eda81fadff16422577c1ac0c737"
+  },
+  {
+    "file": "scripts/test-onebot-connection.mjs",
+    "sha256": "ea2b995b5a6c7fbf294480df6bc0d518f70d222bb26463fbb30348cba2914bb7"
+  },
+  {
+    "file": "scripts/test-platform-start.mjs",
+    "sha256": "c24058af76ac7b0c244a19471fa8ef3ae3c069cc853bcce04dc61754bf289574"
+  },
+  {
+    "file": "scripts/test-pref-scan.mjs",
+    "sha256": "c0218b98170729e949bbd5eb30bb304220012ffa92d6780969598c79c8d6c679"
+  },
+  {
+    "file": "scripts/test-preset-local-tools.mjs",
+    "sha256": "c0758e831128b8b5971e271da0af3366b11b02b413e45287c961728bade3e38a"
+  },
+  {
+    "file": "scripts/test-preset-prompt.mjs",
+    "sha256": "314d603c02416707874aa5ad2293aefa9a7d9ae4dbae55dcfadb5b1c95b7f5b2"
+  },
+  {
+    "file": "scripts/test-privacy-scan.mjs",
+    "sha256": "21f6253c5b66269ff5bf144ee6f616aa48dc64d6e5828147a53dc62759579530"
+  },
+  {
+    "file": "scripts/test-purpose-engine.mjs",
+    "sha256": "59d8367a798bdfb067da29faff823656ff54308bf4a40dc936ee982bdf8a01fd"
+  },
+  {
+    "file": "scripts/test-purpose-wiring.mjs",
+    "sha256": "f31e89c4c6f3fec2e07258e06910eabc13f61d5db6bb665867af8256b459a137"
+  },
+  {
+    "file": "scripts/test-qq-fish-guard.mjs",
+    "sha256": "945f375e2daafbfcaf0ce5cfa0b85ede427be350fc7727234d75c8865d9ca286"
+  },
+  {
+    "file": "scripts/test-qq-mode-plugin.mjs",
+    "sha256": "c19ab81a0898715144ee1314eea695547c6b0d6d32a53676f9256725d1dfacb4"
+  },
+  {
+    "file": "scripts/test-qq-model-view.mjs",
+    "sha256": "fb5f269847bb788ed14d84060662aa673723abd879cceae9997f0db0e260db9a"
+  },
+  {
+    "file": "scripts/test-qq-preset-contract.mjs",
+    "sha256": "dcda9d54dbfe90f241606a9d2dfc353db9a756af6681f32180b6df3365798283"
+  },
+  {
+    "file": "scripts/test-reply-wait.mjs",
+    "sha256": "f4ed7c8454f46cc9452523728277038f7a751088c378d4e29fa0a533d16138cb"
+  },
+  {
+    "file": "scripts/test-role-card.mjs",
+    "sha256": "609774246ad9d1dfb957585d4e33fed33de71663e7198d0aa47a850c8bc87245"
+  },
+  {
+    "file": "scripts/test-scheduler-permission.mjs",
+    "sha256": "bbf5193b48606ebcd935079d71fd4b03910f2697e1386dfbea39201aaf8c6564"
+  },
+  {
+    "file": "scripts/test-self-identity.mjs",
+    "sha256": "e020aa8faf9abbe6dad1b6b4410270368643d96839b669a96dbca7a9c4e16747"
+  },
+  {
+    "file": "scripts/test-setup-dsh-idempotent.mjs",
+    "sha256": "334499bf4e25be71c0f30ee19e5f567b2757a3693a500a4d628f5f6284b59943"
+  },
+  {
+    "file": "scripts/test-share-dynamic.mjs",
+    "sha256": "d7472877d47b0be1244951e3faa43846d8d0d148e7d69521a9b47ba7efc3bfd6"
+  },
+  {
+    "file": "scripts/test-slang-learn.mjs",
+    "sha256": "b95f66ee6d76c38982094f3b255c7ff23fd5c911194a7c73615e81b60fcb8bbe"
+  },
+  {
+    "file": "scripts/test-snowluma-conn.mjs",
+    "sha256": "721bdf868e3becd05552b02d60b76efb2e6370ec69c5edec7bfd35a58b93a8c2"
+  },
+  {
+    "file": "scripts/test-snowluma-upstream-health.mjs",
+    "sha256": "813b784e0eb5904c94080efaf5a5ceff73605c75b1a88a00f55644f703c29c29"
+  },
+  {
+    "file": "scripts/test-sticker-semantics.mjs",
+    "sha256": "a7da2c674f62872160c1c3cba24c47f79069f7f5922bccd561b06e7d2f1acfe0"
+  },
+  {
+    "file": "scripts/test-stickers.mjs",
+    "sha256": "c26c61c833c2161b1156cdda31a032c0223299b54cce4cb81bc5a612e264881c"
+  },
+  {
+    "file": "scripts/test-token-budget-bridge.mjs",
+    "sha256": "a38ce757d5c0c5ff195c22eafb15a7abe166b2b8a782232d3e1132d17374551f"
+  },
+  {
+    "file": "scripts/test-token-budget-service.mjs",
+    "sha256": "0d831e572bc3de958142c966bff05abf82e13be3e0f0c091f585fb6dd219df78"
+  },
+  {
+    "file": "scripts/test-token-budget.mjs",
+    "sha256": "fce35148a8dc6616725df9e4fa23a9dcd454b3e52b08b9ad9f217795282e1bad"
+  },
+  {
+    "file": "scripts/test-token-economy.mjs",
+    "sha256": "9b812b856abefc81e2c5cc1637937866b8d03d585d9fcd72d96171ab149ff9f9"
+  },
+  {
+    "file": "scripts/test-token-guard.mjs",
+    "sha256": "c5cb2bd9e40a3dd00567d55713c5ffb8b10bf16fdf8fca08f4e664416de2d20f"
+  },
+  {
+    "file": "scripts/test-token-usage.mjs",
+    "sha256": "5c6b8b084e14601edf4f8956e53e08c7b3fe369ad393ac3c07b12a06c8ac8703"
+  },
+  {
+    "file": "scripts/test-v2-initial-prompt.mjs",
+    "sha256": "3c3f76af48730ff46fa285d1f779fa5f6bb1f7cc68fbef4e2f494cc217e146fc"
+  },
+  {
+    "file": "scripts/test-v2-wait.mjs",
+    "sha256": "bbc89114673e23cbfc7f78959d5f0055bdbddbf4cca1f063a02e3ccabb487d5d"
+  },
+  {
+    "file": "scripts/test-version.mjs",
+    "sha256": "a08a0983a2154f0ea262ce1dfce895078d494d0ad070d405bf9699beccb305f4"
+  },
+  {
+    "file": "scripts/test-vision-media.mjs",
+    "sha256": "12db259b59d78075803bd0127decc3d9185e5b762ac5295c41e6670cad9c7333"
+  },
+  {
+    "file": "scripts/test-voice-edge.mjs",
+    "sha256": "9e7d414649cb8a340d13468f88d93b680492f58809664f0615a3df1769d115b7"
+  },
+  {
+    "file": "scripts/test-voice-gui.mjs",
+    "sha256": "0aee820330d85f802f874d0afeeeed06cd5a5faa9021bdae45be252b6edd2732"
+  },
+  {
+    "file": "scripts/test-voice-packs-default.mjs",
+    "sha256": "98787a8c11288b72c386cc06c8674a2f439881a45b82fa485b614eca07162968"
+  },
+  {
+    "file": "scripts/test-voice-preview.mjs",
+    "sha256": "e7fbce088f3d8a16070607e2d566c33176b1055c56b1cbd7d6844d04a0df276a"
+  },
+  {
+    "file": "scripts/test-voice-route.mjs",
+    "sha256": "e2d995bf6d67ef9f24124215138a8db582b1f3a668fb0d96b6ffe40507da6cfb"
+  },
+  {
+    "file": "scripts/test-voice-system.mjs",
+    "sha256": "2e313dcd402a136e1b36638bd404d319b817dbc746e81aee41291cfe1c24af97"
+  },
+  {
+    "file": "scripts/test-voice-tts.mjs",
+    "sha256": "bc5a831c9ae323b4d689141a22d6c551876c93dfc209fd8080d2c5f5e60f7384"
+  },
+  {
+    "file": "scripts/test-voice-volume.mjs",
+    "sha256": "6a3d372ca3e962ec71ec6f08fc456a5caa2c33ef4d61862699f8bc68380cbaba"
+  },
+  {
+    "file": "scripts/test-voice.mjs",
+    "sha256": "99176692e08830565d63a54c19f78b44a2729f0503acd6618f6266a7643d7ebd"
+  },
+  {
+    "file": "scripts/test-watch-actions.mjs",
+    "sha256": "b5d34d5225f4e51f73cbedc57c629c99b22f0d4da36c6116b44a916de98563cb"
+  },
+  {
+    "file": "scripts/test-watch-history.mjs",
+    "sha256": "7e02bf4afcbc05c5eb5930eee408aa10fd1351c997abe28ed61f4b3d055feccc"
+  },
+  {
+    "file": "scripts/uninstall.mjs",
+    "sha256": "97cf437d78444f217772c64364f98bed40f47971b1cecfbea1d41bafb29180fd"
+  },
+  {
+    "file": "scripts/verify-agent-presets-017.mjs",
+    "sha256": "19f9a6d106f85ad941943b6a2d23e726ac56e33fc7d29ddee9edddbc8a6a005b"
+  },
+  {
+    "file": "scripts/verify-dsh-020-adaptation.mjs",
+    "sha256": "cc941b12ffd57c640a6e9acc9b61261f91ab8dd7cd416ca215c7624fa804d0cb"
+  },
+  {
+    "file": "scripts/verify-persona-config.mjs",
+    "sha256": "60776f32018fe0ba1d8b34b05d8f7b26f3beb18d8be080ceafd7a1e873e747fa"
+  },
+  {
+    "file": "scripts/version.mjs",
+    "sha256": "004c0d0088af516b745c35520310315d7533c0a3356a1f3bf3abfe2ea1f5bfc9"
+  },
+  {
+    "file": "scripts/voice-activate.mjs",
+    "sha256": "d1e778eececa12523956e7f256ff3748065c7d95edc322420e3dbdfffb17499a"
+  },
+  {
+    "file": "scripts/voice-e2e.mjs",
+    "sha256": "ac9f11eb4c3a7d8478e2fb27373a29e063102e647f83d439e36a55aaf3fbe4ea"
+  },
+  {
+    "file": "scripts/voice-live-check.mjs",
+    "sha256": "60fc9f798c44def57b29ce82e837334c95f1c42adde258688695372ec2c1c900"
+  },
+  {
+    "file": "scripts/voice-send-test.mjs",
+    "sha256": "7d1c628eadb959ee94b0218bdeb7fb6c9f83a6bea4af9a7ab9784087de9d27fb"
+  },
+  {
+    "file": "scripts/voice-tool-locator.mjs",
+    "sha256": "084388343f12c58c1221c91bdbee936d5c9947c6552ac721829d77b6d2b0c46b"
+  },
+  {
+    "file": "package.json",
+    "sha256": "30083041956c3c0400b21f08fe1094ad356b4b704e16ae4decf6a20eae8ab8e2"
+  },
+  {
+    "file": "package-lock.json",
+    "sha256": "b20a62984d9a467ca77f0114d7ce95d9297bb2b842dbe8b8391bc08ca8c06458"
+  }
+]

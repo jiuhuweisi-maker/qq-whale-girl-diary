@@ -81,7 +81,7 @@ class Relay(object):
         query = [(k,v) for k,v in urllib.parse.parse_qsl(parsed.query, keep_blank_values=True) if k not in ('access_token','token')]
         url = self.upstream + parsed.path + ('?' + urllib.parse.urlencode(query) if query else '')
         action = parsed.path.strip('/')
-        outbound = bool(re.match(r'^(send_(group_msg|private_msg|msg)|set_group_(kick|ban)|delete_msg)$', action))
+        outbound = bool(re.match(r'^(send_(group_msg|private_msg|msg|custom_face)|set_group_(kick|ban)|delete_msg)$', action))
         params = dict(query)
         if body:
             try:

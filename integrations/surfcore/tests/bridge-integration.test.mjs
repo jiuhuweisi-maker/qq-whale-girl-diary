@@ -16,6 +16,7 @@ import {proactiveDelay} from '../compat/proactive-clock.mjs';
 import {legacyMedia} from '../compat/legacy-media.mjs';
 import {interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan} from '../compat/private-availability.mjs';
 import {extractMentions} from '../compat/message-mentions.mjs';
+import {bootstrapToolContext,backgroundPromptRefresh} from '../compat/context-economy.mjs';
 const root = path.resolve(process.argv[2]);
 const stickerSemantics = await import(pathToFileURL(path.join(root,'src/sticker-semantics.js')));
 const { cleanOutput, requestedLiterals } = await import(pathToFileURL(path.join(root, 'whale-compat/hygiene.mjs')));
@@ -26,7 +27,7 @@ if(!original.includes('whale, evaluateWakeTriggerV2, ensureSession,')) original=
 if(!original.includes('appendHistoryCatchupV2, historyCandidateFromRaw,')) original=original.replace('appendHistoryCatchupV2, fetchOneBotHistory,','appendHistoryCatchupV2, historyCandidateFromRaw, fetchOneBotHistory,');
 if(!original.includes('loadSocialV2State, socialV2,')) original=original.replace('sendWakePromptV2, socialV2,','sendWakePromptV2, loadSocialV2State, socialV2,');
 if(!original.includes('whale, fundpilot, evaluateWakeTriggerV2,')) original=original.replace('whale, evaluateWakeTriggerV2,','whale, fundpilot, evaluateWakeTriggerV2,');
-fs.writeFileSync(harnessPath,original);
+assert.equal(original,fs.readFileSync(harnessPath, 'utf8'), 'latest harness must expose compatibility functions without modifying source');
 const { bridgeHarness } = await import(pathToFileURL(harnessPath));
 let passed = 0;
 const test = async (name, fn) => { await fn(); passed++; console.log('PASS ' + name); };
@@ -42,7 +43,7 @@ class SimDate extends Date {
 const disk = { ...fs, openSync(file, mode, ...args) { if (mode === 'r' && fs.statSync(file).isDirectory() && process.platform === 'win32') { const fd = -1000 - descriptors.size; descriptors.add(fd); return fd; } return fs.openSync(file, mode, ...args); }, fsyncSync(fd) { if (!descriptors.has(fd)) fs.fsyncSync(fd); }, closeSync(fd) { if (descriptors.has(fd)) descriptors.delete(fd); else fs.closeSync(fd); } };
 const legacyDir=fs.mkdtempSync(path.join(os.tmpdir(),'whale-stickers-'));fs.writeFileSync(path.join(legacyDir,'happy.png'),Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64'));fs.writeFileSync(path.join(legacyDir,'INDEX.tsv'),'happy.png\t开心测试图\n');
 const h = await bridgeHarness({ config: { whaleCompat: { cutover: Math.floor(Date.now()/1000)-1,stickerDir:legacyDir }, purpose: { enabled: false }, social: { enabled: false }, voice: { enabled: false }, biliBridge: { enabled: false }, socialV2: { enabled: true, tokenGuard: { enabled: false }, send: { maxPerMinute: 100, maxPerHour: 500 } } }, globals: {
-  ...stickerSemantics,extractMentions,Date:SimDate,safeFetchBuffer:async url=>{assert.equal(url,'https://public.invalid/sticker');return{buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64')};},createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, control: async () => structuredClone(control) }),
+  ...stickerSemantics,extractMentions,bootstrapToolContext,backgroundPromptRefresh,Date:SimDate,safeFetchBuffer:async url=>{assert.equal(url,'https://public.invalid/sticker');return{buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64')};},createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, log:(...a)=>{options.log?.(...a);if(String(a[0]).startsWith('持久消息账本'))console.error('[fixture-ledger]',...a);}, control: async () => structuredClone(control) }),
   createFundPilot:options=>createFundPilot({...options,disk,research:{read:async fund=>({code:fund.code,name:fund.name,unitNav:1.2,asOf:'2026-10-30',measurement:'published_unit_nav',isRealtimePrice:false})},request:async(route,data)=>({mode:'paper',liveTrading:false,cashFen:100000,...(data?{order:data}:{})})}),recordSessionResult,
   renderConversationMemory, createLegacyReader, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,relationshipBlock,composeConfirmedPersona,contextualFollowUp,proactiveDelay,legacyMedia,interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan,discoverDshSessionCookie: () => ''
 } });
@@ -150,8 +151,8 @@ try {
     const headers={ 'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1','x-agent-token':st.agentToken,'x-whale-request-id':'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','x-whale-tool':'qq_send_sticker','x-whale-args':Buffer.from(JSON.stringify(args)).toString('base64')};
     h.whale.onEvent(key,sid,{type:'tool/call',data:{name:'mcp__snowluma__qq_send_sticker',callId:'native-sticker',arguments:JSON.stringify(args)}});
     const send=()=>fetch(base+'/api/socialV2/send-sticker',{method:'POST',headers,body:JSON.stringify({key,stickerId:args.stickerId})}).then(r=>r.json());
-    const before=h.calls.http.filter(r=>r.url.endsWith('/send_private_msg')).length,a=await send();assert(a.ok,JSON.stringify(a));const b=await send();assert(b.ok,JSON.stringify(b));
-    assert.equal(h.calls.http.filter(r=>r.url.endsWith('/send_private_msg')).length-before,1);
+    const before=h.calls.http.filter(r=>r.url.endsWith('/send_custom_face')).length,a=await send();assert(a.ok,JSON.stringify(a));const b=await send();assert(b.ok,JSON.stringify(b));
+    assert.equal(h.calls.http.filter(r=>r.url.endsWith('/send_custom_face')).length-before,1);
     const receipt=h.whale.ledger.data.outbox[`${sid}:native-sticker:0`];assert.equal(receipt.status,'sent');assert(receipt.picture&&receipt.receipt.message_id);
   });
   await test('actual sticker endpoint allows a battle without consuming text quotas',async()=>{
@@ -160,13 +161,13 @@ try {
     h.cfg.socialV2.tokenGuard.enabled=true;h.cfg.socialV2.tokenGuard.maxOutboundPerTurn=1;st.tokenTurnSent=20;
     h.cfg.socialV2.send.maxSendPerMinute=1;h.cfg.socialV2.send.maxSendPerHour=1;st.sendTimes=[Date.now()];
     h.whale.onEvent(key,sid,{type:'turn/start',data:{turn:'sticker-battle'}});
-    const before=h.calls.http.filter(r=>r.url.endsWith('/send_private_msg')).length;
+    const before=h.calls.http.filter(r=>r.url.endsWith('/send_custom_face')).length;
     for(let i=0;i<6;i++){
       const callId='battle-'+i;h.whale.onEvent(key,sid,{type:'tool/call',data:{name:'mcp__snowluma__qq_send_sticker',callId,arguments:JSON.stringify(args)}});
       const r=await fetch(base+'/api/socialV2/send-sticker',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1','x-agent-token':st.agentToken,'x-whale-request-id':'dddddddd-dddd-dddd-dddd-'+String(i+1).padStart(12,'0'),'x-whale-tool':'qq_send_sticker','x-whale-args':Buffer.from(JSON.stringify(args)).toString('base64')},body:JSON.stringify({key,stickerId:args.stickerId})});
       assert.equal(r.status,200,JSON.stringify(await r.json()));
     }
-    assert.equal(h.calls.http.filter(r=>r.url.endsWith('/send_private_msg')).length-before,6);assert(st.tokenTurnSent<=20);assert.equal(st.sendTimes.length,1);
+    assert.equal(h.calls.http.filter(r=>r.url.endsWith('/send_custom_face')).length-before,6);assert(st.tokenTurnSent<=20);assert.equal(st.sendTimes.length,1);
     h.cfg.socialV2.tokenGuard.enabled=false;h.cfg.socialV2.send.maxSendPerMinute=100;h.cfg.socialV2.send.maxSendPerHour=500;
   });
   await test('actual financial limit still blocks generation and explains it once in owner DM',async()=>{

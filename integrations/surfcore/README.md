@@ -1,4 +1,4 @@
-# 鲸戒的 SurfCore 适配层（patch114）
+# 鲸戒的 SurfCore 适配层（当前部署版184）
 
 上游固定为 [SurfCore 0.6.20](https://github.com/Mieksido/surfcore/tree/c174ed07b7ad5c64654bf3d309dd8cbac1558737)，不跟随自动更新。这里保存可重建的适配代码，不包含上游整库、依赖、凭据、真实人设或聊天记录。
 
@@ -12,7 +12,7 @@ node integrations/surfcore/tests/bili-listener.test.mjs <原版或已适配的�
 node --test integrations/surfcore/tests/fundpilot.test.mjs
 ```
 
-`build.mjs` 遇到锚点漂移或重复安装会停止，不靠模糊替换。依赖使用上游 lockfile；先 `npm ci --ignore-scripts`，只运行已审查的 SDK 补丁。`import-memory.mjs` 读取仓库外 JSON 设置，保留原始文件，生成带来源和群私隔离的索引与活动记忆。`verify-live.mjs` 在服务器只读校验实际安装文件、连接、记忆索引和配置，不生成模型回合、不发 QQ。
+`build.mjs`先验348个固定上游源文件，再覆盖完整现行源码及兼容模块，生成374文件清单；错误基座、已有配置或已构建目录都会停止。旧143锚点构建器已归档至`archive/2026-11-03/deployment143/`。依赖使用上游lockfile；先`npm ci --ignore-scripts`，只运行已审查的SDK补丁。`import-memory.mjs`读取仓库外设置，保留原件与群私范围。新装完整步骤见`docs/DEPLOY-SURFCORE.md`。
 
 普通聊天改走 SurfCore。旧桥保留主人控制、管理指令、健康与原始账本；`聊天后端=surfcore` 时禁止旧聊天发送。主人指令先用 OneBot `get_msg` 核实真实来源，再执行原有去重管理器，模型不能传入任意目标执行踢人或禁言。
 
@@ -30,6 +30,6 @@ patch125按主人纠正撤销自动课程与每日笔记安排：金融只加入
 
 ## 活体镜像（live-mirror/）与容灾（2026-10-31 深夜起，主人令"服务器单点=漏洞"）
 
-- `live-mirror/src/bridge.js` + `live-mirror/plugins/index.js|bridge.js` = 服务器 staging-c174ed0 活体代码的**脱敏镜像**（真实 QQ 号/appid 等十位数一律替换为语义占位符，凭据/IP 运行时读 config.json；导出后经敏感面预扫+隐私门双检）。compat/ 为 whale-compat 全量镜像，tests/runtime.test.mjs 直接跑在这套镜像上（31/31）。
+- `live-mirror/`按实际源码路径保存完整差异覆盖层，入口清单在`release/runtime-files.json`，固定基座指纹在`release/upstream-files.json`；旧平铺镜像已归档。兼容模块仅从`compat/`取现行版本，不再让旧模拟器覆盖它。配置、凭据、人设原文和聊天不随源码发布。
 - **纪律**：桥端每落一次手术（145/146/147/150/151…），当晚同步本目录+compat/，与 docs/bridge-patches.md 条目同 commit 推送——三者不同步=镜像过期即漏洞。
 - 恢复场景：服务器全损时按 README+本目录+bridge-patches 备份链重建代码面；凭据/人设原文/QQ号仍在仓库外（SECRETS.md），永远不进 git。

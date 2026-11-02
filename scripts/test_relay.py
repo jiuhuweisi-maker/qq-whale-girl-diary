@@ -74,4 +74,24 @@ class RelayTests(unittest.TestCase):
         self.assertEqual(400,self.relay.request('http://elsewhere/send_group_msg',self.body)[0])
         self.assertEqual([],self.calls)
 
+    def test_native_favorite_has_the_same_durable_replay_protection(self):
+        body = b'{"user_id":18,"emoji_id":"fixture-face"}'
+        first = self.relay.request('/send_custom_face',body,self.key)
+        again = module.Relay('http://127.0.0.1:3002','fixture-token',self.tmp.name,self.relay.opener)
+        self.assertEqual(first,again.request('/send_custom_face',body,self.key))
+        self.assertEqual(1,len(self.calls))
+        with open(self.relay.store.journal) as stream: rows=[json.loads(x) for x in stream]
+        self.assertEqual('send_custom_face',rows[-1]['action'])
+        self.assertEqual('confirmed',rows[-1]['status'])
+
+    def test_unknown_native_favorite_result_is_not_retried(self):
+        def timeout(req, **kwargs):
+            self.calls.append(req)
+            raise TimeoutError('simulated ack loss')
+        self.relay.opener=timeout
+        body=b'{"user_id":18,"emoji_id":"fixture-face"}'
+        self.assertEqual(502,self.relay.request('/send_custom_face',body,self.key)[0])
+        self.assertEqual(409,self.relay.request('/send_custom_face',body,self.key)[0])
+        self.assertEqual(1,len(self.calls))
+
 if __name__ == '__main__': unittest.main()

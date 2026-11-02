@@ -16,7 +16,7 @@ test('unbound host times out without starting anything; unknown or external URLs
 });
 
 function startFixture({bound=true,already=false}={}) {
-  const source=fs.readFileSync(new URL('../live-mirror/plugins/bridge.js',import.meta.url),'utf8');
+  const source=fs.readFileSync(new URL('../live-mirror/plugins/surfcore/lib/bridge.js',import.meta.url),'utf8');
   const a=source.indexOf('let startInFlight182='),b=source.indexOf('export async function stop()',a);assert(a>=0&&b>a);
   let live=already,spawns=0,waits=0;
   const env={portOpen:async()=>live,readJson:()=>({dsh:{baseUrl:'http://127.0.0.1:3080'}}),QQ_CONFIG:'/fixture/config.json',waitForDshBind:async()=>{waits++;await Promise.resolve();return{ready:bound};},appendSupervisorLog:()=>{},process:{env:{}},findNodeExe:()=>'/opt/node/bin/node',path,spawn:()=>{spawns++;live=true;return{pid:42,unref(){}};},QQBOT_ROOT:'/fixture/surfcore',BRIDGE_SUPERVISOR_LOG:'/fixture/supervisor.log',setTimeout:fn=>{queueMicrotask(fn);}};

@@ -78,6 +78,7 @@ import {
 } from './token-budget.js';
 import { createBiliMemory } from './bili-memory.js';
 import { exactDeliveryProof } from '../whale-compat/delivery-proof.mjs';
+import {bootstrapToolContext,backgroundPromptRefresh} from '../whale-compat/context-economy.mjs';
 import {
   appendMemoryInboxEvent, looksNoteworthyMessage, resolveMemoryCardPaths, loadMemoryCard, renderMemoryCard,
 } from './memory-card.js';
@@ -1573,7 +1574,7 @@ function sanitizeMediaSummary(value, max = 60) {
 // emoji_id/emoji_package_id/key/url**（实测：sub_type 可能是 0，靠 emoji_id 区分），
 // 部分网关实现则用 mface 段。以前只留 file/url/subType/summary，emoji 字段被丢掉，
 // 一旦 get_image 取不到（市场表情不在网关缓存里），就再也没有其它可用的兜底地址。
-async function sendCustomFaceNative178(kind, id, emojiId, replyId179) {
+async function sendCustomFaceNative178(kind, id, emojiId, replyId179, cfg, delivery) {
   // 原生自定义表情通道（SnowLuma send_custom_face）：按收藏表 emoji_id 服务端查找发送，
   // 不下载不转码——客户端呈现 sub_type=1 表情样式，动画保真，与真人表情面板一致。
   const httpUrl = String(cfg.snowluma?.httpUrl || 'http://127.0.0.1:3000').replace(/\/+$/, '');
@@ -1586,6 +1587,7 @@ async function sendCustomFaceNative178(kind, id, emojiId, replyId179) {
     headers: {
       'content-type': 'application/json',
       'x-whale-origin': 'surfcore',
+      'x-whale-delivery-id': delivery.deliveryId,
       ...(cfg.snowluma?.accessToken ? { authorization: `Bearer ${cfg.snowluma.accessToken}` } : {})
     },
     body: JSON.stringify(params),
@@ -1597,10 +1599,12 @@ async function sendCustomFaceNative178(kind, id, emojiId, replyId179) {
     // certainNotSent178：协议层校验直接拒绝（没碰 QQ）才允许安全降级重发；
     // 超时/5xx/未知一律 false——宁可这条失败让 AI 换招，不冒双发险。
     err.certainFail = err.certainNotSent178 = (res.status >= 400 && res.status < 500)
-      || [100, 1400, 1404].includes(Number(body.retcode))
-      || /is required|not in the saved sticker list|unknown action/i.test(String(body.wording ?? ''));
+      || (res.ok && ([100, 1400, 1404].includes(Number(body.retcode))
+      || /is required|not in the saved sticker list|unknown action/i.test(String(body.wording ?? ''))));
     throw err;
   }
+  const receipt=body.data?.message_id;
+  if(!['string','number'].includes(typeof receipt)||!String(receipt).trim()||String(receipt)==='0')throw new Error('原生表情未返回可核对回执，不重复尝试');
   return body.data;
 }
 
@@ -5671,7 +5675,7 @@ async function main() {
           const st = getSocialV2State(key);
           // 让 prompt 里的表情摘要尽量新鲜：按 TTL 同步一次 QQ 收藏表情（失败不阻塞）。
           if (cfg.socialV2?.sticker?.enabled !== false) {
-            try { await syncStickerLibrary(false); } catch {}
+            void backgroundPromptRefresh(()=>syncStickerLibrary(false),name=>log('[prompt] 收藏后台刷新暂未完成：'+name));
           }
           const roleState = readRoleState();
           const toolMap = {
@@ -8852,7 +8856,7 @@ async function main() {
     const httpUrl = String(cfg.snowluma?.httpUrl || 'http://127.0.0.1:3000').replace(/\/+$/, '');
     return whale.send(`${kind}:${id}`, segments, async (safeSegments, delivery) => {
     const cf179 = safeSegments.find((s) => s.type === 'custom_face');
-    if (cf179) return sendCustomFaceNative178(kind, id, cf179.data.emoji_id, cf179.data.replyId ?? undefined);
+    if (cf179) return sendCustomFaceNative178(kind, id, cf179.data.emoji_id, cf179.data.replyId ?? undefined, cfg, delivery);
     params.message = safeSegments;
     const res = await fetch(`${httpUrl}/${action}`, {
       method: 'POST',
@@ -12957,6 +12961,7 @@ async function main() {
   }
 
   function buildWakePromptV2(key, reason) {
+    const providedRole=currentRoleHintV2(key);
     const roleState = readRoleState();
     const roleLine = roleState.role ? `【当前角色】${roleState.role}（完整角色卡请调用 qq_get_prompt 查看）\n\n` : '';
     // B站 记忆简报关掉时（biliBridge.memory.enabled=false），B站 侧的自我锚点会整段消失；
@@ -13053,9 +13058,10 @@ async function main() {
     // 二代不自动注入完整角色卡，但记忆卡必须每轮都在：否则她记不起和主人的事。
     const memoryCardText = memoryCardPromptBlock(key);
     const memoryCardLine = memoryCardText ? `${memoryCardText}\n\n` : '';
-    const base = privateRestHint(key,cfg.ownerQQ,Date.now()) + currentRoleHintV2(key) + '\n\n' + roleLine + identityLine + provenanceLine + (biliRecall ? biliRecall + '\n\n' : '') + tokenLine + initialPromptLine + antiAiLine + proactiveLine + closureLine + stickerLine + stickerMatchLine + replyLine + statusLine + wakeLine + memoryLine + participationLine + fishGuardLine + tokenGuardLine + preSleepLine;
+    const base = privateRestHint(key,cfg.ownerQQ,Date.now()) + providedRole + '\n\n' + roleLine + identityLine + provenanceLine + (biliRecall ? biliRecall + '\n\n' : '') + tokenLine + initialPromptLine + antiAiLine + proactiveLine + closureLine + stickerLine + stickerMatchLine + replyLine + statusLine + wakeLine + memoryLine + participationLine + fishGuardLine + tokenGuardLine + preSleepLine;
     if (reason === 'bootstrap') {
-      return `${base}【引导唤醒】你已接入 QQ 会话 ${key}。\n当前是二代仿真模式：你的文本输出不会自动发送到 QQ，所有发言必须通过工具完成。\n请先调用 qq_get_prompt 查看角色、推荐值、可用工具和状态；有待回应的消息先按首回复节奏处理，最后才用 qq_set_wake_config 设置你希望如何被唤醒。`;
+      const context=bootstrapToolContext({roleProvided:!!providedRole,recommended:cfg.socialV2?.provideRecommendations===false?null:{wake:cfg.socialV2?.wake??{},send:cfg.socialV2?.send??{},wait:cfg.socialV2?.wait??{},proactive:cfg.socialV2?.proactive??{}}});
+      return `${base}【引导唤醒】你已接入 QQ 会话 ${key}。\n当前是二代仿真模式：你的文本输出不会自动发送到 QQ，所有发言必须通过工具完成。\n${context}\n有待回应的消息先按首回复节奏处理，最后才用 qq_set_wake_config 设置你希望如何被唤醒。`;
     }
     if (reason === 'timeout') {
       return `${base}【唤醒】${key}\n原因：你设置的有限潜水时间已到；在你规定的时间内没有任何一项条件被触发，只是因为时间到了所以你被唤醒。\n你可以查看消息，或继续设置新的唤醒条件。`;
