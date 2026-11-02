@@ -7,6 +7,7 @@
  */
 import fs from 'node:fs';
 import net from 'node:net';
+import {waitForDshBind} from '../../../whale-compat/host-ready.mjs';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import {
@@ -165,8 +166,19 @@ function appendSupervisorLog(text) {
   } catch {}
 }
 
-export async function start({ dshWebUrl = '' } = {}) {
+let startInFlight182=null;
+export async function start(options = {}) {
+  if(startInFlight182)return startInFlight182;
+  startInFlight182=startWhenHostReady182(options);
+  try{return await startInFlight182;}finally{startInFlight182=null;}
+}
+
+async function startWhenHostReady182({ dshWebUrl = '' } = {}) {
   if (await portOpen()) return { ok: true, already: true, message: '桥接已经在跑' };
+  if(!dshWebUrl){const cfg=readJson(QQ_CONFIG,{})||{};dshWebUrl=String(process.env.DSH_WEB_URL||cfg.dsh?.baseUrl||'').trim();}
+  const hostReady=await waitForDshBind(dshWebUrl);
+  if(!hostReady.ready){appendSupervisorLog('DSH尚未监听，未启动第二个桥进程，留待正常巡检复查');return{ok:false,retryable:true,error:'DSH网页服务尚未就绪，桥尚未启动'};}
+  if(await portOpen())return{ok:true,already:true,message:'等待DSH期间桥已启动'};
   const env = { ...process.env };
   if (dshWebUrl) env.DSH_WEB_URL = String(dshWebUrl);
   // 直接 spawn node.exe，不经过 cmd/start.bat：
