@@ -92,7 +92,11 @@ await check('reconcileUncertain151 keeps blocking without proof and releases onl
   let r = await f.w.reconcileUncertain151(async () => false);
   assert.equal(r.checked, 1); assert.equal(r.cleared, 0);
   await assert.rejects(f.w.send('group:7001', text('你好'), async () => ({})), /仍待核对/); // 查无实锤=继续拦
-  r = await f.w.reconcileUncertain151(async (key, atMs) => key === 'group:7001' && atMs > 0);
+  r = await f.w.reconcileUncertain151(async () => true);
+  assert.equal(r.cleared,0);assert.equal(f.w.status().uncertain,1,'a legacy nearby-message boolean is not content proof');
+  r = await f.w.reconcileUncertain151(async (key,atMs,hash)=>({confirmed:true,hash:'0'.repeat(64),messageId:'wrong'}));
+  assert.equal(r.cleared,0);
+  r = await f.w.reconcileUncertain151(async (key,atMs,hash)=>({confirmed:key==='group:7001'&&atMs>0,hash,messageId:'receipt-151'}));
   assert.equal(r.cleared, 1); assert.equal(f.w.status().uncertain, 0);
   let n = 0; await f.w.send('group:7001', text('你好'), async () => ++n); assert.equal(n, 1); // 21:14 误拦场景自此放行
 });

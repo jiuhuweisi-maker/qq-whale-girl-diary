@@ -217,7 +217,7 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
     }
   }
   // 核销151（主人 10-31 深夜令）：uncertain 回单自动对账。只有接口实锤才清锁，绝不重发
-  // （patch103 双发是血案）。probe(key, atMs) 由桥侧实现：±90s 内查到我自己送达的消息=实锤。
+  // （patch103 双发是血案）。183：probe还须校验内容哈希及唯一真实回执，时间相近本身不是实锤。
   async function reconcileUncertain151(historyProbe) {
     if (!ledger.healthy) return { skipped: 'ledger-unhealthy' };
     const nowT = now();
@@ -225,9 +225,11 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
     let cleared = 0;
     for (const [id, r] of pend) {
       try {
-        if ((await historyProbe(r.key, Number(r.at))) === true) {
-          change(d => { if (d.outbox[id]) { d.outbox[id].status = 'sent'; d.outbox[id].reconciled = 'auto151'; } });
-          cleared += 1;
+        const proof=await historyProbe(r.key, Number(r.at), r.hash);
+        if (r.hash && proof?.confirmed===true && proof.hash===r.hash && typeof proof.messageId==='string' && proof.messageId.trim() && proof.messageId!=='0') {
+          let changed=false;
+          change(d => { if (d.outbox[id]?.status==='uncertain' && d.outbox[id].hash===r.hash) { d.outbox[id].status = 'sent'; d.outbox[id].receipt={message_id:proof.messageId}; d.outbox[id].reconciled = 'exact183'; changed=true; } });
+          if(changed)cleared += 1;
         }
       } catch { /* 对账失败=保持拦锁，人工裁决优先 */ }
     }

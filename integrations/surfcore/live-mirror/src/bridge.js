@@ -77,6 +77,7 @@ import {
   blockMessage, evaluateBudget, localDayKey, readBudget, readDailyUsage,
 } from './token-budget.js';
 import { createBiliMemory } from './bili-memory.js';
+import { exactDeliveryProof } from '../whale-compat/delivery-proof.mjs';
 import {
   appendMemoryInboxEvent, looksNoteworthyMessage, resolveMemoryCardPaths, loadMemoryCard, renderMemoryCard,
 } from './memory-card.js';
@@ -15354,15 +15355,15 @@ async function main() {
   });
   log('桥接已启动。按 Ctrl+C 退出。');
   // ——核销151v2（23:52补量：窗1h→12h、count12→40——21:14遗留条目2.5h龄按旧窗永不可证，同文锁死到天亮；仍只实锤清锁）：每10分钟拿接口对账 outbox 里的 uncertain 回单。
-  // 清锁唯一依据=发送时刻±90秒窗口内接口查到我本人消息（实锤送达）；查不到=继续拦锁等人工。
+  // 183：清锁要求本人/会话/±90秒/内容哈希均对应，且仅一个真实回执；查不到或歧义就保持锁定。
   // 绝不自动重发——patch103 双发消息血案教训。零模型调用零外发。
   setInterval(() => {
-    void whale.reconcileUncertain151(async (key, atMs) => {
+    void whale.reconcileUncertain151(async (key, atMs, expectedHash) => {
       const m = /^(group|private):(\d+)$/.exec(String(key || ''));
       if (!m) return false;
       const raw = await fetchOneBotHistory(m[1], m[2], 40);
       if (!raw) return false;
-      return raw.some((it) => String((it && it.sender && it.sender.user_id) ?? '') === String(selfUserId) && Number(it.time) * 1000 >= atMs - 90000 && Number(it.time) * 1000 <= atMs + 90000);
+      return exactDeliveryProof({key,at:atMs,hash:expectedHash,selfId:selfUserId,messages:raw});
     }).then((r) => { if (r && Number(r.checked) > 0) log(`[核销151] uncertain 查 ${r.checked} 清 ${r.cleared}`); }).catch(() => {});
   }, 10 * 60 * 1000).unref?.();
   // 155：桥重启后把未到期承诺重新上弦（promises 已随 152 同法持久化）

@@ -1,0 +1,16 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {exactDeliveryProof} from '../compat/delivery-proof.mjs';
+const key='group:7001',at=Date.parse('2026-11-02T01:00:00Z'),selfId='9001';
+const message=[{type:'reply',data:{id:'42'}},{type:'at',data:{qq:'1001'}},{type:'text',data:{text:'早呀🐟'}}];
+const hash=createHash('sha256').update(JSON.stringify([key,message])).digest('hex');
+const base={message_id:'88',sender:{user_id:selfId},group_id:7001,time:at/1000,message};
+const proof=messages=>exactDeliveryProof({key,at,hash,selfId,messages});
+test('a nearby different message cannot confirm this send',()=>assert.equal(proof([{...base,message:[{type:'text',data:{text:'另一条'}}]}]),null));
+test('one exact receipt includes the checked hash and ID',()=>assert.deepEqual(proof([base]),{confirmed:true,hash,messageId:'88'}));
+test('wrong sender, group, timestamp, missing receipt or string body fail closed',()=>{for(const p of [{sender:{user_id:'9002'}},{group_id:7002},{time:at/1000+91},{message_id:undefined},{message_id:0},{message:'早呀🐟'}])assert.equal(proof([{...base,...p}]),null);});
+test('two distinct matching receipts are ambiguous; repeated copies of one receipt are not',()=>{assert.equal(proof([base,{...base,message_id:'89'}]),null);assert.equal(proof([base,base]).messageId,'88');});
+test('transport-only at metadata may be removed but quotes and mention targets may not change',()=>{assert(proof([{...base,message:message.map(s=>s.type==='at'?{...s,data:{...s.data,name:'显示名'}}:s)}]));for(const p of [[{type:'text',data:{text:'早呀🐟'}}],message.map(s=>s.type==='at'?{...s,data:{qq:'1002'}}:s),message.map(s=>s.type==='reply'?{...s,data:{id:'43'}}:s)])assert.equal(proof([{...base,message:p}]),null);});
+test('invalid expected hashes and unavailable history cannot become proof',()=>{assert.equal(proof(null),null);assert.equal(exactDeliveryProof({key,at,hash:'',selfId,messages:[base]}),null);});
+test('private evidence cannot borrow group messages or another private peer',()=>{const key='private:1001',message=[{type:'text',data:{text:'早呀'}}],hash=createHash('sha256').update(JSON.stringify([key,message])).digest('hex');const row={...base,message,message_type:'private',group_id:undefined,peer_id:'1001'};const p=m=>exactDeliveryProof({key,at,hash,selfId,messages:[m]});assert(p(row));assert.equal(p({...row,group_id:7001}),null);assert.equal(p({...row,peer_id:'1002'}),null);assert.equal(p({...row,message_type:'group'}),null);});
