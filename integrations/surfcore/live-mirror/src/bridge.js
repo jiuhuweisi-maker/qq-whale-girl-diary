@@ -15363,7 +15363,7 @@ async function main() {
       if (!m) return false;
       const raw = await fetchOneBotHistory(m[1], m[2], 40);
       if (!raw) return false;
-      return exactDeliveryProof({key,at:atMs,hash:expectedHash,selfId:selfUserId,messages:raw});
+      return exactDeliveryProof({key,at:atMs,hash:expectedHash,selfId:selfUserId,messages:raw,historyKey:key});
     }).then((r) => { if (r && Number(r.checked) > 0) log(`[核销151] uncertain 查 ${r.checked} 清 ${r.cleared}`); }).catch(() => {});
   }, 10 * 60 * 1000).unref?.();
   // 155：桥重启后把未到期承诺重新上弦（promises 已随 152 同法持久化）

@@ -20,7 +20,7 @@ function createDeliveryState({ fs, hash, basePath, namespace, now, diag }) {
       const d = payload.data;
       if (!d || !['inbox', 'outbox', 'pictures'].every(k => d[k] && typeof d[k] === 'object' && !Array.isArray(d[k])) || !Number.isFinite(d.groupPictureAt)) throw new Error('invalid state data');
       if (Object.values(d.inbox).some(r => !r || !Number.isFinite(r.at) || !Number.isFinite(r.expiresAt) || !['buffered', 'submitting', 'queued', 'claimed', 'completed', 'skipped', 'expired', 'uncertain'].includes(r.stage))) throw new Error('invalid inbox');
-      if (Object.values(d.outbox).some(r => !r || !Number.isFinite(r.at) || !Array.isArray(r.attempts) || !['sending', 'sent', 'suppressed', 'rejected', 'uncertain'].includes(r.status))) throw new Error('invalid outbox');
+      if (Object.values(d.outbox).some(r => !r || !Number.isFinite(r.at) || !Array.isArray(r.attempts) || !['sending', 'sent', 'suppressed', 'rejected', 'failed', 'uncertain'].includes(r.status))) throw new Error('invalid outbox');
       if (Object.values(d.pictures).some(t => !Number.isFinite(t))) throw new Error('invalid picture state');
       slots.push(payload);
     }
