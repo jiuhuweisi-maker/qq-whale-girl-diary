@@ -335,7 +335,7 @@ console.log('  content-type: application/x-www-form-urlencoded')
 console.log('  headers: UA(Chrome 131) + referer=' + referer)
 console.log('  cookie : SESSDATA=***; bili_jct=***; buvid3=***   (已脱敏)')
 console.log('  body   : ' + body.replace(encodeURIComponent(String(cred.bili_jct)), '***csrf***'))
-console.log(`  正文长度 ${message.length} 字符（上限 1000）；oid=${oid}；emoji/表情需转义符，本脚本只发纯文本`)
+console.log(`  正文长度 ${message.length} 字符（上限 1000）；oid=${oid}；Unicode emoji、颜文字与括号按正文发送；站内表情请使用平台支持的表示`)
 
 // ── 待审队列闸（2026-10-21 管理员定）──────────────────────────────────
 //   怀疑被攻击/阴阳怪气的评论，她会 `attack add` 记进队列 —— 那条**批准前一律不许回** ✗
