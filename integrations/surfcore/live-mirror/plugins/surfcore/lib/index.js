@@ -29,6 +29,8 @@ import {
 } from './paths.js';
 import { resolvePersonaFile } from './persona.js';
 import { discoverSnowLumaConnection } from '../../../src/snowluma-conn.js';
+import { unwrapSchemaValue } from '../../../src/schema-values.js';
+import { findSnowLumaInstall as findSnowLumaInstallIn, normalizeSnowLumaInstall, snowLumaMissingReport } from './snowluma-install.js';
 import { buildInstallChecks, installOk, planDoctorFix } from './doctor.js';
 import { VOICE_PORTS, readPackCharacters, validateCharacter } from './voice-health.js';
 import {
@@ -36,7 +38,7 @@ import {
   deleteCharacter, manualSnapshot, migrateIfNeeded, restoreCharacterSnapshot, switchToCharacter,
   updateCharacterFromPayload,
 } from './characters.js';
-import { activeMemoryPaths, activePlatformStateDir, readCurrentCharacter, touchCharacter } from '../../../src/character-persona.js';
+import { activeMemoryPaths, activePersonaLayers, activePlatformStateDir, readCurrentCharacter, touchCharacter } from '../../../src/character-persona.js';
 import { automationSnapshot } from './automation.js';
 import {
   backupFile, listBackups, pathSummary,
@@ -65,13 +67,17 @@ import { ExtensionHost } from './extensions.js';
 import { isLoopbackReq, json, readBody, sameOrigin } from './http-guard.js';
 import { startScheduler } from './scheduler.js';
 import { createTokenBudgetService } from './token-budget.js';
+import { scanPluginCompatibility } from './compat.js';
+import { createGateEventStore } from '../../../src/gate-events.js';
+import { normalizeAllowlist } from '../../../src/allowlist.js';
 import { createPetService, detectElectronPath, installElectronRuntime, ELECTRON_VERSION, electronDownloadUrl } from './pet.js';
 import { createPetChatService } from './pet-chat.js';
 import { createPetPurposeService } from './pet-purpose.js';
 import { createPetApiService } from './pet-api.js';
 import { createUpdatesService, resumePendingApply } from './updates.js';
+import { BILI_WORKSPACE_TITLE, biliWorkspacePath } from './bili-workspace.js';
 import {
-  adminFromSources, adminSummary, projectAdminSave,
+  adminFromSources, adminSummary, normalizeAdmin, projectAdminSave,
 } from '../../../src/admin-identity.js';
 import {
   applyMemoryCardAction, compactMemoryCardNow, fullMemoryCardSnapshot, memoryCardIdle, memoryCardSnapshot,
@@ -82,11 +88,15 @@ import { readWatchHistory } from '../tools/lib/watch-history.mjs';
 import { enrichWatchHistory } from '../tools/lib/watch-actions.mjs';
 import { scanPreferences } from '../tools/lib/pref-scan.mjs';
 import {
-  cancelQrLogin, closeAllQrLogins, pollQrLogin, readFishAccount, readOwnerAccount, startQrLogin,
+  cancelQrLogin, closeAllQrLogins, pollQrLogin, readFishAccount, readOwnerAccount, startQrLogin, verifyStoredCredentials,
 } from './bili-qr-login.mjs';
 import { fishGuardStateSummary } from '../tools/lib/fish-guard.mjs';
 import { summarizeQqFishGuard } from './qq-fish-guard.js';
 import { applySessionPermission } from './scheduler.js';
+import { fileStamp, isStale } from '../../../src/config-stamps.js';
+import { createContextTelemetry } from '../../../src/context-telemetry.js';
+import { createBillingService } from './billing.js';
+import { createPersonaClassifier } from './persona-classify.js';
 
 // 版本号只有一个来源：仓库根 package.json（与 plugins/surfcore/package.json 必须一致，
 // 由 scripts/version.mjs check 与 test-version.mjs 把关）。
@@ -201,6 +211,8 @@ export function apply(ctx) {
 
   let scheduler = null;
   let schedulerStatus = { running: false, startedAt: null, lastError: null, lastTickAt: null };
+  // 关闭温柔模式并丢弃上下文时递增：给 B站 一个全新 DSH sessionId，旧历史不再带入。
+  let biliSessionEpoch = 0;
   let syncTimer = null;
   let memoryCardTimer = null;
   let characterTimer = null;
@@ -215,9 +227,28 @@ export function apply(ctx) {
     getQqConfig: () => readQqConfig().config,
     log: (message) => pluginLog(message),
   });
+  // 闸门事件中心：桥接负责写，插件负责展示/确认；同一份文件、同一套分级。
+  const gateEvents = createGateEventStore({ dir: STATE_DIR, log: (message) => pluginLog(message) });
   // ── 桌宠（独立栏目，默认不安装；用户自己安装才生效）────────────────────
   const petService = createPetService({ stateDir: STATE_DIR, pluginLog, getSubprocess: () => ctx.get('subprocess') });
   // 桌宠对话与「目的机制」的桌宠载体：和 QQ / B站 共用当前角色的人格卡、记忆卡、目的状态。
+  // Phase 0A：旁路遥测（只读事件，不改 prompt/工具/会话行为）。
+  const contextTelemetry = createContextTelemetry({
+    file: path.join(STATE_DIR, 'context-telemetry-plugin.jsonl'),
+    source: 'plugin',
+    log: (message) => pluginLog(message),
+  });
+  // A+B 账单：每 10 分钟刷新到 ~/.dsh/surfcore/billing；只读，不调用模型。
+  const personaClassifier = createPersonaClassifier({ ctx, log: (message) => pluginLog(message), tokenBudget });
+
+  const billing = createBillingService({
+    stateDir: STATE_DIR,
+    qqRoot: QQBOT_ROOT,
+    readCurrentCharacter,
+    log: (message) => pluginLog(message),
+  });
+  billing.start();
+
   const petChat = createPetChatService({ ctx, stateDir: STATE_DIR, pluginLog, tokenBudget });
   const petPurpose = createPetPurposeService({ chat: petChat, tokenBudget, pluginLog, callBridge });
   const petApi = createPetApiService({
@@ -236,7 +267,13 @@ export function apply(ctx) {
   const updates = createUpdatesService({
     stateDir: STATE_DIR,
     pluginLog,
+    githubToken: () => String(readUnified().config?.updates?.githubToken ?? ''),
+    // 更新通道：stable（默认，只走正式 Release）/ dev（只走 Pre-release 的 -dev.N）
+    channel: () => String(readUnified().config?.updates?.channel ?? 'stable'),
     blockedReason: (component) => {
+      if (component.id === 'surfcore' && fs.existsSync(path.join(QQBOT_ROOT,'whale-overlay-manifest.json'))) {
+        return '此安装保留鲸戒定制功能，由兼容更新器合并、离线检查后自动更新；此按钮的原版覆盖已停用，检查更新仍可用。';
+      }
       if (component.kind === 'pet' || component.id === 'surfpet') {
         try {
           const st = petService.status();
@@ -250,21 +287,11 @@ export function apply(ctx) {
       const updCfg = readUnified().config?.updates ?? {};
       // 1) SurfCore 本体：源码树，走 git
       list.push({ id: 'surfcore', name: 'SurfCore 本体', dir: QQBOT_ROOT, kind: 'git', branch: 'main', versionRepo: 'Mieksido/surfcore' });
-      // 2) 语音包（bridge 管理的安装目录；config.json 的 voicePacks.dir 可覆盖）
-      //    是 git clone 就走 git；不是则看有没有配版本清单（updates.voice.*VersionUrl）
-      try {
-        const qqCfg = readQqConfig().config ?? {};
-        const packsDir = String(qqCfg?.voicePacks?.dir || path.join(QQBOT_ROOT, 'state', 'voice-packs'));
-        const voice = updCfg.voice ?? {};
-        list.push({
-          id: 'surfvoice-local', name: '语音包（本地）', dir: path.join(packsDir, 'voice-local'),
-          kind: 'auto', branch: 'main', versionUrl: voice.localVersionUrl || '', versionRepo: 'Mieksido/surfvoicelocal',
-        });
-        list.push({
-          id: 'surfvoice-cloud', name: '语音包（云端）', dir: path.join(packsDir, 'voice-cloud'),
-          kind: 'auto', branch: 'main', versionUrl: voice.cloudVersionUrl || '', versionRepo: 'Mieksido/surfvoicecloud',
-        });
-      } catch {}
+      // 2) 语音包**不进入自动更新列表**：它是离线运行时/模型/vendor 包，
+      //    不是 SurfCore 那种代码 zip；统一 updateFromZip 会按 surfcore-* + package.json
+      //    解析而必然失败（2026-10-30 用户反馈）。需要新包时在「语音」页重新导入离线包，
+      //    由 voice-pack-import 保留 config.toml / .venv / models / vendor。
+      //    语音包自己的 version.json / models.json 仍由语音页/包管理读取。
       // 3) 桌宠：构建产物，走版本清单（zip 安装包）；更新交给 petService.updateFromZip（保留 data/）
       try {
         const st = petService.status();
@@ -306,6 +333,9 @@ export function apply(ctx) {
       sessionEventOff = ctx.on('session/event', (session, event) => {
         try { tokenBudget.ingestEvent(session, event); }
         catch (error) { pluginLog('token 用量采集失败：', String(error?.message ?? error).slice(0, 160)); }
+        try {
+          if (tokenBudget.isTrackedSession(session)) contextTelemetry.ingestEvent(session, event);
+        } catch (error) { pluginLog('上下文遥测失败：', String(error?.message ?? error).slice(0, 160)); }
       });
     }
   } catch (error) {
@@ -356,11 +386,16 @@ export function apply(ctx) {
     }
     try {
       const character = readCurrentCharacter();
-      const sessionId = character ? `bili-whale-${character.id}` : 'bili-whale';
+      const baseSessionId = character ? `bili-whale-${character.id}` : 'bili-whale';
+      const sessionId = biliSessionEpoch ? `${baseSessionId}-r${biliSessionEpoch}` : baseSessionId;
+      const biliWorkspace = biliWorkspacePath(DSH_HOME);
       scheduler = startScheduler(ctx, {
         dshHome: DSH_HOME,
         biliMjs: BILI_MJS,
-        cwd: os.homedir(),
+        // 新会话走 workspaceId；cwd 只作为旧版 DSH 没有 workspaceController 时的兜底。
+        cwd: biliWorkspace,
+        workspacePath: biliWorkspace,
+        workspaceTitle: BILI_WORKSPACE_TITLE,
         sessionId,
         tokenBudget,
         log: (message) => pluginLog(message),
@@ -373,7 +408,66 @@ export function apply(ctx) {
     }
     return schedulerStatus;
   }
+  function stopSchedulerNow() {
+    const wasRunning = Boolean(scheduler && schedulerStatus.running);
+    try { scheduler?.stop?.(); } catch (error) {
+      pluginLog('生物钟停止失败：', String(error?.message ?? error));
+    }
+    scheduler = null;
+    schedulerStatus = { running: false, startedAt: null, lastError: null, lastTickAt: null };
+    if (wasRunning) pluginLog('生物钟已停止');
+    return { ok: true, wasRunning, scheduler: schedulerStatus };
+  }
+  // 显式“丢弃上下文”：给 B站 换一个新的 DSH sessionId，旧历史不会被新会话读取。
+  // 只停/起重启调度器，不删除 B站 的观看历史/行为账本；丢的是模型对话上下文。
+  async function resetBiliSchedulerSession() {
+    if (!scheduler || !schedulerStatus.running) return { reset: false, reason: 'not-running' };
+    try { await scheduler?.retire?.(); } catch (error) {
+      pluginLog('B站 旧会话退役失败（继续换新会话）：', String(error?.message ?? error));
+    }
+    scheduler = null;
+    schedulerStatus = idleSchedulerStatus('reset');
+    biliSessionEpoch = Date.now();
+    const next = startSchedulerNow();
+    return { reset: true, sessionId: next?.sessionId ?? null, started: next?.running === true };
+  }
   startSchedulerNow();
+
+  // 管理员称呼的存量修复：v0.7.2 及以前只把 ownerQQ 投影到 QQ config.json，
+  // displayName/biliName/gentle 留在 unified，桥接独立进程读不到 → 叫“管理员”。
+  // 启动时补一次投影（有变化才写），桥接在跑就重启让它重新读配置。
+  function ensureAdminProjection() {
+    try {
+      const qqState = readQqConfig();
+      const unifiedState = readUnified();
+      const biliState = readBiliConfig();
+      const unifiedAdmin = unifiedState.hasAdmin ? unifiedState.config?.admin : undefined;
+      const sourceAdmin = unifiedAdmin ?? qqState.config?.admin;
+      const current = adminFromSources({
+        unified: { admin: sourceAdmin },
+        qq: qqState.config,
+        bili: biliState.config,
+      });
+      if (!current.qq && !current.biliMid) return;
+      const next = normalizeAdmin(current);
+      const prev = normalizeAdmin(qqState.config?.admin);
+      if (JSON.stringify(prev) === JSON.stringify(next)) return;
+      const planned = projectAdminSave({ current: next, qq: qqState.config });
+      if (!planned.qq) return;
+      saveQqConfig(planned.qq);
+      pluginLog('管理员称呼已补齐到 QQ config.json（桥接重启后生效）');
+      setTimeout(() => {
+        void bridgeStatus().then((st) => {
+          if (!st.running) return;
+          return restartBridge({ dshWebUrl: currentDshUrl() });
+        }).catch(() => {});
+      }, 1500).unref?.();
+    } catch (error) {
+      pluginLog('管理员称呼投影失败（继续使用现有配置）：', error?.message ?? error);
+    }
+  }
+
+  ensureAdminProjection();
 
   // ── 角色人格：启动迁移 + 切换编排 ───────────────────────────────────────
   // 迁移只做一次：有旧记忆/旧 B站 账本才建第一个角色；旧目录原样保留作冷备份。
@@ -649,7 +743,7 @@ export function apply(ctx) {
       Promise.resolve(memoryStatus()),
     ]);
     // SnowLuma 只报「未连接」没用：这里给出可执行的诊断（没启动 / 在登录页 / token 不对）。
-    const snowDiag = await diagnoseSnowLuma(bridge?.snowluma ?? {}).catch(() => ({ state: 'unknown', hint: '' }));
+    const snowDiag = await diagnoseSnowLuma(bridge?.snowluma ?? {}, { bridge }).catch(() => ({ state: 'unknown', hint: '' }));
     const personaText = readTextFile(resolvePersonaFile());
     const mode = parseModeState();
     let dshMode = null;
@@ -658,7 +752,7 @@ export function apply(ctx) {
       if (settings?.describe) {
         const rows = settings.describe({ redactSecrets: true });
         const row = rows.find((item) => item.ns === 'qq-mode');
-        dshMode = row?.value?.mode ?? null;
+        dshMode = unwrapSchemaValue(row?.value?.mode) ?? null;
       }
     } catch {}
     return {
@@ -678,11 +772,13 @@ export function apply(ctx) {
       // 组件更新：概览「更新」卡与启动弹窗都读它（检查结果是缓存的，不在这里触发网络）。
       updates: updates.status(),
       scheduler: schedulerStatus,
+      launch: await launchStatus(),
       snowluma: {
         launcherPath: String(snow.launcherPath ?? ''),
         allowLaunch: snow.allowLaunch === true,
         downloadUrl: String(snow.downloadUrl ?? 'https://github.com/SnowLuma/SnowLuma/releases/latest'),
-        detected: findSnowLumaInstall() !== null,
+        detected: findSnowLumaInstall().ok,
+        everConnected: bridge?.snowluma?.everConnected === true,
         diagnosis: snowDiag,
       },
       mode: {
@@ -718,15 +814,54 @@ export function apply(ctx) {
   // ── 配置读写 ────────────────────────────────────────────────────────────
   async function handleConfig(req, res) {
     if (req.method === 'GET') {
-      json(res, 200, { ok: true, ...readAll(), paths: pathSummary(), backups: listBackups(20) });
+      json(res, 200, {
+        ok: true, ...readAll(), paths: pathSummary(), backups: listBackups(20),
+        // 保存时回传这些戳：服务端据此判断"加载之后配置有没有被别处改过"
+        stamps: {
+          qq: fileStamp(QQ_CONFIG),
+          bili: fileStamp(BILI_CONFIG),
+          unified: fileStamp(path.join(STATE_DIR, 'config.json')),
+        },
+      });
       return;
     }
     const body = JSON.parse(await readBody(req) || '{}');
-    const result = { ok: true, saved: {}, warnings: [] };
+    // 乐观并发：设置页加载后，如果配置被控制台/别的窗口改过，这里拒绝整份回写，
+    // 否则会把别人的修改覆盖掉（2026-10-29：语音开关"自己回弹"）。
+    const baseStamp = body?.baseStamp && typeof body.baseStamp === 'object' ? body.baseStamp : null;
+    const currentStamps = {
+      qq: fileStamp(QQ_CONFIG),
+      bili: fileStamp(BILI_CONFIG),
+      unified: fileStamp(path.join(STATE_DIR, 'config.json')),
+    };
+    if (baseStamp) {
+      const stale = ['qq', 'bili', 'unified'].filter((k) => isStale(baseStamp[k], currentStamps[k]));
+      if (stale.length) {
+        json(res, 409, {
+          ok: false, code: 'CONFIG_STALE',
+          error: `配置已被别处修改（${stale.join(' / ')}），本次保存未执行`,
+          hint: '点「重新读取」拿到最新配置后再改；直接覆盖会丢掉别人的修改',
+          stamps: currentStamps,
+        });
+        return;
+      }
+    }
+    const result = { ok: true, saved: {}, warnings: [], notes: [] };
     // ── 管理员：QQ ⇄ B站 默认是同一个人 ────────────────────────────────────
     // 合体层 admin 是唯一真相；旧格式（qq.ownerQQ / bili.owner）是投影。
     // 合并逻辑放在 src/admin-identity.js 的 projectAdminSave（纯函数，有单测），
     // 这里只负责把结果写回三份文件，避免「只改了一边」。
+    // 管理员 B站 UID：显式拒绝非法值，别静默清空（用户会以为"填不进去"）
+    const rawAdminMid = String(body?.unified?.admin?.biliMid ?? '').trim();
+    if (rawAdminMid && !/^\d{4,20}$/.test(rawAdminMid)) {
+      json(res, 400, {
+        ok: false, code: 'admin.mid-invalid',
+        error: `管理员 B站 UID「${rawAdminMid}」不合法`,
+        hint: 'B站 UID 是 4~20 位数字（个人空间地址 space.bilibili.com/<数字>）；不要带字母或空格',
+      });
+      return;
+    }
+
     const currentQq = readQqConfig().config;
     const currentBili = readBiliConfig().config;
     const currentUnifiedState = readUnified();
@@ -745,18 +880,25 @@ export function apply(ctx) {
     body.bili = planned.bili;
     body.unified = planned.unified;
     if (body.qq && typeof body.qq === 'object') {
+      if (body.qq.allow && typeof body.qq.allow === 'object') {
+        const ownerForAllow = planned.unified?.admin?.qq || readQqConfig().config?.ownerQQ || '';
+        const { allow, warnings } = normalizeAllowlist({ allow: body.qq.allow, ownerQQ: ownerForAllow });
+        body.qq.allow = allow;
+        for (const w of warnings) result.warnings.push(`白名单：${w.message}`);
+      }
       const saved = saveQqConfig(body.qq);
       result.saved.qq = true;
       result.qq = saved.config;
       result.qqBackup = saved.backup;
-      result.warnings.push('QQ 配置已保存；桥接只在启动时读 config.json，需要「重启桥接」才会生效。');
+      result.notes.push('QQ 配置已保存；桥接只在启动时读 config.json，需要「重启桥接」才会生效。');
     }
     if (body.bili && typeof body.bili === 'object') {
       const saved = saveBiliConfig(body.bili);
       result.saved.bili = true;
       result.bili = saved.config;
       result.biliBackup = saved.backup;
-      result.warnings.push('B站配置已保存；生物钟每轮重读配置，下一轮即生效。');
+      if (Array.isArray(saved.warnings) && saved.warnings.length) result.warnings.push(...saved.warnings);
+      result.notes.push('B站配置已保存；生物钟每轮重读配置，下一轮即生效。');
     }
     // 角色名校验：tts.character 必须是 [voice.characters] 里的名字，不能填音色 id。
     const incomingCharacter = body?.unified?.socialV2?.voice?.tts?.character;
@@ -846,7 +988,28 @@ export function apply(ctx) {
           : `QQ 启动开关已打开，但桥接启动失败：${started.error ?? started.message ?? '未知'}`);
       }
     }
-    if (body.restartBridge === true) {
+    // 关闭管理员温柔模式并选择“丢弃上下文”：保存配置后先退役 QQ 会话/社交上下文，再重启桥接。
+    // 顺序很重要：先 reset 再 restart，否则新会话会带着旧 cfg 建出来。
+    if (body.resetSessions === true) {
+      const bridgeNow = await bridgeStatus().catch(() => ({ running: false }));
+      if (bridgeNow?.running) {
+        try {
+          await stopAllBridgeSessions();
+          result.sessionsReset = true;
+        } catch (error) {
+          result.warnings.push(`重置 QQ 会话上下文失败：${error?.message ?? error}`);
+        }
+      } else {
+        result.warnings.push('QQ 桥接未运行：没有可重置的 QQ 会话上下文。');
+      }
+      try {
+        const biliReset = await resetBiliSchedulerSession();
+        if (biliReset.reset) result.biliSessionsReset = true;
+      } catch (error) {
+        result.warnings.push(`重置 B站 会话上下文失败：${error?.message ?? error}`);
+      }
+    }
+    if (body.restartBridge === true || body.resetSessions === true) {
       // 开关关掉时不允许「保存并重启」把 QQ 又拉起来；否则用户刚关的开关会被绕过。
       if (!platformStartEnabled('qq')) {
         result.warnings.push('QQ 启动开关已关闭：已跳过「保存并重启 QQ 桥接」。');
@@ -856,6 +1019,13 @@ export function apply(ctx) {
         if (!restart.ok) result.warnings.push(`桥接重启失败：${restart.error ?? restart.message ?? '未知'}`);
       }
     }
+    // 保存成功后把新的版本戳一并返回：否则前端仍拿加载时的旧戳，
+    // 下一次保存会被自己的第一次写盘判成 CONFIG_STALE（issue #40）。
+    result.stamps = {
+      qq: fileStamp(QQ_CONFIG),
+      bili: fileStamp(BILI_CONFIG),
+      unified: fileStamp(path.join(STATE_DIR, 'config.json')),
+    };
     json(res, 200, result);
   }
 
@@ -948,18 +1118,141 @@ export function apply(ctx) {
   }
 
   // ── 人设卡 ──────────────────────────────────────────────────────────────
+  async function handleGroupPolicy(req, res) {
+    try {
+      if (req.method === 'GET') {
+        const r = await callBridge('/api/socialV2/group-policy');
+        if (!r.ok) {
+          json(res, 502, { ok: false, code: 'GROUP_POLICY_BRIDGE', error: r.error || '桥接不可用', hint: '先启动 QQ 桥接，再刷新设置页' });
+          return;
+        }
+        json(res, 200, r.data);
+        return;
+      }
+      if (req.method === 'POST') {
+        const body = JSON.parse(await readBody(req) || '{}');
+        const r = await callBridge('/api/socialV2/group-policy', { method: 'POST', body });
+        if (!r.ok) {
+          json(res, 502, { ok: false, code: 'GROUP_POLICY_SAVE', error: r.error || '保存失败', hint: '检查桥接是否运行，再重试' });
+          return;
+        }
+        json(res, 200, r.data);
+        return;
+      }
+      json(res, 405, { ok: false, code: 'GROUP_POLICY_METHOD', error: '只支持 GET/POST' });
+    } catch (error) {
+      json(res, 400, { ok: false, code: 'GROUP_POLICY_FAILED', error: String(error?.message ?? error), hint: '检查桥接与配置' });
+    }
+  }
+
+  async function handlePersonaClassify(req, res) {
+    if (req.method !== 'POST') {
+      json(res, 405, { ok: false, code: 'PERSONA_CLASSIFY_METHOD', error: '只支持 POST', hint: '用角色页的「智能拆分」按钮' });
+      return;
+    }
+    try {
+      const body = JSON.parse(await readBody(req) || '{}');
+      const text = String(body.text ?? '');
+      const drafts = await personaClassifier.classify(text);
+      drafts.daily = withDailyIdentity(drafts.daily);
+      json(res, 200, { ok: true, drafts, note: '这是草稿；请检查/编辑后逐层保存。' });
+    } catch (error) {
+      const code = String(error?.code || 'PERSONA_CLASSIFY_FAILED');
+      const message = String(error?.message ?? error);
+      const unavailable = code.includes('UNAVAILABLE') || code.includes('NO_MODEL');
+      const internal = error instanceof ReferenceError || /is not defined|is not a function|Cannot read|undefined is not/i.test(message);
+      const hint = internal
+        ? '这是插件内部错误，不是人格卡内容问题；请把错误码/报错发给作者，或手动填写各层'
+        : code === 'PERSONA_CLASSIFY_EMPTY_INPUT'
+          ? '先写一点人格内容（核心/语气/日常/场景）再拆分'
+          : code === 'PERSONA_CLASSIFY_TOO_LARGE'
+            ? '人格卡超过 64KB，先精简或手动分层'
+            : code === 'PERSONA_CLASSIFY_BAD_JSON'
+              ? '模型输出不是可解析的 JSON；可以重试，或手动填写各层'
+              : unavailable
+                ? '确认 DSH 模型服务已就绪；也可以手动填写各层'
+                : '检查人格卡内容，或手动填写各层';
+      json(res, 400, {
+        ok: false,
+        code: internal ? 'PERSONA_CLASSIFY_INTERNAL' : code,
+        error: internal ? `人格拆分内部错误：${message}` : message,
+        hint,
+      });
+    }
+  }
+
+  function personaIdentityLine() {
+    const cur = readCurrentCharacter();
+    const name = String(cur?.name || '').trim() || '这个角色';
+    let admin = {};
+    try {
+      const unified = readUnified();
+      const qq = readQqConfig();
+      admin = adminSummary(unified?.config?.admin ?? qq?.config?.admin);
+    } catch {}
+    const owner = String(admin?.displayName || '').trim() || '主人';
+    return `你是${name}；你的主人是${owner}。`;
+  }
+
+  function withDailyIdentity(text, identity = personaIdentityLine()) {
+    const body = String(text ?? '').trim();
+    if (!body) return identity;
+    if (body.includes(identity)) return body;
+    // 已有明确“我是谁/主人是谁”的旧日常也保留，不重复堆。
+    if (/你是|我是/.test(body) && /主人/.test(body)) return body;
+    return `${identity}
+
+${body}`;
+  }
+
+  async function handleLimitMute(req, res) {
+    if (req.method !== 'POST') { json(res, 405, { ok: false, code: 'LIMIT_MUTE_METHOD', error: '只支持 POST' }); return; }
+    try {
+      const body = JSON.parse(await readBody(req) || '{}');
+      const r = await callBridge('/api/socialV2/limit-mute', { method: 'POST', body });
+      if (!r.ok) { json(res, 502, { ok: false, code: 'LIMIT_MUTE_BRIDGE', error: r.error || '桥接不可用', hint: '先启动/重启 QQ 桥接' }); return; }
+      json(res, 200, r.data);
+    } catch (error) {
+      json(res, 400, { ok: false, code: 'LIMIT_MUTE_FAILED', error: String(error?.message ?? error), hint: '刷新错误报告后重试' });
+    }
+  }
+
   async function handlePersona(req, res) {
+    const layerPaths = () => {
+      const layers = activePersonaLayers();
+      return layers ? {
+        core: layers.core || resolvePersonaFile(),
+        daily: layers.daily,
+        tone: layers.tone,
+        scenes: layers.scenes,
+        scenesDir: layers.scenesDir,
+      } : { core: resolvePersonaFile(), daily: '', tone: '', scenes: {}, scenesDir: '' };
+    };
+    const sceneLabels = { 'qq-group': 'QQ 群聊', 'qq-private': 'QQ 私聊', bili: 'B站', pet: '桌宠' };
     if (req.method === 'GET') {
-      const text = readTextFile(resolvePersonaFile());
-      const backups = listBackups(80).filter((item) => item.name.startsWith('persona-'));
+      const paths = layerPaths();
+      const core = readTextFile(paths.core);
+      const daily = paths.daily ? withDailyIdentity(readTextFile(paths.daily)) : withDailyIdentity('');
+      const scenes = {};
+      for (const [id, file] of Object.entries(paths.scenes || {})) {
+        scenes[id] = { path: file, text: readTextFile(file), chars: readTextFile(file).length };
+      }
+      const backups = listBackups(120).filter((item) => /^persona(?:-|$)/.test(item.name));
       json(res, 200, {
         ok: true,
-        path: resolvePersonaFile(),
-        text,
-        chars: text.length,
-        mtime: mtimeIso(resolvePersonaFile()),
+        path: paths.core,
+        text: core,
+        chars: core.length,
+        mtime: mtimeIso(paths.core),
+        layers: {
+          core: { path: paths.core, text: core, chars: core.length },
+          tone: { path: paths.tone, text: readTextFile(paths.tone), chars: readTextFile(paths.tone).length },
+          daily: { path: paths.daily, text: daily, chars: daily.length },
+          scenes,
+        },
+        sceneLabels,
         backups,
-        note: 'QQ 与 B站共用这一张人设卡；B站 AGENTS.md 只保留日子/流程，不另立人格。',
+        note: '人格卡分层：persona.md 是核心；persona.tone.md 是语气；persona.daily.md 是日常；persona.scenes/* 是场景。所有层都手动编辑，不会自动改写。',
       });
       return;
     }
@@ -968,30 +1261,66 @@ export function apply(ctx) {
       const name = safeBackupName(body.name);
       if (!name) { json(res, 400, { ok: false, error: '备份名非法' }); return; }
       const source = path.join(BACKUP_DIR, name);
-      if (!fs.existsSync(source)) { json(res, 404, { ok: false, error: '备份不存在' }); return; }
-      backupFile(resolvePersonaFile(), 'persona');
-      fs.copyFileSync(source, resolvePersonaFile());
+      if (!fs.existsSync(source)) { json(res, 404, { ok: false, code: 'PERSONA_BACKUP_MISSING', error: '备份不存在', hint: '刷新备份列表后重试' }); return; }
+      const paths = layerPaths();
+      let target = paths.core;
+      let label = 'persona';
+      if (name.startsWith('persona-daily-')) { target = paths.daily; label = 'persona-daily'; }
+      else if (name.startsWith('persona-tone-')) { target = paths.tone; label = 'persona-tone'; }
+      else if (name.startsWith('persona-scene-')) {
+        const scene = Object.keys(sceneLabels).find((id) => name.startsWith(`persona-scene-${id}-`));
+        if (!scene) { json(res, 400, { ok: false, code: 'PERSONA_SCENE_UNKNOWN', error: '备份对应的场景未知', hint: '检查备份文件名' }); return; }
+        target = paths.scenes?.[scene] || '';
+        label = `persona-scene-${scene}`;
+      }
+      if (!target) { json(res, 400, { ok: false, code: 'PERSONA_LAYER_UNAVAILABLE', error: '这个层在当前角色里没有路径（可能未启用角色系统）', hint: '先创建/加载角色' }); return; }
+      backupFile(target, label);
+      fs.copyFileSync(source, target);
       const cur = readCurrentCharacter();
       if (cur) touchCharacter(cur.id);
-      json(res, 200, { ok: true, restored: name, text: readTextFile(resolvePersonaFile()) });
+      json(res, 200, { ok: true, restored: name, target, text: readTextFile(target), layers: layerPaths() });
+      return;
+    }
+    const layer = String(body.layer || 'core');
+    const scene = String(body.scene || '');
+    const paths = layerPaths();
+    let target = paths.core;
+    let label = 'persona';
+    if (layer === 'tone') {
+      target = paths.tone;
+      label = 'persona-tone';
+    } else if (layer === 'daily') {
+      target = paths.daily;
+      label = 'persona-daily';
+    } else if (layer === 'scene') {
+      if (!sceneLabels[scene]) { json(res, 400, { ok: false, code: 'PERSONA_SCENE_UNKNOWN', error: `未知场景：${scene}`, hint: '只支持 qq-group / qq-private / bili / pet' }); return; }
+      target = paths.scenes?.[scene] || '';
+      label = `persona-scene-${scene}`;
+    }
+    if (!target) {
+      json(res, 400, { ok: false, code: 'PERSONA_LAYER_UNAVAILABLE', error: '这个层在当前角色里没有路径（可能未启用角色系统）', hint: '先创建/加载角色' });
       return;
     }
     const text = String(body.text ?? '');
-    if (text.length < 50) { json(res, 400, { ok: false, error: '人设卡太短（至少 50 字）' }); return; }
-    if (text.length > 64 * 1024) { json(res, 400, { ok: false, error: '人设卡超过 64KB' }); return; }
+    if (layer === 'core' && text.length < 50) { json(res, 400, { ok: false, code: 'PERSONA_CORE_TOO_SHORT', error: '人格核心太短（至少 50 字）', hint: '核心卡是每次注入的底座，不能留空' }); return; }
+    if (text.length > 64 * 1024) { json(res, 400, { ok: false, code: 'PERSONA_TOO_LARGE', error: '人格内容超过 64KB', hint: '拆成核心/场景/日常层，或精简内容' }); return; }
     const scan = scanText(text);
-    // 人设卡允许出现 QQ 号（称呼表/身份说明本来就需要），但绝不允许密钥、密码、
-    // 身份证/银行卡/住址这类真正敏感的内容被写进每次注入的人格提示词。
     const severe = scan.secrets.length > 0 || scan.pii.some((hit) => hit.severe);
     if (severe) {
-      json(res, 400, { ok: false, error: '人设卡里命中密钥/密码/身份证/住址规则，拒绝保存', labels: [...new Set([...scan.secrets, ...scan.pii.filter((h) => h.severe)].map((h) => h.label))] });
+      json(res, 400, {
+        ok: false,
+        code: 'PERSONA_SENSITIVE',
+        error: '人格内容里命中密钥/密码/身份证/住址规则，拒绝保存',
+        hint: '删掉这些内容后再保存；人格卡不应包含凭据',
+        labels: [...new Set([...scan.secrets, ...scan.pii.filter((h) => h.severe)].map((h) => h.label))],
+      });
       return;
     }
-    const backup = backupFile(resolvePersonaFile(), 'persona');
-    writeTextAtomic(resolvePersonaFile(), text.endsWith('\n') ? text : `${text}\n`);
+    const backup = backupFile(target, label);
+        writeTextAtomic(target, text.endsWith('\n') ? text : `${text}\n`);
     const cur = readCurrentCharacter();
     if (cur) touchCharacter(cur.id);
-    json(res, 200, { ok: true, chars: text.length, backup, path: resolvePersonaFile() });
+    json(res, 200, { ok: true, layer, scene: layer === 'scene' ? scene : '', chars: text.length, backup, path: target, layers: layerPaths() });
   }
 
   // ── 记忆 ────────────────────────────────────────────────────────────────
@@ -1135,7 +1464,14 @@ export function apply(ctx) {
         if (settings?.describe) {
           const rows = settings.describe({ redactSecrets: true });
           const row = rows.find((item) => item.ns === 'qq-mode');
-          if (row) dshSetting = row.value;
+          if (row) {
+            const raw = row.value ?? {};
+            dshSetting = {
+              ...raw,
+              mode: unwrapSchemaValue(raw.mode),
+              ownerQQ: unwrapSchemaValue(raw.ownerQQ),
+            };
+          }
         }
       } catch {}
       json(res, 200, { ok: true, ...parseModeState(), dshSetting });
@@ -1218,12 +1554,16 @@ export function apply(ctx) {
     return '';
   }
 
-  async function installChecks() {
+  async function installChecks(bridge = null) {
     const all = readAll();
     const qqCfg = readQqConfig().config ?? {};
     const snow = qqCfg.snowluma ?? {};
+    let runtimeBridge = bridge;
+    if (!runtimeBridge) {
+      try { runtimeBridge = await bridgeStatus(); } catch { runtimeBridge = null; }
+    }
     let snowState = { state: 'unknown', hint: '' };
-    try { snowState = await diagnoseSnowLuma(snow); } catch {}
+    try { snowState = await diagnoseSnowLuma(runtimeBridge?.snowluma ?? {}, { bridge: runtimeBridge }); } catch {}
     const bridgeSrc = path.join(QQBOT_ROOT, 'src', 'bridge.js');
     return buildInstallChecks({
       nodeVersion: process.versions.node,
@@ -1234,6 +1574,7 @@ export function apply(ctx) {
       privates: Array.isArray(qqCfg.allow?.private) ? qqCfg.allow.private : [],
       snow,
       snowState,
+      wakeGuard: runtimeBridge?.wakeGuard ?? null,
       bridgeSrc: fs.existsSync(bridgeSrc),
       bridgeMasked: maskPath(bridgeSrc),
       profile: dshProfileWithSurfcore(),
@@ -1316,9 +1657,14 @@ export function apply(ctx) {
       // 5) 主人 + 白名单
       const idStep = installStep('identity', '写入主人 QQ 与白名单');
       if (opts.groups.length) {
-        const priv = opts.ownerQQ ? [opts.ownerQQ] : [];
-        saveQqConfig({ allow: { groups: opts.groups, private: priv } });
-        done(idStep, true, `${opts.groups.length} 个群${opts.ownerQQ ? ' + 主人私聊' : ''}`);
+        // 保留用户已有私聊白名单，只追加主人（2026-10-31：以前 [owner] 整体替换会冲掉用户加的人）
+        const { allow, warnings } = normalizeAllowlist({
+          allow: { ...(readQqConfig().config?.allow ?? {}), groups: opts.groups },
+          ownerQQ: opts.ownerQQ,
+        });
+        saveQqConfig({ allow });
+        for (const w of warnings) pluginLog(`[安装] 白名单：${w.code} ${w.message}`);
+        done(idStep, true, `${opts.groups.length} 个群${opts.ownerQQ ? ' + 主人私聊' : ''}${warnings.length ? `（${warnings.length} 条修正）` : ''}`);
       } else {
         done(idStep, true, '没选群，跳过（之后在设置 → QQ → 白名单里加）');
       }
@@ -1392,7 +1738,7 @@ export function apply(ctx) {
       add('QQ 桥接', bridge.running, bridge.running ? `端口 ${bridge.port}` : '未运行');
       const all = readAll();
       add('隐私策略', PRIVACY_POLICY_VERSION >= 3, `v${PRIVACY_POLICY_VERSION}（私信/密钥/PII 一律不跨平台）`);
-      const install = await installChecks();
+      const install = await installChecks(bridge);
       // 语音链路：只报端口状态 + 一句怎么补（2026-10-27 用户踩过"只起了 8765 就以为装好了"）
       try {
         const v = readUnified().config?.socialV2?.voice?.tts ?? {};
@@ -1502,9 +1848,14 @@ export function apply(ctx) {
         .map((g) => String(g ?? '').trim())
         .filter((g) => /^\d{5,15}$/.test(g));
       if (body.applyGroups && groups.length) {
-        const priv = owner ? [owner] : (Array.isArray(cfg.allow?.private) ? cfg.allow.private : []);
-        saveQqConfig({ allow: { groups, private: priv } });
-        changed.push(`写入白名单（${groups.length} 个群${owner ? ' + 主人私聊' : ''}）`);
+        // 同样保留现有私聊白名单（2026-10-31 反馈：安装/诊断修复后用户加的人丢失）
+        const { allow, warnings } = normalizeAllowlist({
+          allow: { ...(cfg.allow ?? {}), groups },
+          ownerQQ: owner || cfg.ownerQQ || '',
+        });
+        saveQqConfig({ allow });
+        for (const w of warnings) pluginLog(`[install-apply] 白名单：${w.code} ${w.message}`);
+        changed.push(`写入白名单（${groups.length} 个群${owner ? ' + 主人私聊' : ''}${warnings.length ? `，${warnings.length} 条修正` : ''}）`);
       }
       // 4) 配置骨架 / 控制台令牌
       for (const action of doctorFix({ ownerQQ: owner })) {
@@ -1535,7 +1886,7 @@ export function apply(ctx) {
       const name = safeBackupName(body.name);
       if (!name) { json(res, 400, { ok: false, error: '备份名非法' }); return; }
       const source = path.join(BACKUP_DIR, name);
-      if (!fs.existsSync(source)) { json(res, 404, { ok: false, error: '备份不存在' }); return; }
+      if (!fs.existsSync(source)) { json(res, 404, { ok: false, code: 'PERSONA_BACKUP_MISSING', error: '备份不存在', hint: '刷新备份列表后重试' }); return; }
       const map = [
         ['qq-config-', QQ_CONFIG], ['bili-config-', BILI_CONFIG], ['unified-config-', path.join(STATE_DIR, 'config.json')],
         ['persona-', resolvePersonaFile()], ['alignments-', ALIGN_FILE],
@@ -1580,40 +1931,11 @@ export function apply(ctx) {
     return candidates.find((file) => { try { return fs.existsSync(file); } catch { return false; } }) ?? '';
   }
 
-  function findSnowLumaInstall() {
-    const cfg = readQqConfig().config?.snowluma ?? {};
-    const candidates = [];
-    const add = (value) => { const text = String(value ?? '').trim(); if (text) candidates.push(text); };
-    add(cfg.launcherPath);
-    add(process.env.SNOWLUMA_HOME);
-    add(process.env.SNOWLUMA_DIR);
-    for (const base of [
-      path.join(os.homedir(), 'SnowLuma2'),
-      path.join(os.homedir(), 'SnowLuma'),
-      path.join(os.homedir(), 'Desktop', 'SnowLuma2'),
-      path.join(os.homedir(), 'Downloads', 'SnowLuma2'),
-      path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'Programs', 'SnowLuma2'),
-      path.join(path.dirname(QQBOT_ROOT), 'SnowLuma2'),
-      path.join(process.env.ProgramFiles || 'C:/Program Files', 'SnowLuma2'),
-    ]) add(base);
-    for (const raw of candidates) {
-      const resolved = path.resolve(raw);
-      try {
-        if (fs.statSync(resolved).isFile()) {
-          if (/launcher\.bat$|SnowLuma\.exe$/i.test(resolved)) {
-            const dir = path.dirname(resolved);
-            const root = path.basename(dir).toLowerCase() === 'app' ? path.dirname(dir) : dir;
-            return { root, launcher: resolved };
-          }
-          continue;
-        }
-      } catch {}
-      for (const relative of ['app/launcher.bat', 'launcher.bat', 'SnowLuma.exe']) {
-        const launcher = path.join(resolved, relative);
-        try { if (fs.existsSync(launcher)) return { root: resolved, launcher }; } catch {}
-      }
-    }
-    return null;
+  // SnowLuma 安装位置识别：规则在 snowluma-install.js（「检测」与「浏览…」共用同一套，
+  // 避免两边各猜各的）。这里只负责把当前 QQ 配置喂进去。
+  function findSnowLumaInstall(extraPaths = []) {
+    const snow = readQqConfig().config?.snowluma ?? {};
+    return findSnowLumaInstallIn({ snowluma: snow, extraPaths });
   }
 
   // SnowLuma 没有原生窗口，它的界面是 WebUI（默认 http://127.0.0.1:5100）。
@@ -1647,8 +1969,30 @@ export function apply(ctx) {
 
   // SnowLuma 连不上时到底卡在哪一步：进程没起 / 停在登录页 / token 或端口不对。
   // 桥接的 goodError 只有一句 fetch failed，光看它没法给用户任何可执行的信息。
-  async function diagnoseSnowLuma(bridgeSnow = {}) {
+  async function diagnoseSnowLuma(bridgeSnow = {}, { bridge = null } = {}) {
     if (bridgeSnow.connected === true) return { state: 'ok', hint: '' };
+    if (bridge && bridge.running === false) {
+      return {
+        state: 'bridge-down',
+        hint: 'QQ 桥接没在跑：设置 → SurfCore → 概览 → 启动 QQ 桥接（桥接起来之后才轮到 SnowLuma）',
+      };
+    }
+    if (bridge && bridge.ok === false) {
+      return {
+        state: 'bridge-error',
+        hint: `桥接在跑但状态接口拒绝了：${bridge.error || '检查 consoleToken'} —— 重启桥接或重新读取 state/console-token`,
+      };
+    }
+    // 只有 bridge.snowluma（运行态）才带 connected 字段；config.snowluma 没有。
+    // 体检以前误把配置对象传进来，导致“端口在听”被固定判成 onebot-rejected。
+    const hasRuntimeState = bridgeSnow && typeof bridgeSnow === 'object'
+      && Object.prototype.hasOwnProperty.call(bridgeSnow, 'connected');
+    if (!hasRuntimeState) {
+      return {
+        state: 'bridge-not-running',
+        hint: 'QQ 桥接还没运行：设置 → SurfCore → 概览 → 启动 QQ（启动后再体检）',
+      };
+    }
     const webui = snowLumaWebui();
     const onebot = (await portOpen(3000)) || (await portOpen(3001));
     const webuiUp = await portOpen(webui.port);
@@ -1819,7 +2163,7 @@ export function apply(ctx) {
         } catch {}
         const bridge = last?.bridge ?? {};
         const snow = bridge.snowluma ?? {};
-        const snowDiag = await diagnoseSnowLuma(snow).catch(() => ({ state: 'unknown', hint: '' }));
+        const snowDiag = await diagnoseSnowLuma(snow, { bridge }).catch(() => ({ state: 'unknown', hint: '' }));
         pluginLog(`启动检查未通过：qq=${qq} bili=${bili} running=${Boolean(bridge.running)} dshReady=${Boolean(bridge.dshReady)} dshBaseUrl=${bridge.dshBaseUrl ?? '?'} snow=${Boolean(snow.connected)} snowState=${snowDiag.state} account=${Boolean(snow.accountOnline)} scheduler=${Boolean(last?.schedulerRunning)}`);
         showStartupPopup('SurfCore 启动状态', [
           '还没全部就绪：',
@@ -1850,11 +2194,70 @@ export function apply(ctx) {
   // 语音：把面板请求原样转发给桥接的 /api/voice/*（语音包安装、启停、规则）。
   // 插件自己不做业务，只负责带控制台令牌转发，桥接那边怎么改这里都不用动。
   async function handleVoice(req, res, url) {
+    // 语音自检：三步（服务/合成/发送前置）分别给结论，避免"语音坏了"只能靠猜。
+    if (url.pathname === `${API_PREFIX}/voice/tts-check`) {
+      if (String(req.method || 'GET').toUpperCase() !== 'POST') { json(res, 405, { ok: false, code: 'METHOD_NOT_ALLOWED', error: '只支持 POST' }); return; }
+      const result = await callBridge('/api/voice/tts-check', { method: 'POST', body: '{}', timeoutMs: 90_000 });
+      const data = result.data ?? { ok: false, code: 'BRIDGE_UNAVAILABLE', error: result.error || '桥接不可用', hint: '确认 QQ 桥接在运行（设置 → 状态）' };
+      json(res, result.status || 200, data);
+      return;
+    }
+
     const suffix = url.pathname.slice(`${API_PREFIX}/voice`.length) || '';
+    const method = String(req.method || 'GET').toUpperCase();
+    // 网盘离线包入口：Electron 里 target=_blank 会被拦，统一由宿主打开浏览器。
+    // 链接写死（不接受用户输入），避免变成任意 URL 打开器。
+    if (url.pathname === `${API_PREFIX}/voice/packs/netdisk`) {
+      if (method !== 'POST') { json(res, 405, { ok: false, code: 'METHOD_NOT_ALLOWED', error: '只支持 POST' }); return; }
+      const NETDISK_URL = 'https://pan.quark.cn/s/ec6cf2b123de?pwd=sxUZ';
+      if (process.platform !== 'win32') {
+        json(res, 200, { ok: false, code: 'OPEN_URL_UNSUPPORTED', error: '当前系统不支持自动打开浏览器', hint: `手动打开：${NETDISK_URL}`, url: NETDISK_URL });
+        return;
+      }
+      try {
+        // start 的第一个空参数是窗口标题，不能省；.usebackq 不需要，URL 里无 & 之外的 shell 元字符。
+        spawn('cmd.exe', ['/c', 'start', '', NETDISK_URL], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+        json(res, 200, { ok: true, url: NETDISK_URL });
+      } catch (error) {
+        json(res, 500, { ok: false, code: 'OPEN_URL_FAILED', error: `打开浏览器失败：${String(error?.message ?? error).slice(0, 120)}`, hint: `手动打开：${NETDISK_URL}`, url: NETDISK_URL });
+      }
+      return;
+    }
+    // 参考音频“下载”在 Electron/新窗口里会没反应（target=_blank 被宿主拦截），
+    // 改为打开包内 voicepack 目录并选中文件；插件侧直接做，不走桥接代理。
+    if (url.pathname === `${API_PREFIX}/voice/packs/sample-open`) {
+      if (method !== 'POST') { json(res, 405, { ok: false, code: 'METHOD_NOT_ALLOWED', error: '只支持 POST' }); return; }
+      try {
+        const body = await readBody(req);
+        const id = String(body.id || 'voice-cloud');
+        const listed = await callBridge('/api/voice/packs', { timeoutMs: 8000 });
+        const pack = (listed.data?.packs || []).find((p) => p.id === id);
+        if (!pack?.dir) {
+          json(res, 404, { ok: false, code: 'SAMPLE_PACK_NOT_FOUND', error: '语音包还没安装，找不到参考音频', hint: '先安装/导入云端语音包，再点「打开所在目录」。' });
+          return;
+        }
+        const dir = path.join(pack.dir, 'voicepack');
+        const files = await fs.promises.readdir(dir).catch(() => []);
+        const name = files.find((f) => /\.(wav|mp3|m4a)$/i.test(f));
+        if (!name) {
+          json(res, 404, { ok: false, code: 'SAMPLE_FILE_NOT_FOUND', error: '包内没有参考音频文件', hint: `检查目录：${dir}` });
+          return;
+        }
+        const file = path.join(dir, name);
+        if (process.platform !== 'win32') {
+          json(res, 200, { ok: false, code: 'OPEN_FOLDER_UNSUPPORTED', error: '当前系统不支持自动打开目录', hint: `手动打开：${dir}` });
+          return;
+        }
+        execFile('explorer.exe', ['/select,', file], { windowsHide: true }, () => {});
+        json(res, 200, { ok: true, path: file, dir });
+      } catch (e) {
+        json(res, 502, { ok: false, code: 'OPEN_FOLDER_FAILED', error: `打开参考音频目录失败：${e?.message || e}`, hint: '桥接/文件管理器是否可用；也可以手动打开语音包目录下的 voicepack。' });
+      }
+      return;
+    }
     const target = `${consoleBase()}/api/voice${suffix}${url.search || ''}`;
     const headers = { 'x-console-token': consoleToken() };
     const init = { method: req.method };
-    const method = String(req.method || 'GET').toUpperCase();
     if (method !== 'GET' && method !== 'HEAD') {
       init.body = await readBody(req);
       headers['content-type'] = 'application/json';
@@ -1878,31 +2281,48 @@ export function apply(ctx) {
 
   // 原生「浏览目录 / 选择文件」——浏览器拿不到绝对路径，只能由宿主进程弹 Windows 对话框。
   // 仅 Windows 且 DSH 跑在本机时有意义；其它情况返回可读错误，前端提示手动填。
+  //
+  // 路径不能走 PowerShell stdout：Windows PowerShell 5.1 重定向时用 OEM/GBK 编码，
+  // Node 按 UTF-8 解码，中文目录会变成 `�`，后端 fsp.stat 直接 ENOENT（2026-10-29 反馈）。
+  // 改成：PowerShell 把选中路径写进临时 UTF-8 文件，Node 读文件后删除；彻底绕开控制台编码。
   async function handleBrowse(req, res, url) {
     const mode = url.searchParams.get('mode') === 'file' ? 'file' : 'dir';
     const title = url.searchParams.get('title') || (mode === 'file' ? '选择文件' : '选择目录');
+    // 文件过滤只认枚举（目前只有 snowluma）：不接受任意 filter 串，避免用户被诱导选错类型。
+    const filterKey = String(url.searchParams.get('filter') || '').trim().toLowerCase();
+    const fileFilter = filterKey === 'snowluma'
+      ? 'SnowLuma 启动文件 (SnowLuma.exe;launcher.bat)|SnowLuma.exe;launcher.bat|所有文件 (*.*)|*.*'
+      : '可执行文件 (*.exe)|*.exe|所有文件 (*.*)|*.*';
     if (process.platform !== 'win32') {
       json(res, 200, { ok: false, error: '只有 Windows 支持原生选择框，请手动填路径' });
       return;
     }
+    const psQuote = (s) => `'${String(s).replace(/'/g, "''")}'`;
+    const outFile = path.join(os.tmpdir(), `surfcore-browse-${process.pid}-${randomUUID()}.txt`);
+    const writeOut = (expr) => `[System.IO.File]::WriteAllText(${psQuote(outFile)}, ${expr}, (New-Object System.Text.UTF8Encoding -ArgumentList $false))`;
     const ps = mode === 'file'
       ? `Add-Type -AssemblyName System.Windows.Forms;
 $d = New-Object System.Windows.Forms.OpenFileDialog;
-$d.Title = ${JSON.stringify(title)};
-$d.Filter = '可执行文件 (*.exe)|*.exe|所有文件 (*.*)|*.*';
-if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.FileName }`
+$d.Title = ${psQuote(title)};
+$d.Filter = ${psQuote(fileFilter)};
+if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { ${writeOut('$d.FileName')} }`
       : `Add-Type -AssemblyName System.Windows.Forms;
 $d = New-Object System.Windows.Forms.FolderBrowserDialog;
-$d.Description = ${JSON.stringify(title)};
+$d.Description = ${psQuote(title)};
 $d.ShowNewFolderButton = $true;
-if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $d.SelectedPath }`;
-    const child = execFile('powershell.exe', ['-STA', '-NoProfile', '-Command', ps], { windowsHide: true, timeout: 180_000 }, (error, stdout) => {
-      const picked = String(stdout || '').trim().split(String.fromCharCode(10)).pop().trim();
+if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { ${writeOut('$d.SelectedPath')} }`;
+    const child = execFile('powershell.exe', ['-STA', '-NoProfile', '-Command', ps], { windowsHide: true, timeout: 180_000 }, (error) => {
+      let picked = '';
+      try { picked = String(fs.readFileSync(outFile, 'utf8')).replace(/^\uFEFF/, '').trim(); } catch {}
+      try { fs.unlinkSync(outFile); } catch {}
       if (error && !picked) json(res, 200, { ok: false, error: `选择框打不开：${String(error.message || error).slice(0, 160)}` });
       else if (!picked) json(res, 200, { ok: false, cancelled: true, error: '已取消' });
       else json(res, 200, { ok: true, path: picked });
     });
-    child.on('error', () => json(res, 200, { ok: false, error: '无法启动 PowerShell（可能不在本机桌面）' }));
+    child.on('error', () => {
+      try { fs.unlinkSync(outFile); } catch {}
+      json(res, 200, { ok: false, error: '无法启动 PowerShell（可能不在本机桌面）' });
+    });
   }
 
   async function handlePet(req, res, url) {
@@ -1972,10 +2392,25 @@ if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output 
         json(res, 200, r);
         return;
       }
-      if (suffix === '/install') { json(res, 200, await petService.install()); return; }
+      if (suffix === '/install') {
+        // body 里带设置页表单：安装请求本身就要落盘 source/appDir/electronPath，
+        // 不能要求用户先点「保存设置」（2026-10-30：填了目录点安装仍报"请先填写安装包地址"）。
+        const r = await petService.install(body?.source, {
+          source: body?.source, appDir: body?.appDir, electronPath: body?.electronPath,
+        });
+        json(res, 200, r);
+        return;
+      }
       if (suffix === '/remove') { json(res, 200, await petService.remove()); return; }
       if (suffix === '/clean') { json(res, 200, await petService.cleanAppDir()); return; }
-      if (suffix === '/start') { json(res, 200, await petService.start()); return; }
+      if (suffix === '/start') {
+        // 启动同样接受表单里的 electronPath：用户刚填的路径不该先"保存"才生效。
+        if (typeof body?.electronPath === 'string' && body.electronPath.trim()) {
+          try { petService.configure({ electronPath: body.electronPath.trim() }); } catch {}
+        }
+        json(res, 200, await petService.start());
+        return;
+      }
       if (suffix === '/stop') { json(res, 200, await petService.stop()); return; }
       if (suffix === '/chat-test') {
         // 给设置页「发一条测试消息」用：不占主动搭话，只验证人设/模型/语音链路。
@@ -2119,6 +2554,208 @@ if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output 
     }
   }
 
+  // ── 一键启动 / 停止（概览、QQ、B站、桌宠、语音共用同一份状态）────────────
+  const LAUNCH_IDS = ['qq', 'bili', 'pet', 'voice'];
+  const LAUNCH_LABELS = { qq: 'QQ（含 SnowLuma）', bili: 'B站', pet: '桌宠', voice: '语音' };
+
+  function normalizeLaunchComponents(input) {
+    const list = Array.isArray(input) ? input : [];
+    const picked = list.map((x) => String(x)).filter((x) => LAUNCH_IDS.includes(x));
+    return [...new Set(picked)];
+  }
+
+  async function voicePacksSnapshot() {
+    const bridge = await bridgeStatus().catch(() => ({ running: false }));
+    if (!bridge.running) return { ok: false, running: false, packs: [], error: 'QQ 桥接未运行，无法读取语音包状态', code: 'VOICE_BRIDGE_DOWN' };
+    try {
+      const r = await callBridge('/api/voice/packs', { timeoutMs: 8000 });
+      const packs = Array.isArray(r?.data?.packs) ? r.data.packs : [];
+      const running = packs.find((p) => p.running) || null;
+      return { ok: true, running: Boolean(running), id: running?.id || '', packs, bridge };
+    } catch (error) {
+      return { ok: false, running: false, packs: [], bridge, error: `读取语音包状态失败：${String(error?.message ?? error).slice(0, 160)}`, code: 'VOICE_STATUS_FAILED' };
+    }
+  }
+
+  async function launchStatus() {
+    const bridge = await bridgeStatus().catch((error) => ({ running: false, error: String(error?.message ?? error) }));
+    let voice = { ok: false, running: false, packs: [], id: '', error: bridge.running ? '' : 'QQ 桥接未运行' };
+    if (bridge.running) voice = await voicePacksSnapshot();
+    const pet = petService.status();
+    return {
+      qq: {
+        running: Boolean(bridge.running),
+        ok: Boolean(bridge.running && bridge.ok !== false),
+        port: bridge.port ?? null,
+        pid: bridge.pid ?? bridge.lockPid ?? null,
+        snowluma: bridge.snowluma ?? null,
+        lastError: bridge.error ?? null,
+      },
+      bili: {
+        running: Boolean(scheduler && schedulerStatus.running),
+        lastError: schedulerStatus.lastError ?? null,
+        reason: schedulerStatus.reason ?? '',
+      },
+      pet: {
+        running: Boolean(pet.running),
+        installed: Boolean(pet.installed),
+        pid: pet.pid ?? null,
+        lastError: pet.lastError ?? null,
+      },
+      voice: {
+        ok: voice.ok !== false,
+        running: Boolean(voice.running),
+        id: voice.id || '',
+        installed: (voice.packs ?? []).filter((p) => p.installed).map((p) => p.id),
+        packs: (voice.packs ?? []).map((p) => ({ id: p.id, installed: Boolean(p.installed), running: Boolean(p.running), name: p.name || p.id })),
+        lastError: voice.error || null,
+      },
+    };
+  }
+
+  function launchItem(id, ok, extra = {}) {
+    return { id, label: LAUNCH_LABELS[id] || id, ok: ok !== false, ...extra };
+  }
+
+  async function startComponent(id, opts = {}) {
+    try {
+      if (id === 'qq') {
+        if (!platformStartEnabled('qq')) {
+          return launchItem(id, false, { code: 'PLATFORM_DISABLED', error: 'QQ 启动开关已关闭', hint: '去「QQ」页打开「启动 QQ」并保存' });
+        }
+        const status = await bridgeStatus();
+        const stale = bridgeStaleReason(status);
+        const bridge = stale ? await restartBridge({ dshWebUrl: currentDshUrl() }) : await startBridge({ dshWebUrl: currentDshUrl() });
+        const snowluma = await launchSnowLuma().catch((error) => ({ ok: false, error: String(error?.message ?? error), hint: '检查 SnowLuma 安装目录/允许插件打开设置' }));
+        const bridgeOk = bridge?.ok !== false;
+        const snowOk = snowluma?.ok !== false || snowluma?.skipped === true || snowluma?.already === true;
+        return launchItem(id, bridgeOk && snowOk, {
+          message: [bridge?.message, snowluma?.message || snowluma?.error].filter(Boolean).join('；'),
+          code: bridgeOk && snowOk ? '' : 'QQ_START_PARTIAL',
+          error: bridgeOk ? (snowOk ? '' : `QQ 桥接已启动，但 SnowLuma 未打开：${snowluma?.error || '未知原因'}`) : (bridge?.error || bridge?.message || 'QQ 桥接启动失败'),
+          hint: bridgeOk ? (snowOk ? '' : (snowluma?.hint || '启动 SnowLuma（launcher.bat）并确认端口 3000/3001')) : '检查桥接日志/端口；必要时重启 DSH',
+          detail: { bridge, snowluma },
+        });
+      }
+      if (id === 'bili') {
+        if (!platformStartEnabled('bili')) {
+          return launchItem(id, false, { code: 'PLATFORM_DISABLED', error: 'B站 启动开关已关闭', hint: '去「B站」页打开「启动 B站」并保存' });
+        }
+        const state = startSchedulerNow();
+        return launchItem(id, state.running === true, {
+          code: state.running ? '' : 'BILI_START_FAILED',
+          error: state.running ? '' : `B站生物钟未启动：${state.reason || state.lastError || '未登录或配置缺失'}`,
+          hint: state.running ? '' : '先在「B站」页完成扫码登录；仍失败看插件日志',
+          detail: state,
+        });
+      }
+      if (id === 'pet') {
+        const result = await petService.start();
+        return launchItem(id, result?.ok !== false, {
+          code: result?.ok === false ? 'PET_START_FAILED' : '',
+          error: result?.ok === false ? (result.error || '桌宠启动失败') : '',
+          hint: result?.ok === false ? (result.hint || '先在「桌宠」页安装桌宠/Electron') : '',
+          detail: result,
+        });
+      }
+      if (id === 'voice') {
+        const bridge = await bridgeStatus().catch(() => ({ running: false }));
+        if (!bridge.running) {
+          return launchItem(id, false, { code: 'VOICE_BRIDGE_DOWN', error: '语音包由 QQ 桥接托管，桥接未运行', hint: '同时勾选「QQ（含 SnowLuma）」或先启动 QQ' });
+        }
+        const packs = await voicePacksSnapshot();
+        const wanted = String(opts.voicePack === 'voice-cloud' ? 'voice-cloud' : 'voice-local');
+        const pack = (packs.packs ?? []).find((p) => p.id === wanted);
+        if (!pack) return launchItem(id, false, { code: 'VOICE_PACK_UNKNOWN', error: `未知语音包：${wanted}`, hint: '在「语音」页确认包 ID' });
+        if (!pack.installed) return launchItem(id, false, { code: 'VOICE_PACK_NOT_INSTALLED', error: `${pack.name || wanted} 还没安装`, hint: '先在「语音」页导入离线包或安装语音包' });
+        const r = await callBridge('/api/voice/packs/activate', { method: 'POST', body: { id: wanted }, timeoutMs: 90_000 });
+        const data = r?.data ?? {};
+        return launchItem(id, r?.ok !== false && data.ok !== false, {
+          code: data.ok === false ? 'VOICE_START_FAILED' : '',
+          error: data.ok === false ? (data.error || '语音包启动失败') : '',
+          hint: data.ok === false ? (data.hint || '检查语音包是否装好、端口 8765/8767 是否被占用') : '',
+          detail: { packId: wanted, ...data },
+        });
+      }
+      return launchItem(id, false, { code: 'UNKNOWN_COMPONENT', error: `未知启动项：${id}` });
+    } catch (error) {
+      return launchItem(id, false, {
+        code: `${String(id).toUpperCase()}_START_FAILED`,
+        error: `${LAUNCH_LABELS[id] || id} 启动失败：${String(error?.message ?? error).slice(0, 300)}`,
+        hint: '看设置页状态/日志；修复后重试',
+      });
+    }
+  }
+
+  async function stopComponent(id, opts = {}) {
+    try {
+      if (id === 'qq') {
+        const r = await stopBridge();
+        return launchItem(id, r?.ok !== false, {
+          message: 'QQ 桥接已停止（SnowLuma 本体不会被本程序关闭）',
+          code: r?.ok === false ? 'QQ_STOP_FAILED' : '',
+          error: r?.ok === false ? (r.error || 'QQ 桥接停止失败') : '',
+          hint: r?.ok === false ? '看桥接日志/手动结束残留进程' : '',
+          detail: r,
+        });
+      }
+      if (id === 'bili') {
+        const r = stopSchedulerNow();
+        return launchItem(id, true, { message: r.wasRunning ? 'B站生物钟已停止' : 'B站生物钟本来就没在跑', detail: r });
+      }
+      if (id === 'pet') {
+        const r = await petService.stop();
+        return launchItem(id, r?.ok !== false, {
+          code: r?.ok === false ? 'PET_STOP_FAILED' : '',
+          error: r?.ok === false ? (r.error || '桌宠停止失败') : '',
+          hint: r?.ok === false ? '在「桌宠」页重试，或手动结束进程' : '',
+          detail: r,
+        });
+      }
+      if (id === 'voice') {
+        const bridge = await bridgeStatus().catch(() => ({ running: false }));
+        if (!bridge.running) return launchItem(id, true, { message: 'QQ 桥接未运行，语音包无需单独停止' });
+        const packs = await voicePacksSnapshot();
+        const running = (packs.packs ?? []).filter((p) => p.running);
+        if (!running.length) return launchItem(id, true, { message: '语音包本来就没在跑' });
+        const results = [];
+        for (const p of running) {
+          const r = await callBridge('/api/voice/packs/stop', { method: 'POST', body: { id: p.id }, timeoutMs: 30_000 });
+          results.push({ id: p.id, ok: r?.ok !== false && r?.data?.ok !== false, error: r?.data?.error || r?.error || '' });
+        }
+        const failed = results.find((x) => !x.ok);
+        return launchItem(id, !failed, {
+          code: failed ? 'VOICE_STOP_FAILED' : '',
+          error: failed ? (failed.error || `语音包 ${failed.id} 停止失败`) : '',
+          hint: failed ? '检查端口占用；必要时在「语音」页手动停止' : '',
+          detail: results,
+        });
+      }
+      return launchItem(id, false, { code: 'UNKNOWN_COMPONENT', error: `未知停止项：${id}` });
+    } catch (error) {
+      return launchItem(id, false, {
+        code: `${String(id).toUpperCase()}_STOP_FAILED`,
+        error: `${LAUNCH_LABELS[id] || id} 停止失败：${String(error?.message ?? error).slice(0, 300)}`,
+        hint: '看设置页状态/日志；必要时手动结束进程',
+      });
+    }
+  }
+
+  async function runLaunchAction(action, body) {
+    const ids = normalizeLaunchComponents(body.components);
+    if (!ids.length) {
+      return { ok: false, code: 'NO_COMPONENTS', error: '没有选择要启动/停止的项目', hint: '至少勾选一项', items: [], status: await launchStatus() };
+    }
+    const items = [];
+    // 停止时先停语音（它由 QQ 桥接托管），再停桥接；否则桥接先死，语音进程会变成孤儿。
+    const ordered = action === 'stop' ? ['voice', 'qq', 'bili', 'pet'].filter((id) => ids.includes(id)) : ids;
+    for (const id of ordered) {
+      items.push(action === 'stop' ? await stopComponent(id, body) : await startComponent(id, body));
+    }
+    const status = await launchStatus();
+    return { ok: items.every((x) => x.ok), items, status };
+  }
+
   async function handleBridge(req, res) {
     if (req.method === 'GET') { json(res, 200, { ok: true, status: await bridgeStatus() }); return; }
     const body = JSON.parse(await readBody(req) || '{}');
@@ -2162,6 +2799,14 @@ if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output 
       });
       return;
     }
+    if (action === 'start-selected' || action === 'start-components') {
+      json(res, 200, await runLaunchAction('start', body));
+      return;
+    }
+    if (action === 'stop-selected' || action === 'stop-components') {
+      json(res, 200, await runLaunchAction('stop', body));
+      return;
+    }
     if (action === 'start-all') {
       // 一键启动：按平台启动开关拉起 QQ 桥接 / B站生物钟；QQ 打开时才尝试打开 SnowLuma。
       const starts = platformStartState();
@@ -2199,9 +2844,17 @@ if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output 
       return;
     }
     if (action === 'detect-snowluma') {
-      const found = findSnowLumaInstall();
-      if (!found) {
-        json(res, 200, { ok: false, error: '没找到 SnowLuma：请先下载并解压 SnowLuma2，然后在 QQ → SnowLuma 里填安装目录' });
+      // 可选 path：用户点「浏览…」选了解压目录/app 目录/launcher.bat 时，**只验证这个路径**——
+      // 用户明确选了一个，就不能悄悄回退去猜别的目录（否则会"检测成功"但保存的是另一份安装）。
+      const picked = String(body.path ?? '').trim();
+      const direct = picked ? normalizeSnowLumaInstall(picked) : null;
+      const found = picked
+        ? (direct ? { ok: true, ...direct, tried: [{ path: picked, ok: true }] } : { ok: false, tried: [{ path: picked, ok: false }] })
+        : findSnowLumaInstall();
+      if (!found.ok) {
+        // 失败必须有结构化报告：code + 人读的 error + 下一步 hint + 试过的路径（AGENTS 1.7）。
+        const report = snowLumaMissingReport({ picked, tried: found.tried.map((x) => x.path).slice(0, 12) });
+        json(res, 200, { ok: false, code: report.code, title: report.title, error: report.error, hint: report.hint, tried: report.tried });
         return;
       }
       saveQqConfig({ snowluma: { launcherPath: found.root, allowLaunch: true } });
@@ -2397,6 +3050,25 @@ if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output 
       json(res, 200, automationSnapshot());
       return;
     }
+    if (req.method === 'POST' && pathname.endsWith('/timeout-mute')) {
+      try {
+        const body = JSON.parse((await readBody(req)) || '{}');
+        const code = String(body.code ?? '').trim();
+        if (!/^[A-Z0-9_]{3,80}$/.test(code)) {
+          json(res, 400, { ok: false, code: 'TIMEOUT_MUTE_CODE', error: '无效的超时错误码', hint: '刷新错误报告后重试' });
+          return;
+        }
+        const current = readBiliConfig().config;
+        const notify = current.notify && typeof current.notify === 'object' ? current.notify : {};
+        const list = Array.isArray(notify.timeoutMutes) ? notify.timeoutMutes.map(String) : [];
+        const next = { ...current, notify: { ...notify, timeoutMutes: [...new Set([...list, code])].slice(0, 50) } };
+        saveBiliConfig(next);
+        json(res, 200, { ok: true, code, muted: true, count: next.notify.timeoutMutes.length });
+      } catch (error) {
+        json(res, 500, { ok: false, code: 'TIMEOUT_MUTE_SAVE', error: `保存超时静音失败：${error?.message ?? error}`, hint: '检查 bili.config.json 是否可写' });
+      }
+      return;
+    }
     if (req.method === 'GET' && pathname.endsWith('/notify-config')) {
       const cfg = readBiliConfig().config;
       json(res, 200, { ok: true, notify: cfg.notify, listen: cfg.listen, share: cfg.share, quota: cfg.quota });
@@ -2469,10 +3141,74 @@ if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output 
         json(res, 200, { ok: true, ...result });
       } catch (error) {
         pluginLog(`[扫码登录] 打开失败：${String(error?.message ?? error)}`);
-        json(res, 503, { ok: false, error: String(error?.message ?? error) });
+        json(res, 503, {
+          ok: false, code: 'bili.qr-start-failed',
+          error: String(error?.message ?? error),
+          hint: '确认本机有 Edge（扫码用 headless Edge 打开 B站 登录页）；再试一次或重启 DSH 后重试',
+        });
       }
       return;
     }
+    // 核查已登录账号：读文件 → 再问一次 B站 nav → 核对 mid（不是只信扫码那一刻）。
+    if (pathname.endsWith('/account/verify')) {
+      const target = body.target === 'fish' ? 'fish' : 'owner';
+      try {
+        const result = await verifyStoredCredentials(target);
+        json(res, 200, { ok: result.ok, target, ...result });
+      } catch (error) {
+        json(res, 500, {
+          ok: false, code: 'bili.verify-failed',
+          error: `核查失败：${String(error?.message ?? error).slice(0, 160)}`,
+          hint: '确认网络能访问 api.bilibili.com 后重试；持续失败请重新扫码',
+        });
+      }
+      return;
+    }
+
+    // 核查「UID 与昵称是否同一个人」：查 B站 公开名片，把真实昵称带回来比对。
+    if (pathname.endsWith('/verify-user')) {
+      const mid = String(body.mid ?? '').trim();
+      const name = String(body.name ?? '').trim();
+      if (!/^\d{4,20}$/.test(mid)) {
+        json(res, 400, {
+          ok: false, code: 'bili.mid-invalid',
+          error: `「${mid || '(空)'}」不是合法的 B站 UID`,
+          hint: 'B站 UID 是 4~20 位数字（在个人空间地址 space.bilibili.com/<数字> 里能看到）',
+        });
+        return;
+      }
+      try {
+        const res2 = await fetch(`https://api.bilibili.com/x/web-interface/card?mid=${encodeURIComponent(mid)}`, {
+          headers: { 'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36', referer: 'https://www.bilibili.com/' },
+          signal: AbortSignal.timeout(10_000),
+        });
+        const jsonBody = await res2.json().catch(() => null);
+        const actual = jsonBody?.data?.card;
+        if (!res2.ok || !actual?.mid) {
+          json(res, 200, {
+            ok: false, code: 'bili.user-not-found',
+            error: `B站 查不到 UID ${mid}${jsonBody?.code ? `（code ${jsonBody.code}）` : ''}`,
+            hint: '核对 UID 是否填错（个人空间地址里的数字）；B站 偶发风控时稍后重试',
+          });
+          return;
+        }
+        const actualName = String(actual.name ?? '');
+        const match = !name || actualName.trim() === name.trim();
+        json(res, 200, {
+          ok: true, mid: String(actual.mid), actualName, inputName: name, match,
+          error: match ? '' : `昵称对不上：UID ${mid} 的 B站 昵称是「${actualName}」，你填的是「${name}」`,
+          hint: match ? '' : '点「用 B站 昵称填上」自动改正；或确认 UID 是否填成了别人的',
+        });
+      } catch (error) {
+        json(res, 200, {
+          ok: false, code: 'bili.verify-network',
+          error: `查询 B站 失败：${String(error?.message ?? error).slice(0, 160)}`,
+          hint: '检查网络能否访问 api.bilibili.com；稍后重试',
+        });
+      }
+      return;
+    }
+
     // 换 B站 号：把旧凭据/对齐归档后清掉，允许重新扫码绑定（2026-10-27 用户反馈"换号被卡死"）
     if (pathname.endsWith('/account/reset')) {
       const target = body.target === 'owner' ? 'owner' : (body.target === 'both' ? 'both' : 'fish');
@@ -2583,9 +3319,155 @@ if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output 
     json(res, 200, { ok: true, plugin, bridge, paths: { pluginLog: PLUGIN_LOG, bridgeLog: path.join(QQ_STATE_DIR(), 'bridge.log') } });
   }
 
+  // 主人特权操作审计：只读桥接写好的 state/owner-audit.jsonl；agent 永远拿不到。
+  async function handleOwnerAudit(req, res, url) {
+    if (req.method === 'GET') {
+      const limit = Math.max(1, Math.min(200, Number(url.searchParams.get('limit')) || 50));
+      const result = await callBridge(`/api/owner-audit?limit=${limit}`, { timeoutMs: 8000 });
+      json(res, result.status || 200, result.data ?? { ok: false, error: result.error || '桥接不可用' });
+      return;
+    }
+    if (req.method === 'POST') {
+      let body = {};
+      try { body = JSON.parse((await readBody(req)) || '{}'); } catch { json(res, 400, { ok: false, error: '请求体不是合法 JSON' }); return; }
+      // 只支持「打开所在文件夹」；路径固定，不接受任何用户输入。
+      if (body.action !== 'open') { json(res, 400, { ok: false, error: '未知 action' }); return; }
+      if (process.platform !== 'win32') { json(res, 200, { ok: false, error: '只有 Windows 支持打开文件夹' }); return; }
+      const dir = path.join(QQBOT_ROOT, 'state');
+      try {
+        spawn('explorer.exe', [dir], { detached: true, stdio: 'ignore', windowsHide: false }).unref();
+        json(res, 200, { ok: true, path: dir });
+      } catch (error) {
+        json(res, 500, { ok: false, error: String(error?.message ?? error) });
+      }
+      return;
+    }
+    json(res, 405, { ok: false, error: 'method not allowed' });
+  }
+
   // ── 平台 ────────────────────────────────────────────────────────────────
   async function handlePlatforms(req, res) {
     json(res, 200, { ok: true, platforms: await platforms.statusAll(), capabilities: ['identity', 'memory.read', 'memory.write', 'prompt.block', 'actions'] });
+  }
+
+  // ── DSH 注册修复（2026-11-01）───────────────────────────────────────────
+  // 用户点按钮才跑 scripts/setup-dsh.mjs（写 profile 的 bundle/MCP）。
+  // 不自动执行、不自动重启 DSH：这一步会改 ~/.dsh，必须由人显式触发。
+  // ── DSH 模型 / 思考强度：Web 设置页不直连桥接端口，必须由宿主代理 ────────
+  // 以前只有 /dsh/repair，client 调 /dsh/model、/dsh/effort 会 404「未知接口」。
+  async function proxyDshModel(req, res) {
+    const method = String(req.method || 'GET').toUpperCase();
+    if (method !== 'GET' && method !== 'POST') {
+      json(res, 405, { ok: false, code: 'DSH_MODEL_METHOD', error: '只支持 GET/POST' });
+      return;
+    }
+    let body;
+    if (method === 'POST') {
+      try { body = JSON.parse((await readBody(req)) || '{}'); }
+      catch { json(res, 400, { ok: false, code: 'DSH_MODEL_BODY', error: '请求体不是合法 JSON' }); return; }
+    }
+    const result = await callBridge('/api/dsh/model', { method, body, timeoutMs: 8000 });
+    const data = result.data ?? {};
+    const status = result.status || (result.ok ? 200 : 502);
+    json(res, status, {
+      ...data,
+      ...(result.ok ? {} : {
+        ok: false,
+        code: data.code || 'DSH_MODEL_BRIDGE',
+        error: data.error || result.error || 'QQ 桥接不可用',
+        hint: data.hint || '先启动 QQ 桥接，再刷新模型列表；若桥接版本旧，请重启桥接/升级 SurfCore',
+      }),
+    });
+  }
+
+  async function proxyDshEffort(req, res) {
+    if (String(req.method || 'GET').toUpperCase() !== 'POST') {
+      json(res, 405, { ok: false, code: 'DSH_EFFORT_METHOD', error: '只支持 POST' });
+      return;
+    }
+    let body;
+    try { body = JSON.parse((await readBody(req)) || '{}'); }
+    catch { json(res, 400, { ok: false, code: 'DSH_EFFORT_BODY', error: '请求体不是合法 JSON' }); return; }
+    const result = await callBridge('/api/dsh/effort', { method: 'POST', body, timeoutMs: 8000 });
+    const data = result.data ?? {};
+    const status = result.status || (result.ok ? 200 : 502);
+    json(res, status, {
+      ...data,
+      ...(result.ok ? {} : {
+        ok: false,
+        code: data.code || 'DSH_EFFORT_BRIDGE',
+        error: data.error || result.error || 'QQ 桥接不可用',
+        hint: data.hint || '先启动 QQ 桥接，再保存思考强度；若桥接版本旧，请重启桥接/升级 SurfCore',
+      }),
+    });
+  }
+
+  async function proxyDshFollowDefault(req, res) {
+    if (String(req.method || 'GET').toUpperCase() !== 'POST') {
+      json(res, 405, { ok: false, code: 'DSH_FOLLOW_METHOD', error: '只支持 POST', hint: '在设置页点「跟随 DSH 默认模型」开关' });
+      return;
+    }
+    let body;
+    try { body = JSON.parse((await readBody(req)) || '{}'); }
+    catch { json(res, 400, { ok: false, code: 'DSH_FOLLOW_BODY', error: '请求体不是合法 JSON' }); return; }
+    const result = await callBridge('/api/dsh/follow-default', { method: 'POST', body, timeoutMs: 8000 });
+    const data = result.data ?? {};
+    const status = result.status || (result.ok ? 200 : 502);
+    json(res, status, {
+      ...data,
+      ...(result.ok ? {} : {
+        ok: false,
+        code: data.code || 'DSH_FOLLOW_BRIDGE',
+        error: data.error || result.error || 'QQ 桥接不可用',
+        hint: data.hint || '先启动/重启 QQ 桥接；桥接版本旧时升级 SurfCore',
+      }),
+    });
+  }
+
+  async function handleDshRepair(req, res) {
+    if (req.method !== 'POST') { json(res, 405, { ok: false, code: 'DSH_REPAIR_METHOD', error: '只支持 POST', hint: '从设置页点「修复 DSH 注册」' }); return; }
+    let body = {};
+    try { body = JSON.parse((await readBody(req)) || '{}'); } catch { json(res, 400, { ok: false, code: 'DSH_REPAIR_BODY', error: '请求体不是合法 JSON' }); return; }
+    const profile = String(body.profile ?? '').trim();
+    if (profile && (profile === '.' || profile === '..' || /[\\/\x00-\x1f<>:"|?*]/.test(profile) || /[. ]$/.test(profile))) {
+      json(res, 400, { ok: false, code: 'DSH_REPAIR_PROFILE', error: 'profile 名非法', hint: '只填 profile 目录名（如 desktop），不要填路径' });
+      return;
+    }
+    const repoRoot = path.dirname(rootPkg);
+    const script = path.join(repoRoot, 'scripts', 'setup-dsh.mjs');
+    if (!fs.existsSync(script)) {
+      json(res, 400, {
+        ok: false, code: 'DSH_REPAIR_SCRIPT_MISSING', error: `找不到修复脚本：${script}`,
+        hint: '这是 zip 安装缺失 scripts/ 的情况：重新解压完整安装包，或手动在仓库根目录运行 node scripts/setup-dsh.mjs',
+      });
+      return;
+    }
+    const args = [script, ...(profile ? [profile] : [])];
+    const env = { ...process.env, ELECTRON_RUN_AS_NODE: '1', PYTHONIOENCODING: 'utf-8' };
+    const run = (cmd) => new Promise((resolve) => {
+      execFile(cmd, args, { cwd: repoRoot, timeout: 180_000, windowsHide: true, maxBuffer: 4 * 1024 * 1024, env }, (error, stdout, stderr) => resolve({ error, stdout: String(stdout ?? ''), stderr: String(stderr ?? '') }));
+    });
+    let result = await run(process.execPath);
+    if (result.error && (result.error.code === 'ENOENT' || result.error.code === 'EACCES')) {
+      result = await run('node');
+    }
+    const output = `${result.stdout}\n${result.stderr}`.trim();
+    if (result.error) {
+      json(res, 500, {
+        ok: false, code: 'DSH_REPAIR_FAILED',
+        error: String(result.stderr || result.error.message || result.error).slice(0, 1200),
+        hint: '在宿主机终端手动运行 node scripts\\setup-dsh.mjs <profile> 查看完整输出；按提示完全重启 DSH',
+        output: output.slice(-4000),
+      });
+      return;
+    }
+    json(res, 200, {
+      ok: true,
+      profile: profile || '(auto)',
+      requiresRestart: true,
+      hint: '已写回 profile。请**完全退出并重开 DSH**（不是刷新页面），然后到控制台重置旧的 QQ 会话。',
+      output: output.slice(-4000),
+    });
   }
 
   // ── 组件更新 ────────────────────────────────────────────────────────────
@@ -2598,7 +3480,50 @@ if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output 
     const action = String(body.action ?? '');
     const ids = Array.isArray(body.ids) ? body.ids.map(String) : [];
     if (action === 'check') { json(res, 200, await updates.check({ fetch: true })); return; }
-    if (action === 'apply') { json(res, 200, await updates.apply(ids)); return; }
+    if (action === 'apply') { json(res, 200, await updates.apply(ids, { overwriteModified: body.overwriteModified === true, firstInstall: body.firstInstall === true })); return; }
+    if (action === 'set-token' || action === 'clear-token') {
+      try {
+        const current = readUnified().config ?? {};
+        const next = { ...current, updates: { ...(current.updates ?? {}) } };
+        if (action === 'clear-token') delete next.updates.githubToken;
+        else next.updates.githubToken = String(body.token ?? '').trim();
+        saveUnified(next);
+        json(res, 200, { ok: true, configured: action === 'set-token' && Boolean(next.updates.githubToken) });
+      } catch (error) {
+        json(res, 500, {
+          ok: false, code: 'token.save-failed',
+          error: `保存 token 失败：${String(error?.message ?? error).slice(0, 160)}`,
+          hint: '检查 config.json 是否可写；也可以稍后重试',
+        });
+      }
+      return;
+    }
+    if (action === 'set-channel') {
+      if (updates.status().applying) {
+        json(res, 409, { ok: false, code: 'UPDATE_CHANNEL_BUSY', error: '正在更新中，不能切换通道', hint: '等本次更新完成或失败后再切' });
+        return;
+      }
+      const nextChannel = String(body.channel ?? '').trim();
+      if (!['stable', 'dev'].includes(nextChannel)) {
+        json(res, 400, { ok: false, code: 'UPDATE_CHANNEL_INVALID', error: '更新通道只能是 stable 或 dev', hint: '正式用户用 stable；只有测试机才切 dev' });
+        return;
+      }
+      try {
+        saveUnified({ updates: { channel: nextChannel } });
+        // 切换通道必须清掉上一轮的检查结果：否则 main 通道会被上轮 dev 检查留下的
+        // pending 继续弹窗（2026-11-01 用户要求：选 main 时不被 dev 更新打扰）。
+        updates.resetCheck?.();
+        json(res, 200, { ok: true, channel: nextChannel, requiresCheck: true, hint: nextChannel === 'dev' ? '已切到测试通道：会安装 -dev.N 预发布；正式版用户不要开' : '已切回稳定通道：只跟正式 Release' });
+      } catch (error) {
+        json(res, 500, { ok: false, code: 'UPDATE_CHANNEL_SAVE', error: `保存通道失败：${String(error?.message ?? error).slice(0, 160)}`, hint: '检查 config.json 是否可写后重试' });
+      }
+      return;
+    }
+    if (action === 'rollback') {
+      const target = String(body.id ?? ids[0] ?? '').trim();
+      json(res, 200, await updates.rollback(target));
+      return;
+    }
     if (action === 'dismiss') { json(res, 200, updates.dismiss(ids)); return; }
     if (action === 'reset') { json(res, 200, updates.resetDismissed()); return; }
     json(res, 400, { ok: false, error: '未知 action' });
@@ -2648,6 +3573,9 @@ if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output 
     if (pathname === `${API_PREFIX}/config`) { await handleConfig(req, res); return; }
     if (pathname === `${API_PREFIX}/characters`) { await handleCharacters(req, res, url); return; }
     if (pathname === `${API_PREFIX}/persona`) { await handlePersona(req, res); return; }
+    if (pathname === `${API_PREFIX}/limit-mute`) { await handleLimitMute(req, res); return; }
+    if (pathname === `${API_PREFIX}/persona/classify`) { await handlePersonaClassify(req, res); return; }
+    if (pathname === `${API_PREFIX}/group-policy`) { await handleGroupPolicy(req, res); return; }
     if (pathname === `${API_PREFIX}/memory`) { await handleMemory(req, res, url); return; }
     if (pathname === `${API_PREFIX}/watch-history`) { handleWatchHistory(res, url); return; }
     if (pathname === `${API_PREFIX}/preferences/scan`) {
@@ -2662,6 +3590,56 @@ if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output 
     if (pathname === `${API_PREFIX}/mode`) { await handleMode(req, res); return; }
     if (pathname === `${API_PREFIX}/extensions`) { await handleExtensions(req, res); return; }
     if (pathname === `${API_PREFIX}/platforms`) { await handlePlatforms(req, res); return; }
+    if (pathname === `${API_PREFIX}/compat/scan`) {
+      try {
+        let version = '';
+        try { version = String(JSON.parse(fs.readFileSync(path.join(QQBOT_ROOT, 'package.json'), 'utf8')).version ?? ''); } catch {}
+        const report = scanPluginCompatibility({ surfcoreVersion: version });
+        // 体检结果进闸门事件中心：只记 blocker/high，unknown/info 留在体检报告里，避免噪音。
+        for (const issue of report.issues ?? []) {
+          if (issue.severity !== 'blocker' && issue.severity !== 'high') continue;
+          gateEvents.record({
+            gate: 'plugin-compat',
+            kind: 'compat',
+            event: issue.code,
+            action: 'blocked',
+            subject: { bundle: issue.evidence?.bundle ?? '', profile: report.profile?.name ?? '' },
+            reason: { code: issue.code, message: issue.title },
+            impact: issue.impact,
+            recommendation: issue.recommendation,
+            confidence: issue.confidence,
+            dedupeKey: `compat:${issue.code}:${issue.evidence?.bundle ?? ''}`,
+            evidence: issue.evidence ?? {},
+          });
+        }
+        json(res, 200, report);
+      } catch (error) {
+        json(res, 500, {
+          ok: false,
+          code: 'COMPAT_SCAN_FAILED',
+          error: `插件体检失败：${String(error?.message ?? error)}`,
+          hint: '先确认 DSH_HOME/profiles 可读；如果刚升级过 DSH，重启 DSH 后再试。',
+        });
+      }
+      return;
+    }
+    if (pathname === `${API_PREFIX}/gate-events`) {
+      if (req.method === 'GET') {
+        const limit = Math.min(200, Math.max(1, Number(url.searchParams.get('limit')) || 50));
+        const level = String(url.searchParams.get('level') ?? '').trim();
+        const includeAcked = url.searchParams.get('includeAcked') !== '0';
+        json(res, 200, { ok: true, ...gateEvents.list({ limit, level, includeAcked }), gateEvents: true });
+        return;
+      }
+      if (req.method === 'POST') {
+        const body = JSON.parse(await readBody(req) || '{}');
+        const acked = gateEvents.ack(Array.isArray(body.ids) ? body.ids : [], body.action === 'ack-all' || body.all === true);
+        json(res, 200, { ok: true, ...acked, ...gateEvents.list({ limit: 50, includeAcked: false }) });
+        return;
+      }
+      json(res, 405, { ok: false, code: 'GATE_EVENTS_METHOD', error: '只支持 GET / POST', hint: '刷新页面后重试' });
+      return;
+    }
     if (pathname === `${API_PREFIX}/diagnostics`) { await handleDiagnostics(req, res); return; }
     if (pathname === `${API_PREFIX}/bridge`) { await handleBridge(req, res); return; }
     if (pathname.startsWith(`${API_PREFIX}/purpose`)) { await handlePurpose(req, res, url); return; }
@@ -2670,8 +3648,13 @@ if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output 
 
     if (pathname === `${API_PREFIX}/token-budget`) { await handleTokenBudget(req, res, url); return; }
     if (pathname === `${API_PREFIX}/updates`) { await handleUpdates(req, res); return; }
+    if (pathname === `${API_PREFIX}/dsh/model`) { await proxyDshModel(req, res); return; }
+    if (pathname === `${API_PREFIX}/dsh/effort`) { await proxyDshEffort(req, res); return; }
+    if (pathname === `${API_PREFIX}/dsh/follow-default`) { await proxyDshFollowDefault(req, res); return; }
+    if (pathname === `${API_PREFIX}/dsh/repair`) { await handleDshRepair(req, res); return; }
     if (pathname.startsWith(`${API_PREFIX}/bili/`)) { await handleBili(req, res, url); return; }
     if (pathname === `${API_PREFIX}/logs`) { handleLogs(res, url); return; }
+    if (pathname === `${API_PREFIX}/owner-audit`) { await handleOwnerAudit(req, res, url); return; }
     if (pathname === `${API_PREFIX}/browse`) { await handleBrowse(req, res, url); return; }
     if (pathname === `${API_PREFIX}/privacy/explain`) {
       const body = req.method === 'POST' ? JSON.parse(await readBody(req) || '{}') : { text: url.searchParams.get('text') ?? '' };
@@ -2747,6 +3730,7 @@ if ($d.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output 
     try { petPurpose.stop?.(); } catch {}
     if (petHostTimer) clearInterval(petHostTimer);
     try { sessionEventOff?.(); } catch {}
+    try { billing.dispose(); } catch {}
     try { tokenBudget.dispose(); } catch {}
     try { memoryCardTimer?.stop?.(); } catch {}
     try { closeAllQrLogins(); } catch {}

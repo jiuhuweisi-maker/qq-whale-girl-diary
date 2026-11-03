@@ -1,5 +1,5 @@
 {
-  "surfcoreRoot": "/opt/whale-surfcore/staging-c174ed0",
+  "surfcoreRoot": "/opt/whale-surfcore/current-source",
   "dshHome": "/root/.dsh",
   "ownerQQ": "REPLACE_WITH_OWNER_QQ",
   "botQQ": "REPLACE_WITH_BOT_QQ",

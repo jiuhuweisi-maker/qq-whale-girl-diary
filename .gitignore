@@ -12,3 +12,5 @@ node_modules/
 **/config.json
 **/.dsh/
 **/state/
+__pycache__/
+*.pyc

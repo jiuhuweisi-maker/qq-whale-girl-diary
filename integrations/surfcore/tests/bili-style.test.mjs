@@ -1,8 +1,11 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';
 import {confirmedExpressionBlock} from '../compat/expression-style.mjs';import {qqPersona} from '../compat/conversation-logic.mjs';
+import {pathToFileURL} from 'node:url';
 const root=path.resolve(process.argv[2]),src=fs.readFileSync(path.join(root,'plugins/surfcore/lib/scheduler.js'),'utf8'),a=src.indexOf('export function sanitizePersonaForBili'),b=src.indexOf('/** 人设卡：',a),c=src.indexOf('function personaCardBlock()'),d=src.indexOf('/** 身份对齐',c);assert(a>=0&&b>a&&c>b&&d>c);
+const {composePersonaLayers}=await import(pathToFileURL(path.join(root,'src/persona-layers.js')));
+const {buildPersonaIdentity,personaNameFromCard}=await import(pathToFileURL(path.join(root,'src/persona-identity.js')));
 let style='可爱颜文字与小括号',card='身份底色\n'+('很长的人设正文'.repeat(900));
-const env={readUnified:()=>({config:{persona:{compactChars:600}}}),resolvePersonaFile:()=>'/fixture/persona.md',readTextFile:()=>card,qqPersona,confirmedExpressionBlock,readConfiguredStyle:()=>style,path,QQ_STATE_DIR:'/fixture/state'};
+const env={readUnified:()=>({config:{persona:{compactChars:600}}}),resolvePersonaFile:()=>'/fixture/persona.md',readTextFile:()=>card,qqPersona,confirmedExpressionBlock,readConfiguredStyle:()=>style,path,QQ_STATE_DIR:'/fixture/state',composePersonaLayers,buildPersonaIdentity,personaNameFromCard,readPersonaLayerText:()=>''};
 const render=new Function(...Object.keys(env),src.slice(a,b).replace('export function','function')+src.slice(c,d)+'return personaCardBlock();');
 test('the actual Bili assembly keeps full shared preferences outside the persona truncation',()=>{const text=render(...Object.values(env));assert(text.includes(style));assert(text.indexOf(style)<text.indexOf('统一人设卡'));assert(text.length<1000);});
 test('the actual Bili assembly reads changed preferences next time instead of an old embedded copy',()=>{render(...Object.values(env));style='新确认的emoji与情绪';const text=render(...Object.values(env));assert(text.includes(style));assert(!text.includes('可爱颜文字与小括号'));});

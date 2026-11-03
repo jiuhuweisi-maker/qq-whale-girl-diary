@@ -1,187 +1,163 @@
 [
   {
-    "file": "src/admin-identity.js",
-    "sha256": "9c679527c457c26f9daca8ce09827e6745143e59927b64311f553ad0dfba490e"
+    "file": "dsh/agent-presets/qq-chat-v2/agent.cordis.yml",
+    "sha256": "78c35f954b235397ca4bc5df5de8f90fc3300b644a10dd0f36f5dcaf88004690"
   },
   {
-    "file": "src/bili-api.js",
-    "sha256": "d5cc93a9887f3d4e5be37eb64ae99939c4051bbfefed0df1406d4ee6a6ccdce7"
+    "file": "dsh/agent-presets/qq-chat-v2/preset.yml",
+    "sha256": "c304f13440e10c88912d1a7edc713cd1cb5ae106617de6b23ed2ab4dbe2df0c8"
   },
   {
-    "file": "src/bili-card.js",
-    "sha256": "c4dc79df7c58cf31c5beae9799efe53114a52c21cb7ccd57d3d7d404ffb05077"
+    "file": "dsh/agent-presets/qq-chat-v2/qq-tool-restrict.mjs",
+    "sha256": "231b31487014e757ecd8797e26746d58cbc2e33992da7e5ca901a14881fb52fe"
   },
   {
-    "file": "src/bili-dynamics.js",
-    "sha256": "a9583e177490bb010aaa652a86fa3129e7be30ca072b7cb52bd002dc03a4a7dd"
+    "file": "dsh/agent-presets/qq-chat/agent.cordis.yml",
+    "sha256": "5cc726ecda7c24e31243c3933e04849328b0a30687fa6a75f075dc71ef581227"
   },
   {
-    "file": "src/bili-memory.js",
-    "sha256": "7152ef52504b3052d77b47a4e14259969b6b996f65b3168cd6f3e19746e750be"
+    "file": "dsh/agent-presets/qq-chat/preset.yml",
+    "sha256": "864edef4886c851879a003a0407be34226bf4ddccc4e12e53f46fe68ca8ae5ea"
   },
   {
-    "file": "src/bili-share-scheduler.js",
-    "sha256": "c0d6941c7b5fa6db5e96be6ae8f17bf4d95b6e85830d3132d75a15b5efc43a56"
+    "file": "dsh/agent-presets/qq-chat/qq-tool-restrict.mjs",
+    "sha256": "231b31487014e757ecd8797e26746d58cbc2e33992da7e5ca901a14881fb52fe"
   },
   {
-    "file": "src/bridge.js",
-    "sha256": "0b08bbb15230718d3005f42aa4dfff7d261b87112aae20a1c0ebf755cb451311"
+    "file": "package-lock.json",
+    "sha256": "b20a62984d9a467ca77f0114d7ce95d9297bb2b842dbe8b8391bc08ca8c06458"
   },
   {
-    "file": "src/character-persona.js",
-    "sha256": "aedfc943807f8d355a87ff2e3f8ffc72ddddb77bfac2f48e21d4ccc7e8eb6f32"
-  },
-  {
-    "file": "src/conversation-closure.js",
-    "sha256": "6a9cc2efc6d6b14fad4670225cb01fb3145ac0cb730ac3516734830eea830e73"
-  },
-  {
-    "file": "src/dsh-client.js",
-    "sha256": "486abc011901f9c1f48828182270c109a37e00f70d8327b952f921d52d3ff78f"
-  },
-  {
-    "file": "src/dsh-port.js",
-    "sha256": "60bdd24a575df85e4d0b8a79470c52d298463d930728567d04ca95f9787bc995"
-  },
-  {
-    "file": "src/fish-guard.js",
-    "sha256": "07523b5dfd17640b49e39d2b3c591c7364fe1a70a25e939fe7951c3144573d75"
-  },
-  {
-    "file": "src/forward.js",
-    "sha256": "4cea21026b69a4fabe2bcefbd5c1576941916bfe1564866060cf23b597ea1fde"
-  },
-  {
-    "file": "src/greeting-schedule.js",
-    "sha256": "226a358b157a6d233935e81e852229876253222f6bdd33ad817865db4c2d2702"
-  },
-  {
-    "file": "src/history-catchup.js",
-    "sha256": "2772d8442979610a5ad7e91ff155f5a71058ba486385dd5bc8ad0387598ecd2c"
-  },
-  {
-    "file": "src/identity-guard.js",
-    "sha256": "02d09b24d16ece535e02ec1cbfd21b258618cf734c22e2e9e0197462eacdce91"
-  },
-  {
-    "file": "src/mcp-host-server.js",
-    "sha256": "6f5822885cfd838fa220b87339fb78fde68830223ade2f9f0107718cd2504919"
-  },
-  {
-    "file": "src/mcp-snowluma-safe.js",
-    "sha256": "ffcf934eadce8bb984483802f991486f9e58ea3e377889439ee3b872114b45ad"
-  },
-  {
-    "file": "src/mcp-web-search-safe.js",
-    "sha256": "3b3d442e599b51bcbe35ea83f8bf85e2f55212ed3582a3b5a2a948ff017c70c6"
-  },
-  {
-    "file": "src/md-to-plain.js",
-    "sha256": "45b929e680473b99a66ba4957582e43601b3a2b2eb33f5b67fafd6d9c01089ee"
-  },
-  {
-    "file": "src/memory-card.js",
-    "sha256": "6f1d5d1239f78f4615353481da03daceae633f33cef7e342332bdcbc53a464e2"
-  },
-  {
-    "file": "src/model-prices.js",
-    "sha256": "06d717cff7967f54b93077d3e631d656466c5df72fce083212fab44ab7e6e91b"
-  },
-  {
-    "file": "src/preset-prompt.js",
-    "sha256": "68c548bfee805359881ccc3996fdfc5704c4a9db657e073811f1ffcb604434ae"
-  },
-  {
-    "file": "src/purpose-engine.js",
-    "sha256": "0b2f4554949671aa8bd787639856a83e161cf7fb6316e588b5c781f047c6dcf8"
-  },
-  {
-    "file": "src/qq-model-view.js",
-    "sha256": "60cf9fbd1aa1b85c90885efd66c72f9c23fd663c4d7b7ff509bc494a151072b9"
-  },
-  {
-    "file": "src/role-card.js",
-    "sha256": "cc24ccd4a6fcc8326ff5138f0f0e1df76e20fffc8dbec545f122da49afd38627"
-  },
-  {
-    "file": "src/safe-fetch.js",
-    "sha256": "8f39ee9761542b24a6d809384cd87e42297b7c6e7b7c7275cb44e1695b4b3e9d"
-  },
-  {
-    "file": "src/self-identity.js",
-    "sha256": "c28ff3661b2ad1b46f3b66c5f8f3f5e33013d3fca09642e013f2da38e36f0f4f"
-  },
-  {
-    "file": "src/self-test.js",
-    "sha256": "6fc5f2201d43050e0c59de0597b6526e78a3b7e77a1d79f9a7485d0a3829c770"
-  },
-  {
-    "file": "src/send-voice-lib.js",
-    "sha256": "bb9e20187644fc6b816b015a39a56122d515cf1e949c55569b68034da2627da1"
-  },
-  {
-    "file": "src/sensitive.js",
-    "sha256": "5b995729e191a33e89aa41028ab6aa3c7598dffe0aaa1081c326af4dff1ebe1e"
-  },
-  {
-    "file": "src/share-mode.js",
-    "sha256": "70bf32a8d8d1423dd3e9386df34d8d787f89307fb9af89dcf7d086c94c67dd72"
-  },
-  {
-    "file": "src/slang-learner.js",
-    "sha256": "8d51fa76144f068c8299112a10642d5e840615a56992e786c8696e9e1b296b60"
-  },
-  {
-    "file": "src/snowluma-conn.js",
-    "sha256": "30e2332763c35c7af892bb7d9406bf4c6bb62d343ce4101c6a4fe4e053183432"
-  },
-  {
-    "file": "src/state-acl.mjs",
-    "sha256": "37259cb0d5d59906f664bfb28c2ce85e628cd486f4489506ffff4b22efa40437"
-  },
-  {
-    "file": "src/sticker-lib.js",
-    "sha256": "028ed8f0bc17ac3420b6b3511a5e5837c4d1e74097af8c88ae96e5bf64af6689"
-  },
-  {
-    "file": "src/sticker-semantics.js",
-    "sha256": "7130347bffae637d24f151ec19fa4592fb9a10625153085755d831d002a5511b"
-  },
-  {
-    "file": "src/token-budget.js",
-    "sha256": "fbaf0e1358c842a00909ee7169539cc844dda96cc07d0203e37836425ab9aa7a"
-  },
-  {
-    "file": "src/token-guard.js",
-    "sha256": "531ce4923f891637e06b7f82ec827048741129650da513a6322ea85407e62e7e"
-  },
-  {
-    "file": "src/token-ledger.js",
-    "sha256": "90e3de30335d56d73a1ae6dffac7079b3d87d0eaeeaca68c28b121074f87d2e2"
-  },
-  {
-    "file": "src/v2-wait.js",
-    "sha256": "88eef2d2f240e93ceb865fc9fc78d480df2219fafbd72b4e5a6f7ae1e5c8ed36"
-  },
-  {
-    "file": "src/voice-core.js",
-    "sha256": "8bc41fb3a430e4740e6344dda609d90e6131ae120651b062386f67acf8146cf1"
-  },
-  {
-    "file": "src/voice-packs.js",
-    "sha256": "8e4cf7df387f895e6421d4572c6b9480ca2942b822dc4b2e9cdaaf52546430c6"
-  },
-  {
-    "file": "src/voice-tts.js",
-    "sha256": "cbecd6777648dea9f2364bd8b0398b200ff3e864313a0e1bdf68445033fc6b34"
-  },
-  {
-    "file": "src/web-search.js",
-    "sha256": "00d940305c9d9c7667d1fa528c00f416b362ee01f8771e00a6e32de7f7ce8575"
+    "file": "package.json",
+    "sha256": "2676c72ef931ffb0874d2634f38665ae807d070cf7dd8d5994a062ca558123cf"
   },
   {
     "file": "plugins/surfcore/cordis.patch.yml",
-    "sha256": "56e7a1620501155cb004c9dcd43f50b074bf2cd0742c607bfbbbeeaae47b1c0c"
+    "sha256": "5c521d466b4b055585df19c53dffacb8499599dc2e1e6da68cd175a8756f96c7"
+  },
+  {
+    "file": "plugins/surfcore/docs/PET.md",
+    "sha256": "00299d8f36afef67539464e053cd6f4abc67b90673f8ed0cb543d6e76d86f08f"
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-advanced.png",
+    "sha256": "7cc59afccfc81f2753c3eedf676cbb5d3daed5110a87885de4e3c3a9c8d296dd",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-align.png",
+    "sha256": "4d29d22ef202c9ce21c83f3ef1530d8a38bfce82fc1daf7ba54658ebfdece460",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-bili-fishguard.png",
+    "sha256": "4c6a8aa05d5ea0822211dac0d0f1aaf55099d76617eec31642daf8cebfc07068",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-bili-keywords.png",
+    "sha256": "6dda9dd3d7f95bac80c8e2a01e30ccfe0ba053bdea9fa6825df520ae4ccec83b",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-bili.png",
+    "sha256": "b6e6364ccc0ffe77ba103faa7213e605b18d05b6a4d15d1596478ff23f829ea4",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-character-create.png",
+    "sha256": "4a99cb99bb662ab9a4121ff62c22ac62d6c491e0c9ca8760f183506fa1ba3887",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-characters.png",
+    "sha256": "ca41bbc4d9d928a26c20b139743fa67d97b774fa4f38dc85073cbf2293cc8436",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-diag.png",
+    "sha256": "132988fb318aebfbec957ac9b222dbba1c92171a4f443cb7da84398f6cbd308c",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-extensions.png",
+    "sha256": "b946126a741e23736ab4f207645cdb82d056accc78f285c779befc2a3e796b2e",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-memory.png",
+    "sha256": "97b609b774acf7e1cf0d9d9eda18073cc3cf7d4707aabaf30f92cba5f579c50c",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-overview-start.png",
+    "sha256": "9490c3b6890cbd37817472a3273bb5aed5e6fddd7ad59ab8ee668e66ba89ed31",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-overview.png",
+    "sha256": "089c879c445a7326f47703087b3bc047f5ac4b84959c1f52bc0bf94f1e6f9c15",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-pet-chat.png",
+    "sha256": "8d33724f6b570a28f1de8961e0ff51dbb6bca2425a275a69bba9953b48c4b0f3",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-purpose.png",
+    "sha256": "90accef7494b2679de4614f95318378127524b71ff199658a0e96709a25d4f09",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-qq-closure.png",
+    "sha256": "ff55e4e5897ae3b4317714e5c50f26f5cb554616084e95894d5b829e952b0318",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-qq-fishguard.png",
+    "sha256": "8894305f5bf94752159992490edf5f0fd518a5fe52bf129dc143f78b8cd98833",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-qq-purpose-settings.png",
+    "sha256": "ef45e823d78cf5c124a3614b066bf60643d8661a003cf6b39d1893878936667f",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-qq-purpose.png",
+    "sha256": "92174cd9354cd69dea6d91c6ee29c81946e36b87f463758b1f0cf95701301328",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-qq.png",
+    "sha256": "095ed94dfc655f1bad4680a572b56be0415cfd19f78a8cb4c1b20ac4697c889e",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-share-section.png",
+    "sha256": "a454b06379671bff71f5fc003b0816314ba442d273480e89be8ade3b7c7b510a",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-shot.png",
+    "sha256": "20cc655de998848dec280ae4b381aff6172acc8f01bd9839beac1ab7aa628ced",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-tokens-full.png",
+    "sha256": "6c5a4bf958c34943994accd1bc0c9ca95ff9db9e1d6e185238dd0846bde0e493",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-tokens.png",
+    "sha256": "c133d6db63e230a20c153d5c8f3970977c951ba4018cace781e228ddab08c929",
+    "binary": true
+  },
+  {
+    "file": "plugins/surfcore/docs/ui-watch.png",
+    "sha256": "dda9a51f8ca25e2dcce1032807970c2fe085d62e33d07751c520f8ba0850c240",
+    "binary": true
   },
   {
     "file": "plugins/surfcore/extensions/bili-live/index.js",
@@ -192,12 +168,20 @@
     "sha256": "711288a8c11dd3a5661be1b182c945196e03101a7806261b74db4095e5ea83b4"
   },
   {
+    "file": "plugins/surfcore/extensions/README.md",
+    "sha256": "a46afe397c7c089aa60931c4aa20babdbf1ef14e301aebac6e9865d77d97d77a"
+  },
+  {
     "file": "plugins/surfcore/extensions/sts2/index.js",
     "sha256": "8bfba5a3d213dfcae8e8946f2b74a6b1e2afd982352dc875e42e08a2c2e1bcfd"
   },
   {
     "file": "plugins/surfcore/extensions/sts2/manifest.json",
     "sha256": "907668d979fb19d224b6fe3036a25b655ab792884104e3bf87dcf7803c0e4274"
+  },
+  {
+    "file": "plugins/surfcore/icon.svg",
+    "sha256": "a0e8b7b188ee9d8c59724380875c02d24d9109e081f399b650b6f471037229a1"
   },
   {
     "file": "plugins/surfcore/lib/align.js",
@@ -209,11 +193,19 @@
   },
   {
     "file": "plugins/surfcore/lib/bili-qr-login.mjs",
-    "sha256": "85a2598cc10e5747238bc79fbe7dccfeaf82a7e194b8a2bedb509d6da9e9cb4a"
+    "sha256": "8e4f0c20c6b28c83d3503e64b14a486d05c04524c93b376bd673dc7bbecc1623"
+  },
+  {
+    "file": "plugins/surfcore/lib/bili-workspace.js",
+    "sha256": "189db5b89938b2cb7a58af7f89111ea2363c4f6329ccae6714c7f8cb15a1ddd4"
+  },
+  {
+    "file": "plugins/surfcore/lib/billing.js",
+    "sha256": "0ae83db55c213fa7dc1208cd80bea4d1fac3e16b47b18c4eea4a097c18fcf819"
   },
   {
     "file": "plugins/surfcore/lib/bridge.js",
-    "sha256": "854f7b471bac49b7dbac1a19d82a8cd2f4f844e4fc5b523be1ebb8c5858e6739"
+    "sha256": "21801bb013cb01c5c3b9f674bc70aea2f87c74844225da32479fde1573ecef21"
   },
   {
     "file": "plugins/surfcore/lib/characters.js",
@@ -221,11 +213,19 @@
   },
   {
     "file": "plugins/surfcore/lib/client.js",
-    "sha256": "189c6e3ba3c7c4dd51a35c141fb65ca465c61058724c851341503a4c37073d95"
+    "sha256": "fcef6e79558bab2b98ad26c92654cf328f45263856174defa93cb7a503fb9fad"
+  },
+  {
+    "file": "plugins/surfcore/lib/compat-rules.js",
+    "sha256": "b7d0a94a716b6a9edcf0d05c7b595527a2aa6d5232aa3d0785f186018d69cd0f"
+  },
+  {
+    "file": "plugins/surfcore/lib/compat.js",
+    "sha256": "6ec7a650a674d7e12ea0a3ddd99f1e4db10392797342bf0497531f3335f39afa"
   },
   {
     "file": "plugins/surfcore/lib/doctor.js",
-    "sha256": "929b00994fb0d351213a59a607838bd2fd1e8dcd6002decbac1983579c2ff13e"
+    "sha256": "c3aa9667eadd172bdfccfff2c69db500dd95055612d5dc487c76a9ed7841f26e"
   },
   {
     "file": "plugins/surfcore/lib/extensions.js",
@@ -237,11 +237,11 @@
   },
   {
     "file": "plugins/surfcore/lib/index.js",
-    "sha256": "a5d841133357b0e53e0c5c514c5801daed0f134f7216a92f105fded6a338ba87"
+    "sha256": "ae276950299f1db9f810913366b37defc2a373a321e82aa9bc523dce4ed95283"
   },
   {
     "file": "plugins/surfcore/lib/memory-card.js",
-    "sha256": "bb8089d6635c54a810290fa6cb093177f946d9a93f35591b168da324a8624e74"
+    "sha256": "c837c766bf3b58088364d5526daaa6d6fdb6d693c9cacd63baf25ff6a27ae51f"
   },
   {
     "file": "plugins/surfcore/lib/memory.js",
@@ -249,7 +249,11 @@
   },
   {
     "file": "plugins/surfcore/lib/paths.js",
-    "sha256": "cdbf74c9ecb8265b97741051c89bc1330c7d42281a652a07480d481795d1ea7d"
+    "sha256": "1fcba377c56190eb3ec0a9cb184b7c89635c58c037883aaf66a8c842c8af0abb"
+  },
+  {
+    "file": "plugins/surfcore/lib/persona-classify.js",
+    "sha256": "6c9c0ec83234ea0cf03e1a861328d142ee4363e663da590b6c8f840c0334de9d"
   },
   {
     "file": "plugins/surfcore/lib/persona.js",
@@ -261,15 +265,15 @@
   },
   {
     "file": "plugins/surfcore/lib/pet-chat.js",
-    "sha256": "b1a820567632336accdd7ed17b912e213cf27d8008467bcaa9ceed3b313061fc"
+    "sha256": "df0715fe1e8e345cfb9d11309dff8b8cd44129abece03f44b8b1df3da4a07159"
   },
   {
     "file": "plugins/surfcore/lib/pet-purpose.js",
-    "sha256": "7503875ff3e573b5c2c55783e354c6175cd1e5393083bc67f233a808322b2630"
+    "sha256": "af66decb63dd06d6dd166d99c8d285eff2faff9802c46cba61b91909a8a947c0"
   },
   {
     "file": "plugins/surfcore/lib/pet.js",
-    "sha256": "432358654468848aab5c7f06b83017204714bb9f3fd9834e68443ffdbcd9fd02"
+    "sha256": "3f220af99079ff041cfc1e21e7c2f07f64a2bb1120848546aab895df4961f2d8"
   },
   {
     "file": "plugins/surfcore/lib/platforms.js",
@@ -277,7 +281,7 @@
   },
   {
     "file": "plugins/surfcore/lib/privacy.js",
-    "sha256": "4d982476df0b104e4ef9884f1bcae121795dcf4bdca7a288788ed0ee16c880d8"
+    "sha256": "0d3118eeb03287981d2c78566d8a7d46c0f91f34563ed98b42554c8d7bee61d9"
   },
   {
     "file": "plugins/surfcore/lib/qq-fish-guard.js",
@@ -285,19 +289,23 @@
   },
   {
     "file": "plugins/surfcore/lib/qq-mode.js",
-    "sha256": "6538c105a2f83b2184835e026e2dc877ae11b67620406b34842129a3f4efaf56"
+    "sha256": "3b8f2704e614a9ba4ecc5100533c3010347280d44b431365437e5f22dd274d3a"
   },
   {
     "file": "plugins/surfcore/lib/scheduler.js",
-    "sha256": "c151b71e76860d27307ed557340d7e700122a427d66733388ca70d963888e858"
+    "sha256": "585113e26a6ea2446efbbb664665593359f41e43445e996009edf96ead067390"
+  },
+  {
+    "file": "plugins/surfcore/lib/snowluma-install.js",
+    "sha256": "d9392d8d5127b74f1ee5927410b342b9fe70bd116770f1a495c7103e37aeae72"
   },
   {
     "file": "plugins/surfcore/lib/store.js",
-    "sha256": "f476f5ef633384fee50cc53a1bc66ce2cb2558687cc73840f7d9e9a37f0c5e05"
+    "sha256": "0318b48d2702627502ca4f9a448cacf47bab2610c155a363758c7eed730ceee6"
   },
   {
     "file": "plugins/surfcore/lib/token-budget.js",
-    "sha256": "94ce9b564d1e41b0089b220295b18422a29238703cb5f5f3acadaa4b2e8cd74b"
+    "sha256": "690f29e741c15ab5ddeedff7cf2ca7ebde7e85ad1acf16a85d0d7a263e919739"
   },
   {
     "file": "plugins/surfcore/lib/token-usage-pure.js",
@@ -305,7 +313,7 @@
   },
   {
     "file": "plugins/surfcore/lib/updates.js",
-    "sha256": "f6180a3da4bfb33bc6c8b623ca96c6c56c845b16197f735afa47e59a32e2512b"
+    "sha256": "ddfb95c98d5443542ba91a2f561f9227dd77b374c3f85c26e4a309bab9e0f3d9"
   },
   {
     "file": "plugins/surfcore/lib/voice-health.js",
@@ -321,7 +329,15 @@
   },
   {
     "file": "plugins/surfcore/package.json",
-    "sha256": "0eda227bca21e25126c270d6d9dcfb65fa344a3c7993b71ab3beee1580c12615"
+    "sha256": "25d4653013ba46de228dd41fc2db27d75bf024786d253b16b3e9f4a9eb6e1c7f"
+  },
+  {
+    "file": "plugins/surfcore/persona/README.md",
+    "sha256": "c7241e6b5aceef6a697cb694216ad47007ea752793b8fe860f13a809ea2f3c08"
+  },
+  {
+    "file": "plugins/surfcore/platforms/README.md",
+    "sha256": "8847582031eddf40aa211d2fcddfe4fb1efd08cde50555a79612bc3910a74ad4"
   },
   {
     "file": "plugins/surfcore/platforms/tieba/manifest.json",
@@ -329,39 +345,51 @@
   },
   {
     "file": "plugins/surfcore/presets/qq-chat-v2.patch.yml",
-    "sha256": "7975f79cf0604495151cdfb2da8e6a66c97ae40f114bd5608fafca00bf681554"
+    "sha256": "53864cc4ef73b8e1ede3f02c75cc43f0830e603405c9395ffd2480294562a1a9"
   },
   {
     "file": "plugins/surfcore/presets/qq-chat.patch.yml",
     "sha256": "43fe95af8911eefe0313f4276c05c69f8102df5d51988abdf9f243c88b57febf"
   },
   {
+    "file": "plugins/surfcore/qq-mode/index.js",
+    "sha256": "6538c105a2f83b2184835e026e2dc877ae11b67620406b34842129a3f4efaf56"
+  },
+  {
+    "file": "plugins/surfcore/qq-mode/package.json",
+    "sha256": "b5000fee793070f47480126057ade49805ed55c4894cb50b307ebafc198cce88"
+  },
+  {
     "file": "plugins/surfcore/qq-tool-restrict.mjs",
-    "sha256": "1715b13d59c7ee90ae97be4579140f87dbe87ab3701727d347678c49ba998153"
+    "sha256": "0fd3f5a471ff76692087b00d1b5adc2d24ff9f26bc84584d04233337f42f87cf"
+  },
+  {
+    "file": "plugins/surfcore/README.md",
+    "sha256": "8b0677669e28e631b7e6a1879df5a8fac1a02f3e7f365f8655b4a75aa8e407af"
   },
   {
     "file": "plugins/surfcore/scripts/test-admin-bili-prompt.mjs",
-    "sha256": "e592637d04104bfb3a8e306d7657d9fa8f4518dfc16ed0d71840a808dd6d7994"
+    "sha256": "0c35a1c111bf3950846b60c377bd859aba92647cd1f1f2555e988b73f0da432a"
   },
   {
     "file": "plugins/surfcore/scripts/test-admin-config-api.mjs",
-    "sha256": "50ae0e181eb393c9eecc66e45502fd36b60135dd36228bc91e7b49fcade2556f"
+    "sha256": "c3d1ae4b478daf6f79f3e24de45eca84d602a9c41a8dcfce2c4b75a4f9066fe0"
   },
   {
     "file": "plugins/surfcore/scripts/test-align-label-api.mjs",
-    "sha256": "a50a27464a5ecfdaa56249dddb2538c1e572103e064d19bfb452f437985de14f"
+    "sha256": "9e2c7845319000e51c81ea08ac3248674d55316d69a13780fd302c34868e06ce"
   },
   {
     "file": "plugins/surfcore/scripts/test-align.mjs",
-    "sha256": "c678bbbf5afd1cf125c2471b9c5dcd24e521e6c6459a419d878224ca7232f5a4"
+    "sha256": "19c240d48f915d52f716b0a2ca6e19ac5c40b257e246bd8f75ebdb493a1413ab"
   },
   {
     "file": "plugins/surfcore/scripts/test-automation-config-api.mjs",
-    "sha256": "de4437fcb7d4085adbb117d24c2cdc5e49c889221a1c0644cf01dca387db4d2a"
+    "sha256": "ab433b39e28fa2efe276301ff6c2567747dea7ccc9947f420add30948fda2275"
   },
   {
     "file": "plugins/surfcore/scripts/test-bili-automation.mjs",
-    "sha256": "17fbc5866583ad1858b31c2198eb71de51bae00666041c238cba635d3a038925"
+    "sha256": "1b6b2bad6e62a770138769d073dbe70bec9ad7f668ce9f63eba2d440bab99ec2"
   },
   {
     "file": "plugins/surfcore/scripts/test-bridge-status.mjs",
@@ -369,19 +397,19 @@
   },
   {
     "file": "plugins/surfcore/scripts/test-character-api.mjs",
-    "sha256": "ec49f43f960028d63ac4a23ddfcd134e55820ef1f2c3eca68e1540c0f02d0681"
+    "sha256": "bb2c6e9efa2ffa9b4c8cf080aa4bb0f14fff8df508fb131a3bd8330d050557f7"
   },
   {
     "file": "plugins/surfcore/scripts/test-client-contract.mjs",
-    "sha256": "529bc2bc549eece57929c2947aa28e6f4ef1c14f57f9ceb865f7df6c422ad290"
+    "sha256": "81b26286896835ae24a33b86d56cef6ff772d196e1a89b7dbe607fd731754f40"
   },
   {
     "file": "plugins/surfcore/scripts/test-doctor.mjs",
-    "sha256": "5695c0e54b8e7cf5d64e64d97dbdfe538cded1a5447ea59376ce6fc6910efa76"
+    "sha256": "010083cd17c00c479d8466a904aa92c66dbbef295441f0eda24719636f095ea6"
   },
   {
     "file": "plugins/surfcore/scripts/test-host-smoke.mjs",
-    "sha256": "be5f408c153419ba26fa42821ba3c1a1fae98bf1049a38ac242d6fe0a7b85e79"
+    "sha256": "bafeb6402aa3353462cc6f87198339778dc5a93e0c65bedbadadb29cd26f1539"
   },
   {
     "file": "plugins/surfcore/scripts/test-http-guard.mjs",
@@ -393,7 +421,7 @@
   },
   {
     "file": "plugins/surfcore/scripts/test-memory-card-api.mjs",
-    "sha256": "d89f3d13b1e863ef4bc901d35a2ff2db3a7c192b90b7ad66b0287e6f72e8d210"
+    "sha256": "50cdf8c1e866efc91713356ba4640bb1f5dc4d09072ef323d31f9bb34dac2f0f"
   },
   {
     "file": "plugins/surfcore/scripts/test-msgfeed-oid.mjs",
@@ -409,11 +437,15 @@
   },
   {
     "file": "plugins/surfcore/scripts/test-pet-chat.mjs",
-    "sha256": "cb0ec4f3d0a524c24b2979cd8e75e1311e66d7f736acec4628e65b6abc07a7e4"
+    "sha256": "7b74b6513195485e22fd9170f69d5f53f12f542edd5be35ab0c9a50702182c9d"
   },
   {
     "file": "plugins/surfcore/scripts/test-pet-dir-guard.mjs",
     "sha256": "0d30c2839eca36381a0a779aa8634a64ead919a25e7d53d4fc44544d5d1364c7"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-pet-install-form.mjs",
+    "sha256": "520b0cbe4137f5a72823a11b3ae55f9d602a83c5ff6bbcc5e7cfce88b8d7ba0e"
   },
   {
     "file": "plugins/surfcore/scripts/test-pet-install-guards.mjs",
@@ -429,39 +461,43 @@
   },
   {
     "file": "plugins/surfcore/scripts/test-platform-start-host.mjs",
-    "sha256": "5ced4750807840ea449ceb79160f96504c349cd422537bda27d2a9e072121415"
+    "sha256": "03cbf13cc695b3bfa9ad5e7d22a4893d1ff7f332cb66d9ba99880cd8fab33d32"
   },
   {
     "file": "plugins/surfcore/scripts/test-privacy.mjs",
-    "sha256": "227f618f6c1c891262ad3785c911f1d43fef6d66dd4952f8345d3a924ed7c0f8"
+    "sha256": "38d227aa8e8300b0dde10e646b11d7e4542f6342af74e146fb51f436a946602a"
+  },
+  {
+    "file": "plugins/surfcore/scripts/test-snowluma-install.mjs",
+    "sha256": "90dc51a4bb4e3491b0a03253374dd27526cebec51142c34f688c292565c9cc48"
   },
   {
     "file": "plugins/surfcore/scripts/test-store.mjs",
-    "sha256": "eb01d67194d60e7b9813d926c78d7505df73aa015b390c1e9fd51ac6a53d9180"
+    "sha256": "5b81875d7dfb879581273d49e6b41adfddf3fa8ad2b68274debc316ddb0699c6"
   },
   {
     "file": "plugins/surfcore/scripts/test-ui-contrast.mjs",
-    "sha256": "680d37d76bb6aa0aa46bb0349b4ff10ae0dfeb09771ef9bf9229a390968cd43b"
+    "sha256": "cb4eade228cb2a943b163ddd43faa0305f2f64997ba57e2fbb9bc161b8e2a3a3"
   },
   {
     "file": "plugins/surfcore/scripts/test-update-helper-env.mjs",
-    "sha256": "4d4a3493c46635ee74cad92bf9cbf495f2615829c32c61fd0c9854c40748d8f4"
+    "sha256": "5dbd08365d7abf8ea8674b26f1a8ac6a5256d799b1ab376ec50109576a573f4a"
   },
   {
     "file": "plugins/surfcore/scripts/test-updates-pending.mjs",
-    "sha256": "224a7e5deacb284568e0d80d85c089a4012891194033499ddea1bfa0bd1d7fd2"
+    "sha256": "04c67e123c85b18c8f06a241a523ce4ae96895bf76eaee3e5961a5fbfe6bfccb"
   },
   {
     "file": "plugins/surfcore/scripts/test-updates-version.mjs",
-    "sha256": "1a2f6a25d2c51e994ff649d5a27fa6326dc3d7195857c169823aa9a2b3146785"
+    "sha256": "74726b6b0c76ad6bbd57fb3dab5dad446bc73c7880bc006fbd0569380bade9a2"
   },
   {
     "file": "plugins/surfcore/scripts/test-updates-voice.mjs",
-    "sha256": "1eff8018e4ae55e952f708aad111d44b297a8d4e4c7ab1b594937c9eed6c153a"
+    "sha256": "c1d1f9c37a171aac6af202c89e2c0b9d1d0f20f1684b9ef68ff0ea8efaa3b400"
   },
   {
     "file": "plugins/surfcore/scripts/test-updates.mjs",
-    "sha256": "ec49af35dc4efd9089b0bcf1ce4ceb0dd22683a1cb1374d2965fb8f3bc41316b"
+    "sha256": "291da275cd63a608d2200e55fb0045a01a9f3319d255fd24cc0877a8b7fa5bab"
   },
   {
     "file": "plugins/surfcore/scripts/test-voice-flatten.mjs",
@@ -501,7 +537,7 @@
   },
   {
     "file": "plugins/surfcore/tools/bili.mjs",
-    "sha256": "5a35cdd72c3754e3f84a8c45d1e5623ae6e5315ce34f36ba06bf0b02c5e3a59b"
+    "sha256": "2d4437478a2bd96f984b784f0c7a5255dc2623e048c5e89cf3f182897019e241"
   },
   {
     "file": "plugins/surfcore/tools/commands/attack.mjs",
@@ -509,11 +545,15 @@
   },
   {
     "file": "plugins/surfcore/tools/commands/bili-watch.mjs",
-    "sha256": "bedc1d7b2c0147d8dd20da916a4ab1743ecf8ab7db3242ee5ff4653a2bc324ce"
+    "sha256": "627893b4c1392d6674c3d151095cc76b8de1fa8050396d2481068c5a17c890c9"
+  },
+  {
+    "file": "plugins/surfcore/tools/commands/cache.mjs",
+    "sha256": "f895950f2704f48f45fa5b12e6fb4816dad5689133b51f573d7aadcec78be57f"
   },
   {
     "file": "plugins/surfcore/tools/commands/comment-await.mjs",
-    "sha256": "590f39f0dcd86d84f0f0c37d86468639c17562c086b480609661938d7a6d0d81"
+    "sha256": "9fbe932a33a4746165d4e743c4ba4335cb7fe2e04ec8fe1e08b4f605deb1c034"
   },
   {
     "file": "plugins/surfcore/tools/commands/comment-del.mjs",
@@ -521,15 +561,15 @@
   },
   {
     "file": "plugins/surfcore/tools/commands/comment-digest.mjs",
-    "sha256": "ffc036e5f2bf13e5d09f9a3e64efbbbcc831800ad5cc534d911e1f6cb6249e06"
+    "sha256": "1c6b5f31af227dd6821299866d382271296b716ca1222d42d4258b9e6075ac37"
   },
   {
     "file": "plugins/surfcore/tools/commands/comment.mjs",
-    "sha256": "c3cd50fb4b2613e261647c2c5920fcbcc8b8b7caa6f3b9723ca0e3ae9427f9d1"
+    "sha256": "7b11d34dec422fa80bb555998c1e5cb39c935d6d1d0a7216616b64c28b83e78d"
   },
   {
     "file": "plugins/surfcore/tools/commands/daily.mjs",
-    "sha256": "0e1647424ab347f0ddb0ff468b7c78ab809a43ce78daa859a8540d156a6511e2"
+    "sha256": "e74846fd2713761257aa71f2d1a5b934125227f17d46f67637de922c2ed84f55"
   },
   {
     "file": "plugins/surfcore/tools/commands/danmaku-await.mjs",
@@ -537,11 +577,11 @@
   },
   {
     "file": "plugins/surfcore/tools/commands/danmaku.mjs",
-    "sha256": "693b0d48e4ce612601beed88c9a3568ba53c5a2d6d0ad95354b9b4b7af77cd7f"
+    "sha256": "ca5ad3e3924f9a8cc0b40c8ba77eebf659aa75b152c5ffe31aee78fa3c466941"
   },
   {
     "file": "plugins/surfcore/tools/commands/debrief.mjs",
-    "sha256": "32ed5009d1de905dfed3bb81d00698f9f00caa8d012c85c896e41bca7275c0fa"
+    "sha256": "ed88300d320655e902122a256b7ec910248e5b62b767f03957a8022e6c5149c7"
   },
   {
     "file": "plugins/surfcore/tools/commands/deps.mjs",
@@ -557,7 +597,7 @@
   },
   {
     "file": "plugins/surfcore/tools/commands/dm.mjs",
-    "sha256": "084df8efc659ce807ddfec3776260aeef7677d3239c3a43f865f7f6ea8358b7d"
+    "sha256": "be6afdf561bb1e0b9ac30b4b96dbf0247265d8c77d84d2eef0660c4b2830da56"
   },
   {
     "file": "plugins/surfcore/tools/commands/dynamic-image.mjs",
@@ -565,7 +605,7 @@
   },
   {
     "file": "plugins/surfcore/tools/commands/dynamic.mjs",
-    "sha256": "e1a7b9bea469ed5fd2f4919a95a3932db1916bca9d5db18bb009de17c02a7fee"
+    "sha256": "8505685d34203a85175ebed67820d1da9f5439394edd05c953bf078c6ea037a6"
   },
   {
     "file": "plugins/surfcore/tools/commands/edit-dynamic.mjs",
@@ -581,7 +621,7 @@
   },
   {
     "file": "plugins/surfcore/tools/commands/fish-guard.mjs",
-    "sha256": "ebbb8c98576bcf761b792de861d62326b9dab0b988ad721e0b372d7b7c8c54e4"
+    "sha256": "a91f7f24b3e8fce6c4bc531fa081b3534024eaca3f92c6c9418f2f3afb60561b"
   },
   {
     "file": "plugins/surfcore/tools/commands/gamefeed.mjs",
@@ -593,7 +633,7 @@
   },
   {
     "file": "plugins/surfcore/tools/commands/notify.mjs",
-    "sha256": "1d69f02d1f39ac81e37e5173a10cdc5679722d102ab46eb292f96aa5ece004c5"
+    "sha256": "eec2e6fc8de0083f2ac5b769a9949eea4d320cd304a4abb345a980daf2280dbb"
   },
   {
     "file": "plugins/surfcore/tools/commands/prefs.mjs",
@@ -621,11 +661,11 @@
   },
   {
     "file": "plugins/surfcore/tools/commands/share-dynamic.mjs",
-    "sha256": "8ca0e362a46cc94d138f411926903aac8bf78cf8582c22a426d9459513443d65"
+    "sha256": "63524c30e3f993407f83a9220c1706c9fcb1c7da7ae4c181b7544da04e2aba0f"
   },
   {
     "file": "plugins/surfcore/tools/commands/subtitles.mjs",
-    "sha256": "d2cad7cf158dd553c60d8fb21c02159f645802b6528c41453ad29516c24bcd19"
+    "sha256": "c72ac49d306441cd2e3641f1aaeb92b14273abfb793b914a96abd1c62e247289"
   },
   {
     "file": "plugins/surfcore/tools/commands/video-content.mjs",
@@ -648,12 +688,40 @@
     "sha256": "cbc5038e6308e29c7f6f13b29898dc6ef4604c47bb6e8bb556c9c4cbff352c6f"
   },
   {
+    "file": "plugins/surfcore/tools/docs/comment-add.md",
+    "sha256": "c7e28ad87b3399fe7332cbeb15270000ae9a97661f9fd0ac8dbedd2ff0608818"
+  },
+  {
+    "file": "plugins/surfcore/tools/docs/dynamic-action.md",
+    "sha256": "3ddcb2fc7e28a87c8aa2d4e5c514f22fbd1392dfd527f287271b354ea5abbe47"
+  },
+  {
+    "file": "plugins/surfcore/tools/docs/dynamic-publish.md",
+    "sha256": "4069101e5178a79dc65df69ee1d7852667b0e3940ae9229d1a01484dccb4b329"
+  },
+  {
+    "file": "plugins/surfcore/tools/docs/live-danmaku.md",
+    "sha256": "afb96328b5673189d28411a498f686205f0bb8636e76964baeb27bbed89bd2cd"
+  },
+  {
+    "file": "plugins/surfcore/tools/docs/live-room-info.md",
+    "sha256": "34e881c1abd3cb22740c0fd4002e7bffd561267551c1ddec6f25ab61bb773c17"
+  },
+  {
+    "file": "plugins/surfcore/tools/docs/rich-text-nodes.md",
+    "sha256": "f0e11d25fa63d76096416c5d24d14faf757e23fc10f063f00695ac3b9dee6704"
+  },
+  {
     "file": "plugins/surfcore/tools/lib/attacks.mjs",
     "sha256": "c6549e5f6eb85b76d297de08fff99ffde6caacab30b4319831b342af3a772581"
   },
   {
     "file": "plugins/surfcore/tools/lib/config.mjs",
-    "sha256": "06d33d5b7b51000a4ee628662c2acff01a2eb44a90ce0238df9db0cb06bc1045"
+    "sha256": "65ab67bc6f260d56b77b76cedf931ebd046e95f1617af0d2763d7320a22bf2a3"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/desktop-toast.mjs",
+    "sha256": "44f890d5040186454af8f280d7c960f9bc4cd48f615a8061fd0bdc701d01b348"
   },
   {
     "file": "plugins/surfcore/tools/lib/feed-core.mjs",
@@ -669,7 +737,7 @@
   },
   {
     "file": "plugins/surfcore/tools/lib/forward.mjs",
-    "sha256": "6b777ec9f4e1f0e2ef00a2198cb1c7c0b2132c4c3e6cd080a0436ff0adda266a"
+    "sha256": "65ce3102e54133770425d43eb1efeac738c08cb3b55be20696cf929a925cd27a"
   },
   {
     "file": "plugins/surfcore/tools/lib/free-gate.mjs",
@@ -680,12 +748,16 @@
     "sha256": "e1265ac0ce2843f2084332893ed8fa0319a76bf40d737992645faba7947ce8b6"
   },
   {
+    "file": "plugins/surfcore/tools/lib/interact.mjs",
+    "sha256": "b6cb212f1dc528a7c65e59fc94b0bd1eec930b93504c51e8769cfc2f78674829"
+  },
+  {
     "file": "plugins/surfcore/tools/lib/kind-signals.mjs",
     "sha256": "294e88412695c4c7e402d79240a06105647ee727f46e77167bd88d682aa9d277"
   },
   {
     "file": "plugins/surfcore/tools/lib/kinds.mjs",
-    "sha256": "c5a9ce58cbdc5a54c4509d6e06dc82814d84fd5357d80c8d7cee749419856fb4"
+    "sha256": "6f76bc55cbae318852a55be9473247d14f23833bafb0aacb63d20cae880932ce"
   },
   {
     "file": "plugins/surfcore/tools/lib/limits.mjs",
@@ -693,7 +765,7 @@
   },
   {
     "file": "plugins/surfcore/tools/lib/msgfeed.mjs",
-    "sha256": "4ca582cbdd8c2208730a376c8196d8e1d744a263106a655d4f60e8cedde9ea88"
+    "sha256": "cf8e2db9674514cabe92721402b1c789f19f5e5f310df038d48b29e539c29523"
   },
   {
     "file": "plugins/surfcore/tools/lib/my-dynamics.mjs",
@@ -701,7 +773,7 @@
   },
   {
     "file": "plugins/surfcore/tools/lib/night-schedule.mjs",
-    "sha256": "0b7554f9c044f5e7bc9e086a8a3cd90a32ca88223f017681931de2091c303c52"
+    "sha256": "96675259bc190e39ff2534e3d7c38b484c40b9fbaced90ca92c9a3830bffc2d1"
   },
   {
     "file": "plugins/surfcore/tools/lib/outbound-guard.mjs",
@@ -728,8 +800,16 @@
     "sha256": "63b7d2c81c0beea57b44012f89e9d6a518076b649c1f64fe09b7da1bfa5184d1"
   },
   {
+    "file": "plugins/surfcore/tools/lib/shots-cache.mjs",
+    "sha256": "30e184391645f24aec7532cdb87a9aea12010f00427ae79b02394889881d8f0e"
+  },
+  {
     "file": "plugins/surfcore/tools/lib/state-paths.mjs",
     "sha256": "3537a00f68486e68295269123e22a0852e9aa7c79c57a2b10b84772adecb4b97"
+  },
+  {
+    "file": "plugins/surfcore/tools/lib/time-window.mjs",
+    "sha256": "6957141699da165596240fc101c235b630a00b0a4bce9cdc125ed421d7c727ad"
   },
   {
     "file": "plugins/surfcore/tools/lib/watch-actions.mjs",
@@ -776,44 +856,28 @@
     "sha256": "61265cdfe9e6fa91bf617d10cb9c248ebd1f45bd9a6b200454e265e990db7078"
   },
   {
-    "file": "dsh/agent-presets/qq-chat/agent.cordis.yml",
-    "sha256": "5cc726ecda7c24e31243c3933e04849328b0a30687fa6a75f075dc71ef581227"
-  },
-  {
-    "file": "dsh/agent-presets/qq-chat/preset.yml",
-    "sha256": "864edef4886c851879a003a0407be34226bf4ddccc4e12e53f46fe68ca8ae5ea"
-  },
-  {
-    "file": "dsh/agent-presets/qq-chat/qq-tool-restrict.mjs",
-    "sha256": "231b31487014e757ecd8797e26746d58cbc2e33992da7e5ca901a14881fb52fe"
-  },
-  {
-    "file": "dsh/agent-presets/qq-chat-v2/agent.cordis.yml",
-    "sha256": "594c5215dfa133a8fdd804b1da0864c67f39c83545b1634b48044b42c131a4e9"
-  },
-  {
-    "file": "dsh/agent-presets/qq-chat-v2/preset.yml",
-    "sha256": "c304f13440e10c88912d1a7edc713cd1cb5ae106617de6b23ed2ab4dbe2df0c8"
-  },
-  {
-    "file": "dsh/agent-presets/qq-chat-v2/qq-tool-restrict.mjs",
-    "sha256": "231b31487014e757ecd8797e26746d58cbc2e33992da7e5ca901a14881fb52fe"
-  },
-  {
     "file": "scripts/apply-update.mjs",
-    "sha256": "b4d107f170684e9bf665fd75b20fc82bf552c31e2ae21553ad7cf7f62d24d71b"
+    "sha256": "79e1bedfc8ca17b5e56bbb26bf421cba9343b59d502dd120fa40a8ea0826431c"
   },
   {
     "file": "scripts/audit-bridge-harness.mjs",
-    "sha256": "b3832fdbcdccf15ba3d7aa5064ba0f45baceb373a9ffcc677ede1f2ae3ae7c7f"
+    "sha256": "5b654ab1f00b6ac2207dc327ea5909691f6d47f5592584906a9899a401161d6b"
   },
   {
     "file": "scripts/bili-memory-sync.mjs",
     "sha256": "886066ba930b3818425d0b9c8fef23ab8e8a353d632753a136ce55c956232df0"
   },
   {
+    "file": "scripts/billing-report.mjs",
+    "sha256": "e5cb61cff31429dc21d75232ba93c7d84d8f776930cc649d6d399dd860dc2daa"
+  },
+  {
+    "file": "scripts/bootstrap.ps1",
+    "sha256": "577e1a12eea631c1a0f1d522999ac3fab4f8eef143abcbc7f8a5eeaf6db2cbf2"
+  },
+  {
     "file": "scripts/build-agent-preset-patches.mjs",
-    "sha256": "1c486ca09b8c571df38e4c02d8f8e7eb0c4d2ba40e099ef68c0ad3a2f76832d8"
+    "sha256": "2dceaa2f704ed32e74b0615ca62641075f9ecb3251595e3303702e3bc9ea626f"
   },
   {
     "file": "scripts/check-onebot-status.mjs",
@@ -833,11 +897,19 @@
   },
   {
     "file": "scripts/console-ui-fixture.mjs",
-    "sha256": "201531ada1bd934f1c9990c849e98ed431893d0b385fff4dec53d94b4c7323e8"
+    "sha256": "95da3ff9de7015d82d6892691bbe7ddefdaf3608acf408a222f7022d877e1046"
   },
   {
     "file": "scripts/console-ui-legacy-ids.json",
     "sha256": "390979191ccde48361742ab7b324d166b1491ef721498e02547d515fd53af39c"
+  },
+  {
+    "file": "scripts/context-call-chain-report.mjs",
+    "sha256": "3af0a2ebdd6344067c8c3600fb71b4605764c34b974ceff03e2531ca0648fc1c"
+  },
+  {
+    "file": "scripts/context-telemetry-report.mjs",
+    "sha256": "7632ac28add3bd40ebdef9560f0f8b4a18822927746ae5e659778bccf2731de1"
   },
   {
     "file": "scripts/detect-profile.mjs",
@@ -856,6 +928,10 @@
     "sha256": "b5fe9f036e3f23479028ba1ef03cff388f02659db3812cd9c1862f8b548d2e42"
   },
   {
+    "file": "scripts/fixtures/console.before.html",
+    "sha256": "5df639693a4fccdfcb6e4f2038c7ffbdd113d7aa82276f92e2839ed77f4067c1"
+  },
+  {
     "file": "scripts/harden-state-acl.mjs",
     "sha256": "d0e867950e07ee28b442d730b47b1e79a3cb95e6fdf21369e64e87c519a4c03d"
   },
@@ -869,7 +945,7 @@
   },
   {
     "file": "scripts/patch-dsh-session-guard.mjs",
-    "sha256": "5065db35316129da866c1302088f6b57cb3e096d0bd4646c8684bec316d22485"
+    "sha256": "6081270cee5ced0f46f9b2247ac1ef96eaae6e66cf67c42cea0605bb9e785922"
   },
   {
     "file": "scripts/patch-snowluma-sdk.mjs",
@@ -928,8 +1004,20 @@
     "sha256": "c5e5401c07b71e8f9ca4aad9c6c8c2f3c82a5057c90688875012f0a619d17111"
   },
   {
+    "file": "scripts/publish-dev.mjs",
+    "sha256": "a1f563a80ef84f83559a0cc3c5a0eff3ba572bb463f6ed2d73214ae61fd4aa5a"
+  },
+  {
+    "file": "scripts/publish-via-api.mjs",
+    "sha256": "cdbc19e1398e8387976de2b16901b5d4e646fd92b12a33d7c23efb7f1da78e8b"
+  },
+  {
     "file": "scripts/purpose-inspect.mjs",
     "sha256": "781b98813c8e9914598ede2a8ab26b23d635a741fe5d20b8b02291976fdf7179"
+  },
+  {
+    "file": "scripts/release-manifest.mjs",
+    "sha256": "ba97a45f5245621f1beb30fb8c2cfa3d0a4bdb63674d09901252c90b995ee9f4"
   },
   {
     "file": "scripts/scan-dsh-tool-names.mjs",
@@ -945,7 +1033,11 @@
   },
   {
     "file": "scripts/setup-dsh.mjs",
-    "sha256": "1b364ede99d89eca25544211923affe625577b7446deb1553ea980845ac622af"
+    "sha256": "ae1106c812631e3c7c626aba73546522927665cd692f28bc4aee3014fd022410"
+  },
+  {
+    "file": "scripts/stop-qq-bot.ps1",
+    "sha256": "ef0df1b40b9104a48f2d8a358cb73cff30fe86b5e649fc0da2bc2fb96b7ad6ac"
   },
   {
     "file": "scripts/sync-dsh-port.mjs",
@@ -956,20 +1048,40 @@
     "sha256": "c4b735b1213ccac8008427b953c2549f8134dce74250fadc85870f4db58a35d4"
   },
   {
+    "file": "scripts/test-acceptance-abcd.mjs",
+    "sha256": "0df65fefbcc66b0f335a03009fb71fbc126e39f5da8fd75e273d69cfc3335eb8"
+  },
+  {
+    "file": "scripts/test-action-planner.mjs",
+    "sha256": "ef5f72afa80b2f6dd0857f7cfe732a7a2110167b5280ee31bbdf050bf3e3f264"
+  },
+  {
+    "file": "scripts/test-admin-gentle-ux.mjs",
+    "sha256": "2d0f7ae8c1b198025eaa1642776119e57751e9af84274c45524b4cf88f29b76c"
+  },
+  {
     "file": "scripts/test-admin-identity.mjs",
-    "sha256": "500dbacb6d59f47e4ea65b70df59d4291dd3fd17824fc00d2a5438502d3f0573"
+    "sha256": "66638883a1a579e4a2e2aee0513ba3b8d41a7bf271c0720f3aee3eb5ea19516a"
+  },
+  {
+    "file": "scripts/test-admin-input-css.mjs",
+    "sha256": "090b6f972c0c0f6717b1ffa4a11948e468d4e095f45d82b5a5494a0f9489b912"
   },
   {
     "file": "scripts/test-admin-prompt-wiring.mjs",
-    "sha256": "ba010972c53a7aabe0e5681a50d1bad22aaaf4da9fe08c41c319cdb2cc2ff031"
+    "sha256": "fceeb85f213f606ecc066b6f588a7bcea8db9ff64dd6f7f03845cbf14560540b"
   },
   {
     "file": "scripts/test-agent-preset-patches.mjs",
     "sha256": "adfc4f46d83bdee9702e021db5f949fb36cdd0bf5b4dc5f0864b0375e4658d90"
   },
   {
+    "file": "scripts/test-allowlist.mjs",
+    "sha256": "1d7bf21f5b7103b859eab59be6e420e044c177b40b16ea8ac87d39af48628d58"
+  },
+  {
     "file": "scripts/test-audit-bridge.mjs",
-    "sha256": "7083a0fb477736899ff67e1f97a47a06d84638c7c773a738d8649417939b21f2"
+    "sha256": "ccea6dd7bb8eda6e98e6ef25631e31d354def81a7470deba5f33c6dcf6b64698"
   },
   {
     "file": "scripts/test-audit-protocol-helpers.mjs",
@@ -981,7 +1093,7 @@
   },
   {
     "file": "scripts/test-audit-regressions.mjs",
-    "sha256": "0a1b9d67f2d64e628cc98585150d7150bcb5e37d9f7c68f0624d501050e368ad"
+    "sha256": "18dd084cc87366b8f38b11a5bd98989410a06ebe9dfa517cce8bf290dd7c2a43"
   },
   {
     "file": "scripts/test-audit-security-mcp.mjs",
@@ -997,15 +1109,23 @@
   },
   {
     "file": "scripts/test-audit-setup.mjs",
-    "sha256": "0596af5d03796bc2f5865ad800e4931d9524f9e801a32b853413d8c860ff5686"
+    "sha256": "89967104c6450216210dba9e202e571a3488d339309a6bf26da86e1bf2e81125"
   },
   {
     "file": "scripts/test-audit.mjs",
-    "sha256": "64b1c836bd45391a9f00ccf130cbdfd53532d07d643856064ada8fb3b398af2a"
+    "sha256": "1d2accaf9261f9204d294b178d4867ccc929813c3b816b24e7dc4a6e393839e7"
+  },
+  {
+    "file": "scripts/test-backlog-cap.mjs",
+    "sha256": "9e8505682dd58f1c1fd373e8290bb3356245ea5b0d9fc6d2e887aea57ae22b42"
+  },
+  {
+    "file": "scripts/test-backup-prune.mjs",
+    "sha256": "04f78c1e76710a18a968970d16ed6797adaf0d33faf2c535df16df4c05ac1a40"
   },
   {
     "file": "scripts/test-bili-card-ark.mjs",
-    "sha256": "1f631a18853ba4309adc275716f81905aa8bc559d2d886afad62a494f2c3d883"
+    "sha256": "ea9cea7434b3c303ca27ec96cc50d6cdfcb30c441406fb6117339151e8cf4dc6"
   },
   {
     "file": "scripts/test-bili-card.mjs",
@@ -1016,12 +1136,28 @@
     "sha256": "668fcd2aff13b32dc942213e802e7fa95ffe7537fd0fa330e55e31693601206b"
   },
   {
+    "file": "scripts/test-bili-interact.mjs",
+    "sha256": "e6df59cac81cbd9a38c8ead16e5a85f7c41733d85bc81f3c69afe16a03f38d36"
+  },
+  {
+    "file": "scripts/test-bili-listen-error.mjs",
+    "sha256": "29399018eacca0dab1f7e774f8594af1c19fcd08295a1a95d24141d965dc5490"
+  },
+  {
     "file": "scripts/test-bili-memory.mjs",
     "sha256": "277bbb9e27aaf444923932862f19385b0e28351d9d81712e40899248364486a8"
   },
   {
+    "file": "scripts/test-bili-prefix-config.mjs",
+    "sha256": "6e6f3c084d4ae5c32aef093e6d29cb0107684603b9c9a8fada8b3e989209eb5c"
+  },
+  {
     "file": "scripts/test-bili-qr-login.mjs",
     "sha256": "dd54783f16998a029609c44cd00189f12f76675add0049ca37d2f973ce2a97f4"
+  },
+  {
+    "file": "scripts/test-bili-reply-coordinates.mjs",
+    "sha256": "3004944afe0c03f510ea53e9dfd03d49fd70fe1a3f5b686adce2a2b46270c91f"
   },
   {
     "file": "scripts/test-bili-share-dedup.mjs",
@@ -1032,8 +1168,24 @@
     "sha256": "8045e562a430fbd4a92bc5496ca861efea73183519c3ad404e5e4eb3e6d6f141"
   },
   {
+    "file": "scripts/test-bili-workspace.mjs",
+    "sha256": "a6b83555429914e9a62fdbedfe89af26cf099ce283c1897306af0fd6c0841319"
+  },
+  {
+    "file": "scripts/test-billing-report.mjs",
+    "sha256": "357612e83669c8ebfc63ee8d5f2b59d3626d3c9acc4b7efbe4f2000ba7921be6"
+  },
+  {
+    "file": "scripts/test-billing-service.mjs",
+    "sha256": "bca30c5259e60fc4572dc30a4fd992da31f54803b60079424fecd39c8e3f71b6"
+  },
+  {
     "file": "scripts/test-blacklist.mjs",
     "sha256": "a617c5a6f106e50dc77260ecdbfff6247516b728ae1bbb66f58fa30b3d95f850"
+  },
+  {
+    "file": "scripts/test-callname.mjs",
+    "sha256": "0f2d1019ba58eeece0f48844653852a656bb63a004fdaa5d5f83c6fda4bf7703"
   },
   {
     "file": "scripts/test-character-store.mjs",
@@ -1041,7 +1193,15 @@
   },
   {
     "file": "scripts/test-closure-wiring.mjs",
-    "sha256": "4846fd83dab359d73d22fc6ac53f47cd83eccb02453150050f00701cd405e646"
+    "sha256": "a306401d6ea36b9dedc606d24e42b46fc4ced158db59d0a5bf72cdef12fdd8e7"
+  },
+  {
+    "file": "scripts/test-command-spam.mjs",
+    "sha256": "1e36d71344de79a805396a7d1db89e16b7a04b5d7b1c9c91d23e7b39b963f4c1"
+  },
+  {
+    "file": "scripts/test-config-save-stamps.mjs",
+    "sha256": "f450e57d292ccf616a4ddda4e9c6eff93159ad9a046c394159d73ef46edc7ba8"
   },
   {
     "file": "scripts/test-console-encoding.mjs",
@@ -1060,24 +1220,56 @@
     "sha256": "382288c59e03a2d9ced89750224ba27dc591749f9a75cb22ab5ba04f425829e9"
   },
   {
+    "file": "scripts/test-context-call-chain.mjs",
+    "sha256": "ba846014038d1ac096e8142d3fdd9968b5c47cb562155c09e72b0357ea1c09a5"
+  },
+  {
+    "file": "scripts/test-context-snapshot.mjs",
+    "sha256": "6c4d72655e3447df79d389612f194594881249dca203768758b66387e3c00013"
+  },
+  {
+    "file": "scripts/test-context-telemetry.mjs",
+    "sha256": "0ce826c6084449d055729d41e7be5b0c071a117e751d0c4b99c232e2468ab753"
+  },
+  {
     "file": "scripts/test-conversation-closure.mjs",
-    "sha256": "d3a2e7d0bb98a2702d5a7050878f7370fe78e86f14adc7392e21d920f5cf1c22"
+    "sha256": "32a79ffc6b18f302baed14aee6169bf8d4b64260fda9530406a2322c28c2caac"
   },
   {
     "file": "scripts/test-core-rev-sync.mjs",
     "sha256": "668450adcdb26c064c1de8262e35c348648009ce9cd4bb6a7a15fbc85cbe6e68"
   },
   {
+    "file": "scripts/test-dev-publish.mjs",
+    "sha256": "c6fcc620df98261a812897ac92b9594e6c5572000f61597caeed9b7aa853f8fd"
+  },
+  {
+    "file": "scripts/test-doctor-snow-state.mjs",
+    "sha256": "e1b2c9767287b5fa7af01f68b70201cef8d647ee8afda12cbf99a0eed16e240b"
+  },
+  {
     "file": "scripts/test-dsh-auth.mjs",
     "sha256": "c992d18d796017bee0fc9105a3dc862736a3d064daee771acac49a2cec0ef0d6"
+  },
+  {
+    "file": "scripts/test-dsh-follow-route.mjs",
+    "sha256": "6ccebdb8a015f5ea6d7e30d4fcfdbdabfe16c9880fa69b50d6103652e55a8baf"
+  },
+  {
+    "file": "scripts/test-dsh-health.mjs",
+    "sha256": "55c9a97c82cad324a40f4b11b3264facbe5226e47a371b9d03beb11a01062879"
   },
   {
     "file": "scripts/test-dsh-inbox-projection.mjs",
     "sha256": "e30b27a94ef86403407a88d16483dd366375fd89a5425c0f01c33e30a861591b"
   },
   {
+    "file": "scripts/test-dsh-model-follow.mjs",
+    "sha256": "c7a0017ecb0605d37402bc30baea430a4557cf40c4517df3cf6514e34ed55ae9"
+  },
+  {
     "file": "scripts/test-dsh-port.mjs",
-    "sha256": "3c26e533bc225f8aff6e4a60de1ac62b3a0543daee40523e71096075a7828dc1"
+    "sha256": "7a11e2d969fb44d92c25721bf6602eac37d0ea1ae86879089c6e45a2289377f8"
   },
   {
     "file": "scripts/test-dsh-session-retire.mjs",
@@ -1092,6 +1284,10 @@
     "sha256": "c61ba2601941a825fc8a9d6c734854c667413ee79291e6d3d590e355d8cb2092"
   },
   {
+    "file": "scripts/test-events-fallback.mjs",
+    "sha256": "8fc7c0e3fa54fe2897f4d802a176769b99640ec4a8cb7fb2d892fbc99e8a408e"
+  },
+  {
     "file": "scripts/test-feed-core.mjs",
     "sha256": "8d0dea90761a81d4dabbb5f3aa1ffb38dadba5ddcbed2b25701aed7df5bec293"
   },
@@ -1104,8 +1300,16 @@
     "sha256": "268506cf36080b30a523f73869a0407fe0b37fbe73e6a87ce5158dfc51f133c6"
   },
   {
+    "file": "scripts/test-gate-events.mjs",
+    "sha256": "5254f8611562eb96e4e9fb367a9f8d6dfa94406bbe32004a7eb8df4f17569002"
+  },
+  {
     "file": "scripts/test-greeting.mjs",
-    "sha256": "d38e3a9789024739535cc3cc2c0050cac9fcc33f475109f4687d89f3bc690cce"
+    "sha256": "e5557859758e68557c57ab7da75e4e9490ca1412666a5232c1f9b0f55614d38d"
+  },
+  {
+    "file": "scripts/test-group-policy.mjs",
+    "sha256": "a7c20e80b0846818d13500330db6ab20b288df45ecc5a06b7f5e8f71d5b847a9"
   },
   {
     "file": "scripts/test-hardening.mjs",
@@ -1113,15 +1317,27 @@
   },
   {
     "file": "scripts/test-history-catchup.mjs",
-    "sha256": "5b0229e4809e14572a7e2225b9f743875268a414d81770887ee295745bbe33b9"
+    "sha256": "15ef9dd989a2f3164549ffaabf32f231c69697dfc24272d7cbfa149584dcd67b"
   },
   {
     "file": "scripts/test-identity-guard.mjs",
-    "sha256": "62f10cff48d7eb72fafc7bf0a7afd66c7bb87a578795c6a09bfc8d0548008414"
+    "sha256": "0147f3c9dc3726d688aae8601ae9a3abf939b861bec4a785dab4c6b3056b8d6c"
   },
   {
     "file": "scripts/test-issue-regressions.mjs",
     "sha256": "f22b619495c53a704bcfaa96eeffbfb2b194709083389f6023a146fa9b32cc25"
+  },
+  {
+    "file": "scripts/test-launch-components.mjs",
+    "sha256": "44edbb0880134737bdc8801007a62f862d5be29a2d184b4cea1a617ec125aff4"
+  },
+  {
+    "file": "scripts/test-learner-turn-wait.mjs",
+    "sha256": "fb7f2ee31e9d2baf182b7266bca452b5c736d6ae06d8a456db977a873c8ef79d"
+  },
+  {
+    "file": "scripts/test-limit-report.mjs",
+    "sha256": "eaa1c497a38c3089379daa304a69a0b745c4bb4cd78d68fc2731b1c2be295af6"
   },
   {
     "file": "scripts/test-mcp-exec.mjs",
@@ -1148,16 +1364,36 @@
     "sha256": "9d02a8987b29403b2fd1e36fc2067220d62cdee1682a5f3c1e99cf7290fde5f2"
   },
   {
+    "file": "scripts/test-media-fallback.mjs",
+    "sha256": "e3cb2b06c70b03a019d58a8aa899d8bdee792f0986f14876485ade0be56e26a1"
+  },
+  {
     "file": "scripts/test-media-search.mjs",
-    "sha256": "9bee47c476ea2e1ff5618c38b6d97ecb4f536af0632878b400989dd53715d612"
+    "sha256": "59571c3a9dc1f3e2da850a973b98e8b462b6661bfb3323011d6888e91442f19e"
+  },
+  {
+    "file": "scripts/test-memory-card-act.mjs",
+    "sha256": "88cd4582954e405758f29dd423f0ab5e35381ff329dd7af4bf22c5983331f3be"
   },
   {
     "file": "scripts/test-memory-card-wiring.mjs",
-    "sha256": "c8910aaf5b32dd4763a9da3481dab04e7413060713fc7e9b83b7b369fee78753"
+    "sha256": "a57a9a59ab1bc4e8dca544d6f060fdc57ecffe54fefd9d3ce13e3b0d01128dce"
   },
   {
     "file": "scripts/test-memory-card.mjs",
-    "sha256": "e4172c715c1a30c092617597f4b7db9c86efdf04d21a85c94947ccea38165d6f"
+    "sha256": "28b25ca6377854c531d54707bd701359255a359aad1a8bedab60ca150964530a"
+  },
+  {
+    "file": "scripts/test-memory-sharing.mjs",
+    "sha256": "f4b4bc4ac480bfe64d42bcd2a16e9a418cbc75b9f4723ce6eea219b50e1aa6cc"
+  },
+  {
+    "file": "scripts/test-model-options.mjs",
+    "sha256": "5e048243af5e7ea699ec833f763f36e59596a186f992c40cb9a1fad2057dc1c0"
+  },
+  {
+    "file": "scripts/test-model-settings.mjs",
+    "sha256": "0722dfde310a31f012fd6440f7d038e7b535af9244160132f4f1a37c1ce3b73d"
   },
   {
     "file": "scripts/test-mux-reconnect.mjs",
@@ -1168,12 +1404,48 @@
     "sha256": "4273f708a71a37c988cae357150bfd2091026eda81fadff16422577c1ac0c737"
   },
   {
+    "file": "scripts/test-node-path.mjs",
+    "sha256": "a2ecfbdbfb73a6d21271d3725ad4d16126329badc3c756bd13596aa2cb45630e"
+  },
+  {
+    "file": "scripts/test-notify-channels.mjs",
+    "sha256": "8b208b12168cf4aae1119539c554aa7539e8a966fb09a7fa0c65d254b00eeb7d"
+  },
+  {
     "file": "scripts/test-onebot-connection.mjs",
     "sha256": "ea2b995b5a6c7fbf294480df6bc0d518f70d222bb26463fbb30348cba2914bb7"
   },
   {
+    "file": "scripts/test-outbox.mjs",
+    "sha256": "39a8b89a6571d7d3174ab68d4d9684fe457156df96eaca2c0eb3ca58349dbadb"
+  },
+  {
+    "file": "scripts/test-owner-audit.mjs",
+    "sha256": "1de9a36fba1bffa14d2b7c05e08b6a3db6eca12a39c0bb4d0030c5796f18c260"
+  },
+  {
+    "file": "scripts/test-persona-classify.mjs",
+    "sha256": "86110b7bb9cb73676885a7043750e3a020f63b1edda533232f3b75bffb588991"
+  },
+  {
+    "file": "scripts/test-persona-layer-read.mjs",
+    "sha256": "d0c9c5a722ea6ec640a2e59033fafbe356f179263d8e826a08498202ccb62cf8"
+  },
+  {
+    "file": "scripts/test-persona-layers.mjs",
+    "sha256": "3ff19f06c83a96b67fe54c035646518f3b6ceaf785f209f5f7faaaa8224c0eb5"
+  },
+  {
+    "file": "scripts/test-persona-wake-injection.mjs",
+    "sha256": "d8d6ab1dbdd0efac58522660a735066d6e3b569dc53a84252bf1a8ff9a3d4b48"
+  },
+  {
     "file": "scripts/test-platform-start.mjs",
     "sha256": "c24058af76ac7b0c244a19471fa8ef3ae3c069cc853bcce04dc61754bf289574"
+  },
+  {
+    "file": "scripts/test-plugin-compat.mjs",
+    "sha256": "20a0d02cc57aebcf686a5d183c2935e443b7d24f4108d7137c0e4ef267a5bbb6"
   },
   {
     "file": "scripts/test-pref-scan.mjs",
@@ -1193,11 +1465,15 @@
   },
   {
     "file": "scripts/test-purpose-engine.mjs",
-    "sha256": "59d8367a798bdfb067da29faff823656ff54308bf4a40dc936ee982bdf8a01fd"
+    "sha256": "9485c415ad7707668457eee720fccba98cf7a99a5e43f47eb43b65a3cfe09b53"
   },
   {
     "file": "scripts/test-purpose-wiring.mjs",
     "sha256": "f31e89c4c6f3fec2e07258e06910eabc13f61d5db6bb665867af8256b459a137"
+  },
+  {
+    "file": "scripts/test-qq-at.mjs",
+    "sha256": "51f759c3b3a06b43d06c6f2d49f72f5e4d58bdb8588d7fc6e7d7d3f4d5b8967d"
   },
   {
     "file": "scripts/test-qq-fish-guard.mjs",
@@ -1205,31 +1481,55 @@
   },
   {
     "file": "scripts/test-qq-mode-plugin.mjs",
-    "sha256": "c19ab81a0898715144ee1314eea695547c6b0d6d32a53676f9256725d1dfacb4"
+    "sha256": "20249be8cecfbfda0ea7169f63641315c3d234f612471382d62f437931bc8c77"
   },
   {
     "file": "scripts/test-qq-model-view.mjs",
-    "sha256": "fb5f269847bb788ed14d84060662aa673723abd879cceae9997f0db0e260db9a"
+    "sha256": "c7d22dbcdb5290c2f8622095907b955e42d1bd7a6ebb7fb26eb21c6109e184b6"
   },
   {
     "file": "scripts/test-qq-preset-contract.mjs",
-    "sha256": "dcda9d54dbfe90f241606a9d2dfc353db9a756af6681f32180b6df3365798283"
+    "sha256": "2cd1c2c671a620fba0b8cc671ab51a9ea1203a15361ac9f784390e31bcdc9b48"
+  },
+  {
+    "file": "scripts/test-qq-tool-restrict-events.mjs",
+    "sha256": "58ed144ef09a6b5c38805586b6ef4cda80013e237e27556014e425add9cbe5b1"
+  },
+  {
+    "file": "scripts/test-question-answers.mjs",
+    "sha256": "ae97f02b1639626d4f2ea07a7a606d92910805c5ee2837cc6791bd41b24276cd"
+  },
+  {
+    "file": "scripts/test-release-manifest.mjs",
+    "sha256": "94b9c693d9b8951a55ea8cdbcb87ae935b2d36f9445f8f80e64488887a0f27c7"
   },
   {
     "file": "scripts/test-reply-wait.mjs",
-    "sha256": "f4ed7c8454f46cc9452523728277038f7a751088c378d4e29fa0a533d16138cb"
+    "sha256": "b98792fd0fb5d7eced723f305af435d6e5293598930174c24e6c8d82733c119f"
   },
   {
     "file": "scripts/test-role-card.mjs",
     "sha256": "609774246ad9d1dfb957585d4e33fed33de71663e7198d0aa47a850c8bc87245"
   },
   {
+    "file": "scripts/test-safe-text.mjs",
+    "sha256": "c19b27d060e545494a06ee986ea70ceefe3c3bf8ce56392e772080f85e8fc348"
+  },
+  {
     "file": "scripts/test-scheduler-permission.mjs",
-    "sha256": "bbf5193b48606ebcd935079d71fd4b03910f2697e1386dfbea39201aaf8c6564"
+    "sha256": "712806db82c5d539b60eb4549e72bf8a8272969ca303e22c4b432d31e3eb212f"
+  },
+  {
+    "file": "scripts/test-schema-volatile.mjs",
+    "sha256": "bfc81946cfa02bfaaa24006183bcc46a19782d0af0b2555b0e1f05ba0727a7b9"
   },
   {
     "file": "scripts/test-self-identity.mjs",
-    "sha256": "e020aa8faf9abbe6dad1b6b4410270368643d96839b669a96dbca7a9c4e16747"
+    "sha256": "d740227eea03e8da7a98322848cc96a3cdf4d57d858ddba6b163fd3789c4e18a"
+  },
+  {
+    "file": "scripts/test-session-map.mjs",
+    "sha256": "d7f023011ab3b53a8b94882efd47de6c02bae1f62b49ae2a81e86b5a4eb5b0e2"
   },
   {
     "file": "scripts/test-setup-dsh-idempotent.mjs",
@@ -1240,12 +1540,24 @@
     "sha256": "d7472877d47b0be1244951e3faa43846d8d0d148e7d69521a9b47ba7efc3bfd6"
   },
   {
+    "file": "scripts/test-shots-cache.mjs",
+    "sha256": "ccd2a8d88958d8d0c63a0dc84384b476071a6eec1cd964a936a9d18dc172c1c8"
+  },
+  {
     "file": "scripts/test-slang-learn.mjs",
     "sha256": "b95f66ee6d76c38982094f3b255c7ff23fd5c911194a7c73615e81b60fcb8bbe"
   },
   {
+    "file": "scripts/test-snowluma-channel-gate.mjs",
+    "sha256": "e57ca4f30565a29a75bf01581b8a76f1cf752fc4e4fec6320a48c051a2d551bc"
+  },
+  {
     "file": "scripts/test-snowluma-conn.mjs",
     "sha256": "721bdf868e3becd05552b02d60b76efb2e6370ec69c5edec7bfd35a58b93a8c2"
+  },
+  {
+    "file": "scripts/test-snowluma-startup-warning.mjs",
+    "sha256": "583b9fa943579f6c02adac6bba455b2eb5a2c215c5aec4de799f6c205f7ae1d1"
   },
   {
     "file": "scripts/test-snowluma-upstream-health.mjs",
@@ -1258,6 +1570,14 @@
   {
     "file": "scripts/test-stickers.mjs",
     "sha256": "c26c61c833c2161b1156cdda31a032c0223299b54cce4cb81bc5a612e264881c"
+  },
+  {
+    "file": "scripts/test-theme-tokens.mjs",
+    "sha256": "2a7b841ea784bd7b0a7a55589dc2880794eaa7ac56f004f2b624bf4c63df11f8"
+  },
+  {
+    "file": "scripts/test-time-window.mjs",
+    "sha256": "22366b85690e133fadfa48ace2f4975b1c57c8d854a3fb1a31b5b361661d2bdd"
   },
   {
     "file": "scripts/test-token-budget-bridge.mjs",
@@ -1273,19 +1593,31 @@
   },
   {
     "file": "scripts/test-token-economy.mjs",
-    "sha256": "9b812b856abefc81e2c5cc1637937866b8d03d585d9fcd72d96171ab149ff9f9"
+    "sha256": "2b18d4b75212cd5abc5f7ff33bc91182c5d1be4bc1c3551f327432e4bfd7c071"
   },
   {
     "file": "scripts/test-token-guard.mjs",
-    "sha256": "c5cb2bd9e40a3dd00567d55713c5ffb8b10bf16fdf8fca08f4e664416de2d20f"
+    "sha256": "92b9d2d99fe39010a57cd8b8af571701fd392134fb6429473762751b4e450ff4"
   },
   {
     "file": "scripts/test-token-usage.mjs",
     "sha256": "5c6b8b084e14601edf4f8956e53e08c7b3fe369ad393ac3c07b12a06c8ac8703"
   },
   {
+    "file": "scripts/test-update-apply-result.mjs",
+    "sha256": "09a563e4160daaa06f5c742c931de3afce57812de2e17638d555e7ee221484f3"
+  },
+  {
+    "file": "scripts/test-update-version-fallback.mjs",
+    "sha256": "393c257b84ceb0ffdf3025855f9a58ce58536728da198b0acdcab6f691ca43c7"
+  },
+  {
     "file": "scripts/test-v2-initial-prompt.mjs",
     "sha256": "3c3f76af48730ff46fa285d1f779fa5f6bb1f7cc68fbef4e2f494cc217e146fc"
+  },
+  {
+    "file": "scripts/test-v2-wait-batch.mjs",
+    "sha256": "43e973609a4774450b59b8d3333d026e939ca2b5a041cdd0cef5c164d6e314a0"
   },
   {
     "file": "scripts/test-v2-wait.mjs",
@@ -1293,27 +1625,47 @@
   },
   {
     "file": "scripts/test-version.mjs",
-    "sha256": "a08a0983a2154f0ea262ce1dfce895078d494d0ad070d405bf9699beccb305f4"
+    "sha256": "7c8f2fe57c04d8bc1f1fcd9ba5d6f539b77b88d399ad003429f89a840ea10cfe"
   },
   {
     "file": "scripts/test-vision-media.mjs",
     "sha256": "12db259b59d78075803bd0127decc3d9185e5b762ac5295c41e6670cad9c7333"
   },
   {
+    "file": "scripts/test-voice-cloud-credentials.mjs",
+    "sha256": "82343df242fe4639a865e2911390671a4b4a6c3b5008e3c03d453957eb2173ed"
+  },
+  {
+    "file": "scripts/test-voice-diagnostics.mjs",
+    "sha256": "284445991bac7923d4f652771aecf535b9000d8086e5c90510bcf47c8ca74f32"
+  },
+  {
     "file": "scripts/test-voice-edge.mjs",
     "sha256": "9e7d414649cb8a340d13468f88d93b680492f58809664f0615a3df1769d115b7"
+  },
+  {
+    "file": "scripts/test-voice-gates.mjs",
+    "sha256": "64502d6076cf945db84825bbc47cd89d236d47b302ae0ff836b572da4f6a3d55"
   },
   {
     "file": "scripts/test-voice-gui.mjs",
     "sha256": "0aee820330d85f802f874d0afeeeed06cd5a5faa9021bdae45be252b6edd2732"
   },
   {
+    "file": "scripts/test-voice-pack-import.mjs",
+    "sha256": "c457d1f4dfa76f530ab978d00b016a59ac12e46c2f39f80c39b47a66f54527c6"
+  },
+  {
     "file": "scripts/test-voice-packs-default.mjs",
-    "sha256": "98787a8c11288b72c386cc06c8674a2f439881a45b82fa485b614eca07162968"
+    "sha256": "a94c8b6c7d04e4d497d794ed695efaf483ce51c48554e7f8bd7d9d7e1a1a34c2"
   },
   {
     "file": "scripts/test-voice-preview.mjs",
     "sha256": "e7fbce088f3d8a16070607e2d566c33176b1055c56b1cbd7d6844d04a0df276a"
+  },
+  {
+    "file": "scripts/test-voice-prompt-fix.mjs",
+    "sha256": "a7e05a89b5748bd756d5438f64906f3cc15dcc0a59ec9c5b2131d6f6918aae0d"
   },
   {
     "file": "scripts/test-voice-route.mjs",
@@ -1321,7 +1673,7 @@
   },
   {
     "file": "scripts/test-voice-system.mjs",
-    "sha256": "2e313dcd402a136e1b36638bd404d319b817dbc746e81aee41291cfe1c24af97"
+    "sha256": "79569026cbf4362b17465e00f3f84f179c5a4e8224dea77328b0447542e7d8e2"
   },
   {
     "file": "scripts/test-voice-tts.mjs",
@@ -1333,7 +1685,11 @@
   },
   {
     "file": "scripts/test-voice.mjs",
-    "sha256": "99176692e08830565d63a54c19f78b44a2729f0503acd6618f6266a7643d7ebd"
+    "sha256": "0fce801030008baf7eed5b239733f2e496c0b777f0c05f0596fa7c1c9fb392c3"
+  },
+  {
+    "file": "scripts/test-wake-policy.mjs",
+    "sha256": "de023c2485444d925196a66618ca74a50bdb51478f861f3687dc3edbaf5dee36"
   },
   {
     "file": "scripts/test-watch-actions.mjs",
@@ -1342,6 +1698,10 @@
   {
     "file": "scripts/test-watch-history.mjs",
     "sha256": "7e02bf4afcbc05c5eb5930eee408aa10fd1351c997abe28ed61f4b3d055feccc"
+  },
+  {
+    "file": "scripts/test-web-search-credentials.mjs",
+    "sha256": "97288883da86b6914958550010ed1a4a9942879c6798537fde3c19f94eb39b33"
   },
   {
     "file": "scripts/uninstall.mjs",
@@ -1360,8 +1720,12 @@
     "sha256": "60776f32018fe0ba1d8b34b05d8f7b26f3beb18d8be080ceafd7a1e873e747fa"
   },
   {
+    "file": "scripts/verify-remote-manifest.mjs",
+    "sha256": "6d8e2a7b6e4e211688859c3f5a99d79f0deeb4c7005928d76a3e148117d2641f"
+  },
+  {
     "file": "scripts/version.mjs",
-    "sha256": "004c0d0088af516b745c35520310315d7533c0a3356a1f3bf3abfe2ea1f5bfc9"
+    "sha256": "84f146d4be86db4b02dd0c37a22d9c5ecf81ecad0ada37a4127f108de4dbd3a3"
   },
   {
     "file": "scripts/voice-activate.mjs",
@@ -1384,11 +1748,295 @@
     "sha256": "084388343f12c58c1221c91bdbee936d5c9947c6552ac721829d77b6d2b0c46b"
   },
   {
-    "file": "package.json",
-    "sha256": "30083041956c3c0400b21f08fe1094ad356b4b704e16ae4decf6a20eae8ab8e2"
+    "file": "src/action-planner.js",
+    "sha256": "b2c4c321e0bb68def4c1a0a71580a48237ebd7a098d43bb7a819acd978def112"
   },
   {
-    "file": "package-lock.json",
-    "sha256": "b20a62984d9a467ca77f0114d7ce95d9297bb2b842dbe8b8391bc08ca8c06458"
+    "file": "src/admin-identity.js",
+    "sha256": "3fd95bc88dc27e6b0b70c97921c03eef5123f2682c0efaed951b4a7c9b93a32a"
+  },
+  {
+    "file": "src/allowlist.js",
+    "sha256": "55be6aa09f354f62c0b9f3b5f3197a2ea1117a354aa3db3f6b1b3f2f85e2631c"
+  },
+  {
+    "file": "src/bili-api.js",
+    "sha256": "d5cc93a9887f3d4e5be37eb64ae99939c4051bbfefed0df1406d4ee6a6ccdce7"
+  },
+  {
+    "file": "src/bili-card.js",
+    "sha256": "c4dc79df7c58cf31c5beae9799efe53114a52c21cb7ccd57d3d7d404ffb05077"
+  },
+  {
+    "file": "src/bili-dynamics.js",
+    "sha256": "a9583e177490bb010aaa652a86fa3129e7be30ca072b7cb52bd002dc03a4a7dd"
+  },
+  {
+    "file": "src/bili-memory.js",
+    "sha256": "b33160a207162cdcbdacdbaf9b2e2d3f04743754fd2fa34ce20a6b84ec36838a"
+  },
+  {
+    "file": "src/bili-share-scheduler.js",
+    "sha256": "c0d6941c7b5fa6db5e96be6ae8f17bf4d95b6e85830d3132d75a15b5efc43a56"
+  },
+  {
+    "file": "src/billing-report.js",
+    "sha256": "aa0699ec2bbab427dfc2ff43f398283f9a35838e6c69adc92038961fe42be6e7"
+  },
+  {
+    "file": "src/bridge.js",
+    "sha256": "247e33c51474bcfa481d89b4948683318485d5e2caea2892d84ba337b02b938b"
+  },
+  {
+    "file": "src/callname.js",
+    "sha256": "a3c98a0657caa5799c8a9780394749f4c72e9765136a76a9a944da1c39d43778"
+  },
+  {
+    "file": "src/character-persona.js",
+    "sha256": "b4c167d35cefbace3dec103bf7976aa29a6586d725bb62ea9604e71322372db2"
+  },
+  {
+    "file": "src/command-spam.js",
+    "sha256": "6474a9332f9991b5a6547d9b97be966920ef364ea4d60702694ce6d48870255d"
+  },
+  {
+    "file": "src/config-stamps.js",
+    "sha256": "0b2d0a59e3ec7558bdf8ccc12857ce19a74fd81fafa7af903d432d18904e5062"
+  },
+  {
+    "file": "src/context-snapshot.js",
+    "sha256": "33f9a9984e90bd7c37495a8449fe40b75cd9aff75b3aef8ebd93dcf083520944"
+  },
+  {
+    "file": "src/context-telemetry.js",
+    "sha256": "2385959c1bbba66747a3034cc9c9861236224cf3207454f891b5bfe37dc2d53a"
+  },
+  {
+    "file": "src/conversation-closure.js",
+    "sha256": "6a9cc2efc6d6b14fad4670225cb01fb3145ac0cb730ac3516734830eea830e73"
+  },
+  {
+    "file": "src/dsh-client.js",
+    "sha256": "c1afe1dbec48165ab5fda998614c9e428408e9ced9a9169157ae57fab7df69c2"
+  },
+  {
+    "file": "src/dsh-health.js",
+    "sha256": "89a3a5016f5c608f5c7e6325ae81b3b158468b44a72574fd00e7faed249a7d5f"
+  },
+  {
+    "file": "src/dsh-model-follow.js",
+    "sha256": "9b9a219ce6db38bba79fdb9e8ebbadd3c6b6374f801e9551541ffc0806fcefdb"
+  },
+  {
+    "file": "src/dsh-port.js",
+    "sha256": "146fc6aa7b1374f68ec8c57fe74ef41ad0001965af374e3824574b164e6ae53b"
+  },
+  {
+    "file": "src/fish-guard.js",
+    "sha256": "07523b5dfd17640b49e39d2b3c591c7364fe1a70a25e939fe7951c3144573d75"
+  },
+  {
+    "file": "src/forward.js",
+    "sha256": "4cea21026b69a4fabe2bcefbd5c1576941916bfe1564866060cf23b597ea1fde"
+  },
+  {
+    "file": "src/gate-events.js",
+    "sha256": "e16cd8a64e725423a4d5bbca59deb5766cd57cc7c350409eb68c2f344e1bc159"
+  },
+  {
+    "file": "src/greeting-schedule.js",
+    "sha256": "226a358b157a6d233935e81e852229876253222f6bdd33ad817865db4c2d2702"
+  },
+  {
+    "file": "src/group-policy.js",
+    "sha256": "bedf6767d6c6c84805b50841d4ef93393d171363428955a0a537b3aad525e105"
+  },
+  {
+    "file": "src/history-catchup.js",
+    "sha256": "2772d8442979610a5ad7e91ff155f5a71058ba486385dd5bc8ad0387598ecd2c"
+  },
+  {
+    "file": "src/identity-guard.js",
+    "sha256": "02d09b24d16ece535e02ec1cbfd21b258618cf734c22e2e9e0197462eacdce91"
+  },
+  {
+    "file": "src/mcp-host-server.js",
+    "sha256": "6f5822885cfd838fa220b87339fb78fde68830223ade2f9f0107718cd2504919"
+  },
+  {
+    "file": "src/mcp-snowluma-safe.js",
+    "sha256": "58e2e030eb34e4d6b4b36747c056da7e2e47aa121512937b6d442fb9b9d5c78e"
+  },
+  {
+    "file": "src/mcp-web-search-safe.js",
+    "sha256": "3b3d442e599b51bcbe35ea83f8bf85e2f55212ed3582a3b5a2a948ff017c70c6"
+  },
+  {
+    "file": "src/md-to-plain.js",
+    "sha256": "45b929e680473b99a66ba4957582e43601b3a2b2eb33f5b67fafd6d9c01089ee"
+  },
+  {
+    "file": "src/memory-card.js",
+    "sha256": "ce7764273c8f10480ce6d9f7238aaad95050b4085a6514078f00fdbb1ad5af7b"
+  },
+  {
+    "file": "src/model-options.js",
+    "sha256": "602652937af7cc69689932898c50c464eab4d934c60b279eac96f6ac1e6992d0"
+  },
+  {
+    "file": "src/model-prices.js",
+    "sha256": "06d717cff7967f54b93077d3e631d656466c5df72fce083212fab44ab7e6e91b"
+  },
+  {
+    "file": "src/node-path.js",
+    "sha256": "df3bb0ea8316fc6773b31c3b5246182f674a3503fa8c908403d7965f0b460106"
+  },
+  {
+    "file": "src/outbox.js",
+    "sha256": "196e1112eaf7289152b314355ebde55bea2f28ee30c8cf1fad283e163c24dc6b"
+  },
+  {
+    "file": "src/owner-audit.js",
+    "sha256": "5247037ca929c319187f163437e143511b151bac31c578be0603ddb4b0c0451d"
+  },
+  {
+    "file": "src/persona-identity.js",
+    "sha256": "41f67cd7a22500e5dd3b6add61c72ceef4f1bd5d7a6710a5d507a19b71ed0b39"
+  },
+  {
+    "file": "src/persona-layers.js",
+    "sha256": "628a3eef0eb33977f1b0e89476663549a1684e4daf3dc80abb59f34ccfe12999"
+  },
+  {
+    "file": "src/preset-prompt.js",
+    "sha256": "68c548bfee805359881ccc3996fdfc5704c4a9db657e073811f1ffcb604434ae"
+  },
+  {
+    "file": "src/purpose-engine.js",
+    "sha256": "63987c8eb6fd77ace7dcacabe18ecb1fb16dd7d1a2bdc239d45f1c7b5cb61aaf"
+  },
+  {
+    "file": "src/qq-at.js",
+    "sha256": "3970b72cd0d3c51e9b95963e9bc6f3e55bd1b7ec5622bbac8f7bc603ff0210d4"
+  },
+  {
+    "file": "src/qq-model-view.js",
+    "sha256": "60cf9fbd1aa1b85c90885efd66c72f9c23fd663c4d7b7ff509bc494a151072b9"
+  },
+  {
+    "file": "src/question-answers.js",
+    "sha256": "f2c22bc147bbaa1e39556b831a403e4a5ce9ad0cf60aa3e55397861c4026f529"
+  },
+  {
+    "file": "src/role-card.js",
+    "sha256": "cc24ccd4a6fcc8326ff5138f0f0e1df76e20fffc8dbec545f122da49afd38627"
+  },
+  {
+    "file": "src/safe-fetch.js",
+    "sha256": "8f39ee9761542b24a6d809384cd87e42297b7c6e7b7c7275cb44e1695b4b3e9d"
+  },
+  {
+    "file": "src/safe-text.js",
+    "sha256": "ab56826d30fed2e7601c85791cfc467c4510f93096170146389f322117bcdbd4"
+  },
+  {
+    "file": "src/schema-values.js",
+    "sha256": "d5ee095b710e05f8c8562c8f2ee8333e09defbd87c424ecdd04238abef95cf86"
+  },
+  {
+    "file": "src/self-identity.js",
+    "sha256": "dce862bb19c5e983cfc61af34262d9f18eba2d53e3f3f2253f057879cb2172b8"
+  },
+  {
+    "file": "src/self-test.js",
+    "sha256": "6fc5f2201d43050e0c59de0597b6526e78a3b7e77a1d79f9a7485d0a3829c770"
+  },
+  {
+    "file": "src/send-voice-lib.js",
+    "sha256": "bb9e20187644fc6b816b015a39a56122d515cf1e949c55569b68034da2627da1"
+  },
+  {
+    "file": "src/sensitive.js",
+    "sha256": "94d54dd1424b8b3d63d02b808b29b9c2f2a3ba949a66a144b7686287ac641e66"
+  },
+  {
+    "file": "src/session-map.js",
+    "sha256": "7c98fafb24180f81481bed3f1ea3272ec537c4c13a186d52a0cb9823eab95533"
+  },
+  {
+    "file": "src/share-mode.js",
+    "sha256": "70bf32a8d8d1423dd3e9386df34d8d787f89307fb9af89dcf7d086c94c67dd72"
+  },
+  {
+    "file": "src/slang-learner.js",
+    "sha256": "8d51fa76144f068c8299112a10642d5e840615a56992e786c8696e9e1b296b60"
+  },
+  {
+    "file": "src/snowluma-conn.js",
+    "sha256": "30e2332763c35c7af892bb7d9406bf4c6bb62d343ce4101c6a4fe4e053183432"
+  },
+  {
+    "file": "src/state-acl.mjs",
+    "sha256": "37259cb0d5d59906f664bfb28c2ce85e628cd486f4489506ffff4b22efa40437"
+  },
+  {
+    "file": "src/sticker-lib.js",
+    "sha256": "028ed8f0bc17ac3420b6b3511a5e5837c4d1e74097af8c88ae96e5bf64af6689"
+  },
+  {
+    "file": "src/sticker-semantics.js",
+    "sha256": "7130347bffae637d24f151ec19fa4592fb9a10625153085755d831d002a5511b"
+  },
+  {
+    "file": "src/token-budget.js",
+    "sha256": "fbaf0e1358c842a00909ee7169539cc844dda96cc07d0203e37836425ab9aa7a"
+  },
+  {
+    "file": "src/token-guard.js",
+    "sha256": "25855b72a937ea0430752c5d837501f5545fbc57a5a9a079ee1a174c4ebec448"
+  },
+  {
+    "file": "src/token-ledger.js",
+    "sha256": "90e3de30335d56d73a1ae6dffac7079b3d87d0eaeeaca68c28b121074f87d2e2"
+  },
+  {
+    "file": "src/turn-guard.js",
+    "sha256": "e350d969217632ad5c22095fca2b4bd28a33b7da114a370dd7e55191177c83b7"
+  },
+  {
+    "file": "src/v2-wait.js",
+    "sha256": "1e56f4ec6ae1245064f057b9f3a8b9956167c298fc936c1453c87b9b6589a6f0"
+  },
+  {
+    "file": "src/voice-core.js",
+    "sha256": "8bc41fb3a430e4740e6344dda609d90e6131ae120651b062386f67acf8146cf1"
+  },
+  {
+    "file": "src/voice-diagnostics.js",
+    "sha256": "e6c7a22d717c9ad5546f7521a65b7fc715c072207fb0606d61ff4f455b165272"
+  },
+  {
+    "file": "src/voice-pack-import.js",
+    "sha256": "4301fdd269a59e8cb5e98e376556866f4596de8736b4e302c15a471fabcd5454"
+  },
+  {
+    "file": "src/voice-pack-secrets.js",
+    "sha256": "965c996c6fa45ee941e2045783b18c9a3952ea4175e899dc199dd0a0ff845a6f"
+  },
+  {
+    "file": "src/voice-packs.js",
+    "sha256": "8cc5c4a9da11ba0b0b9dad27a76ac2f5e2b7a952e0c7c55f9e1e3b67da8ad16e"
+  },
+  {
+    "file": "src/voice-tts.js",
+    "sha256": "cbecd6777648dea9f2364bd8b0398b200ff3e864313a0e1bdf68445033fc6b34"
+  },
+  {
+    "file": "src/wake-policy.js",
+    "sha256": "1b011300bb118771b75905adf8b66991b3fc8157361b3e4d14f293df2ef56dd5"
+  },
+  {
+    "file": "src/web-search.js",
+    "sha256": "dc0a9054717a81eb712272bf810c41e93647ce355c97bfc24310e9abd10776f8"
   }
 ]

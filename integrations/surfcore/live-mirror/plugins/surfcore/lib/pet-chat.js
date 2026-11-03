@@ -19,10 +19,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { sliceHead, wellFormed } from '../../../src/safe-text.js';
 import { readBiliConfig, readQqConfig, readUnified, writeJsonAtomic } from './store.js';
 import { resolvePersonaFile } from './persona.js';
 import { memoryCardPromptBlock } from './memory-card.js';
-import { activeMemoryPaths, readCurrentCharacter } from '../../../src/character-persona.js';
+import { activeMemoryPaths, readCurrentCharacter, readPersonaLayerText } from '../../../src/character-persona.js';
+import { buildPersonaIdentity, personaNameFromCard } from '../../../src/persona-identity.js';
+import { composePersonaLayers } from '../../../src/persona-layers.js';
 import { adminFromSources } from '../../../src/admin-identity.js';
 import { appendMemoryInboxEvent } from '../../../src/memory-card.js?rev=20261101-correction157';
 import { synthesizeToFile, wavDurationMs } from '../../../src/voice-tts.js';
@@ -54,7 +57,7 @@ function clampInt(value, fallback, min, max) {
 
 function clip(text, max) {
   const s = String(text ?? '').replace(/\r\n/g, '\n').trim();
-  return s.length > max ? `${s.slice(0, Math.max(1, max - 1))}…` : s;
+  return s.length > max ? `${sliceHead(s, Math.max(1, max - 1))}…` : s;
 }
 
 /** 按句号/问号/感叹号截断到 max 字以内；没有标点就硬截。语音回复必须能一次念完。 */
@@ -62,7 +65,7 @@ export function clipForVoice(text, max = 120) {
   const raw = String(text ?? '').replace(/\s+/g, ' ').trim();
   if (!raw) return '';
   if (raw.length <= max) return raw;
-  const head = raw.slice(0, max + 1);
+  const head = sliceHead(raw, max + 1);
   const cut = Math.max(
     head.lastIndexOf('。'),
     head.lastIndexOf('！'),
@@ -74,7 +77,7 @@ export function clipForVoice(text, max = 120) {
     head.lastIndexOf('?'),
   );
   if (cut >= Math.floor(max * 0.4)) return head.slice(0, cut + 1).trim();
-  return `${head.slice(0, max - 1).trim()}…`;
+  return `${sliceHead(head, max - 1).trim()}…`;
 }
 
 /** 模型偶尔会回「小肥鱼：xxx」/ 引号 / markdown；气泡里不需要这些壳。 */
@@ -84,7 +87,7 @@ export function cleanReply(text) {
   out = out.replace(/^\*\*([\s\S]+)\*\*$/, '$1').trim();
   out = out.replace(/^(小肥鱼|我|她)\s*[:：]\s*/, '').trim();
   out = out.replace(/^["“「『]([\s\S]*)["”」』]$/, '$1').trim();
-  return out.slice(0, 600);
+  return sliceHead(out, 600);
 }
 
 /** 语音文本里的动作/旁白（括号内容）会让 TTS 念出来，去掉。 */
@@ -259,7 +262,19 @@ export function createPetChatService({ ctx, stateDir, pluginLog = () => {}, toke
     try { cur = readCurrentCharacter(); } catch {}
     let personaFile = '';
     try { personaFile = resolvePersonaFile() || ''; } catch {}
-    const persona = personaFile ? textFile(personaFile) : '';
+    const personaCore = personaFile ? textFile(personaFile) : '';
+    const persona = composePersonaLayers({
+      core: personaCore,
+      // 身份底座：桌宠也要知道“我是谁、主人是谁”，不依赖用户是否拆分人格。
+      identity: buildPersonaIdentity({ name: personaNameFromCard(personaCore, cur?.name || '这个角色'), owner: ownerInfo().name }),
+      // 语气层：桌宠也用同一套说话方式。
+      tone: readPersonaLayerText('tone'),
+      scene: readPersonaLayerText('scene', 'pet'),
+      daily: readPersonaLayerText('daily'),
+      mode: 'v2',
+      maxChars: 4200,
+      sceneId: 'pet',
+    }).text || personaCore;
     let name = String(cur?.name || '').trim();
     if (!name) {
       const heading = persona.match(/^#\s*([^\n#]{1,40})/m);
@@ -292,12 +307,12 @@ export function createPetChatService({ ctx, stateDir, pluginLog = () => {}, toke
     const pending = (Array.isArray(state.pending) ? state.pending : [])
       .filter((p) => p && p.text)
       .slice(-4)
-      .map((p) => String(p.text).slice(0, 80));
+      .map((p) => sliceHead(p.text, 80));
     return {
       pending,
-      lastPurpose: String(state.lastPurpose || '').slice(0, 100),
-      emotion: String(state.lastEmotionText || '').slice(0, 40),
-      goals: (Array.isArray(state.goals) ? state.goals : []).slice(0, 3).map((g) => String(g?.intent || '').slice(0, 80)).filter(Boolean),
+      lastPurpose: sliceHead(state.lastPurpose || '', 100),
+      emotion: sliceHead(state.lastEmotionText || '', 40),
+      goals: (Array.isArray(state.goals) ? state.goals : []).slice(0, 3).map((g) => sliceHead(g?.intent || '', 80)).filter(Boolean),
     };
   }
 
@@ -606,8 +621,9 @@ export function createPetChatService({ ctx, stateDir, pluginLog = () => {}, toke
     const base = {
       provider: target.provider,
       model: target.model,
-      system: String(system || ''),
-      messages: [{ role: 'user', content: [{ type: 'text', text: String(user || '') }] }],
+      // 兜底：老数据里可能已经有孤立代理项（emoji 被劈开），发给模型会 400。
+      system: wellFormed(system || ''),
+      messages: [{ role: 'user', content: [{ type: 'text', text: wellFormed(user || '') }] }],
       maxTokens: clampInt(maxTokens, 800, 128, 4000),
       temperature: Math.min(2, Math.max(0, Number(temperature) || 1)),
       ...(signal ? { signal } : {}),
@@ -672,12 +688,12 @@ export function createPetChatService({ ctx, stateDir, pluginLog = () => {}, toke
     lines.push('');
     if (role.persona) {
       lines.push('【人格卡（你就是这个人）】');
-      lines.push(role.persona.slice(0, 4200));
+      lines.push(sliceHead(role.persona, 4200));
       lines.push('');
     }
     if (memory) {
       lines.push('【记忆卡（你记得的事；越早的事记得越模糊，别把模糊的事说得很确定）】');
-      lines.push(memory.slice(0, 2600));
+      lines.push(sliceHead(memory, 2600));
       lines.push('');
     }
     const bits = [];
@@ -719,7 +735,7 @@ export function createPetChatService({ ctx, stateDir, pluginLog = () => {}, toke
   async function chat({ text = '', modality = 'text' } = {}) {
     const s = settings();
     if (!s.chat.enabled) return { ok: false, error: '桌宠对话已关闭（设置 → 桌宠 → 对话）' };
-    const say = String(text ?? '').trim().slice(0, MAX_INPUT_CHARS);
+    const say = sliceHead(String(text ?? '').trim(), MAX_INPUT_CHARS);
     if (!say) return { ok: false, error: '说点什么吧' };
     const mode = modality === 'voice' ? 'voice' : 'text';
     if (!llmReady()) return { ok: false, error: 'DSH 模型服务还没就绪，稍后再试' };
@@ -829,7 +845,7 @@ export function createPetChatService({ ctx, stateDir, pluginLog = () => {}, toke
       modality: mode,
       audioKey: message.audioKey || '',
       messageId: message.id,
-      purpose: purpose ? { kind: purpose.kind || '', need: purpose.need || '', text: String(purpose.text || '').slice(0, 120) } : null,
+      purpose: purpose ? { kind: purpose.kind || '', need: purpose.need || '', text: sliceHead(purpose.text || '', 120) } : null,
     });
     return {
       ok: true,

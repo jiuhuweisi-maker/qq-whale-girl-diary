@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {upgradeConfirmedStyle,composeConfirmedPersona,confirmedExpressionBlock,readConfiguredStyle,contextualFollowUp} from '../compat/expression-style.mjs';
+import {EXPRESSION_CORE,mergeConfirmedExpression,upgradeConfirmedStyle,composeConfirmedPersona,confirmedExpressionBlock,readConfiguredStyle,contextualFollowUp} from '../compat/expression-style.mjs';
 test('confirmed habits are merged in place without accumulating bans or duplicates',()=>{const old='主人已确认的聊天偏好，按眼前这轮理解：旧习惯\n\n说话不用句号收尾：保留\n\n粗口许可：旧长段\n\n该收就真收：旧重复\n\n额外已确认偏好：保留';const s=upgradeConfirmedStyle(old);assert.equal(upgradeConfirmedStyle(s),s);assert(s.includes('额外已确认偏好：保留'));assert(s.includes('说话不用句号'));assert(!s.includes('旧长段'));assert(!s.includes('旧重复'));for(const w of ['颜文字','emoji','小括号','情绪','基金','B站','表情包'])assert(s.includes(w));});
 test('style is at the front and survives the persona injection budget',()=>{const p=composeConfirmedPersona('人设'.repeat(4000),'可爱颜文字');assert(p.slice(0,6000).includes('可爱颜文字'));assert.equal(p.split('QQ与B站共用').length-1,1);});
 test('shared loader rereads the actual preference file instead of retaining an old cache',()=>{let text='旧';const disk={readFileSync:p=>p==='cfg'?JSON.stringify({whaleCompat:{styleFile:'style'}}):text};assert.equal(readConfiguredStyle('cfg',{disk}),'旧');text='新颜文字';assert.equal(readConfiguredStyle('cfg',{disk}),'新颜文字');assert(confirmedExpressionBlock(text).includes(text));});
@@ -7,3 +7,10 @@ const state={recentMessages:[{isSelf:false,userId:'B',time:10},{isSelf:true,time
 test('the addressed participant can continue with a bare short follow-up',()=>{assert(contextualFollowUp(state,{user_id:'B'},'还有呢',25));assert(contextualFollowUp(state,{user_id:'B'},'然后呢？',25));});
 test('another participant cannot inherit the last reply just by using a short follow-up',()=>assert(!contextualFollowUp(state,{user_id:'C'},'还有呢',25)));
 test('a closed old thread or arbitrary chatter does not become a follow-up trigger',()=>{assert(!contextualFollowUp(state,{user_id:'B'},'还有呢',180022));assert(!contextualFollowUp(state,{user_id:'B'},'哈哈哈',25));assert(!contextualFollowUp({recentMessages:[]},{user_id:'B'},'还有呢',25));});
+test('updating the actual previous core preserves other confirmed preferences and stays idempotent',()=>{
+ const previous='长期表达底色（主人确认）：旧总纲\n\n原来的可爱习惯。',suffix='\n\n额外已确认偏好：保留原样\r\n';
+ const merged=mergeConfirmedExpression(previous+suffix,previous);
+ assert.equal(merged,EXPRESSION_CORE+suffix);
+ assert.equal(mergeConfirmedExpression(merged,previous),merged);
+ assert.throws(()=>mergeConfirmedExpression('主人亲手改过的另一版',previous),/合并核对/);
+});

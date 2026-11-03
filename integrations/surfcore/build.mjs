@@ -14,7 +14,7 @@ export function buildLatest(target) {
   const baseline=readList('upstream-files.json');
   // Validate actual files, not just a revision label. Dirty and wrong upstream
   // directories must fail before any write to the supplied source directory.
-  for(const {file,sha256}of baseline){const p=join(file);if(!fs.existsSync(p)||sha(fs.readFileSync(p,'utf8').replaceAll('\r\n','\n'))!==sha256)throw Error('Pinned upstream source mismatch: '+file);}
+  for(const {file,sha256,binary}of baseline){const p=join(file);if(!fs.existsSync(p)||sha(binary?fs.readFileSync(p):fs.readFileSync(p,'utf8').replaceAll('\r\n','\n'))!==sha256)throw Error('Pinned upstream source mismatch: '+file);}
   const writes=new Map();
   for(const n of readList('runtime-files.json'))writes.set(n,fs.readFileSync(path.join(HERE,'live-mirror',n)));
   for(const n of fs.readdirSync(path.join(HERE,'compat'))){const p=path.join(HERE,'compat',n);if(fs.statSync(p).isFile())writes.set('whale-compat/'+n,fs.readFileSync(p));}

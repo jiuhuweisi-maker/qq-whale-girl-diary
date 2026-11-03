@@ -1,5 +1,10 @@
 // Public Bili facts and explicit owner mentions; never read private messages.
 const BV = /^BV[0-9A-Za-z]{10}$/;
+
+export function ownerDmAllowed(config = {}, target = config.owner?.mid) {
+  return config.owner?.contactMode !== 'comment-mention'
+    || String(target ?? '') !== String(config.owner?.mid ?? '');
+}
 const clean = value => String(value || '').replace(/[\r\n\t]+/g, ' ').trim();
 
 export function ownerMentionMap(message, owner = {}) {

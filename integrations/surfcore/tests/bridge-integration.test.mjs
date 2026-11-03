@@ -67,11 +67,11 @@ try {
   await test('actual bridge permits owner DM after 40 wakes but keeps background and group caps',async()=>{
     h.cfg.socialV2.tokenGuard.enabled=true;
     await h.handleIncoming('private',123,event(71,123,'早呀，醒了吗'),h.cfg);
-    const st=h.getSocialV2State('private:123');st.wakeTimes=Array(40).fill(Date.now());
+    const st=h.getSocialV2State('private:123');st.wakeTimes=Array(40).fill(Date.now());st.wakeBudgetTimes=[...st.wakeTimes];
     assert.equal(h.tokenGuardWakeBlock('private:123',st,{direct:true,reason:'private'}),null);
     assert(h.buildWakePromptV2('private:123','private').includes('主人当前新私信不按后台次数截断'));
-    assert.equal(h.tokenGuardWakeBlock('private:123',st,{direct:true,reason:'proactiveCheck'}).reason,'day');
-    assert.equal(h.tokenGuardWakeBlock('group:456',st,{direct:true,reason:'private'}).reason,'day');
+    assert.equal(h.tokenGuardWakeBlock('private:123',st,{direct:false,reason:'proactiveCheck'}).reason,'day');
+    assert.equal(h.tokenGuardWakeBlock('group:456',st,{direct:false,reason:'proactiveCheck'}).reason,'day');
     h.cfg.socialV2.tokenGuard.maxWakesPerDay=0;h.cfg.socialV2.tokenGuard.privateMaxWakesPerDay=0;
     assert(h.buildWakePromptV2('group:456','question').includes('本会话不设每日唤醒次数上限'));
     assert(h.buildWakePromptV2('private:123','private').includes('本会话不设每日唤醒次数上限'));

@@ -1,6 +1,6 @@
 # 从 Git 新部署鲸戒
 
-**当前版本：鲸戒适配184 / SurfCore固定0.6.20。** 主入口构建最新完整运行源覆盖层，包含183精确回执和failed冷启修复、184的省重复查询与原生表情修复。旧143构建器和平铺镜像已归档至`archive/2026-11-03/`，不用于新装或更新。
+**当前版本：鲸戒适配187 / SurfCore固定0.8.8。** 主入口构建最新完整运行源覆盖层，保留此前耐久回执与主人权限，并加入共用日记、图片预览兼容和更新保护。旧143构建器和平铺镜像已归档至`archive/2026-11-03/`，不用于新装或更新。
 
 本仓库提供现行 SurfCore 适配、主人控制兼容层、离线测试及安装模板。自己的账号、人设、关系、聊天记忆、收藏、模型凭据和基金账本需要自行准备；仓库不会附带现有鲸戒的私密资料。示例人设保留可爱、吐槽与主动性，不承诺模型每次都说得自然。
 
@@ -18,10 +18,10 @@
 克隆本仓库后，在仓库根目录执行：
 
 ```bash
-bash deploy/build-upstream.sh /opt/whale-surfcore/staging-c174ed0
+bash deploy/build-upstream.sh /opt/whale-surfcore/current-source
 ```
 
-脚本克隆 [SurfCore](https://github.com/Mieksido/surfcore)，固定提交 `c174ed07b7ad5c64654bf3d309dd8cbac1558737`（0.6.20），按 lockfile 安装依赖，手动运行已审查的 SDK 补丁并构建适配。构建器在任何写入前检查348个固定源文件的指纹，然后应用完整的现行覆盖层及兼容模块，生成374文件哈希清单。目标目录必须不存在。不会使用 latest、覆盖已有运行目录、安装桌宠/语音包或启动聊天。
+脚本克隆 [SurfCore](https://github.com/Mieksido/surfcore)，固定提交 `0deb8261afe4c31b3127759ee4de36a1439cf422`（0.8.8），先构建适配的package/lock，再按该lockfile安装依赖并手动运行已审查的SDK补丁。构建器在任何写入前检查504个固定源文件的指纹，然后应用完整的现行覆盖层及兼容模块，生成535文件哈希清单。目标目录必须不存在。不会使用 latest、覆盖已有运行目录、安装桌宠/语音包或启动聊天。
 
 ## 本地 relay 与凭据
 
@@ -58,7 +58,7 @@ node deploy/init.mjs /root/whale-ops/install.local.json
 使用 DSH 实际运行的 profile，下面假定是 `web`：
 
 ```bash
-cd /opt/whale-surfcore/staging-c174ed0
+cd /opt/whale-surfcore/current-source
 DSH_HOME=/root/.dsh node scripts/setup-dsh.mjs web
 cd /path/to/this/repository
 node deploy/register-control.mjs /root/.dsh web
@@ -76,8 +76,8 @@ node deploy/register-control.mjs /root/.dsh web
 node --test tests/broadcast-intent.test.cjs
 python3 scripts/test_relay.py
 python3 scripts/test_operations.py
-SURFCORE_SOURCE=/opt/whale-surfcore/staging-c174ed0 node --test integrations/surfcore/tests/audit-resilience.test.mjs
-node integrations/surfcore/tests/bridge-integration.test.mjs /opt/whale-surfcore/staging-c174ed0
+SURFCORE_SOURCE=/opt/whale-surfcore/current-source node --test integrations/surfcore/tests/audit-resilience.test.mjs
+node integrations/surfcore/tests/bridge-integration.test.mjs /opt/whale-surfcore/current-source
 ```
 
 把 `runtime_health.py` 放入 `/opt/qq-cs/` 后，运行它检查原生会话、QQ、WS 与耐久账本。`verify-live.mjs` 提供进一步哈希与记忆校验，但它默认按现有生产机的附加文件组织；新部署先核对配置路径，不把缺少个人历史索引当作 QQ 掉线。
@@ -101,3 +101,17 @@ node integrations/surfcore/tests/bridge-integration.test.mjs /opt/whale-surfcore
 保留源码版本、清单、配置、角色、原始记忆与耐久账本的独立备份。更新前先在新目录从固定源码构建、离线回归，再差异安装并验证全部清单哈希。只在确认代码需要重新加载时短暂重启 DSH；不升级宿主，不修改其 ExecStart，不重启 QQ 容器。
 
 回滚只恢复有备份的代码和相应清单，保留新的收件去重、未确认发送和图片冷却记录，不清空账本重试旧任务。控制台或B站错误不等同于QQ登录失效，401/403应先核对鉴权。
+
+### 可选的兼容自动更新
+
+原版自动覆盖保持关闭；本适配提供独立的官方源兼容更新器。复制一份私人JSON填写 `root`（运行源根）、`work`（新的私有更新目录）、`node`（Node绝对路径）、`service: "dsh"`，必要时填写 `imageDeps`（已有预览依赖package.json）。以root运行 `python3 deploy/install-compatible-updater.py /absolute/private-settings.json` 安装每日09:10服务器本地时间检查；安装动作本身不启动或重启服务。
+
+更新器不调用模型、不发消息、不执行npm安装；有依赖/运行要求变化、新插件、合并冲突或离线失败就保留现版。通过后仍须原生回合结束且至少两分钟没有新消息，才备份并替换代码、重载DSH、核对加载指纹；失败回滚代码并保留事务标记，等待检查，不循环重启。QQ容器、配置、人设、记忆、图库和账本不进入替换范围。状态位于私人work目录的status.json。设置页的原版覆盖按钮在有适配清单时受保护，检查版本仍能使用。
+
+### 共用日记与图片
+
+同一角色的memory目录下journal按北京时间分日保存经历，保留稳定发送者、时间、来源和私密标记；QQ按话题/日期/游标查询，B站通过journal命令内部回想，公开发送仍受私密边界限制。源记录、完整卡、旧收件和原日记均保留。无原日期的记录明确标记未知，不能伪造发生时间。
+
+迁移自己的已有历史时，在服务器内部运行 `DSH_HOME=/root/.dsh node integrations/surfcore/backfill-journal.mjs /absolute/installed-source`。先备份个人目录；输出只含计数，第二遍须0新增。它不改原件、不调用模型、不发送消息；单个源超过64MiB会停止，要求流式整理。不要把journal或旧记录推Git。
+
+PNG/JPEG/GIF原图保留，给模型的预览限制在32KiB内（GIF明确为首帧），以兼容附件导入；不额外调用视觉模型。依赖在适配后的lockfile中，鲜安装按前述构建顺序即可获得。当前有像素上限和格式边界，失败会如实说明未看到图，不能猜图或归咎发送者。

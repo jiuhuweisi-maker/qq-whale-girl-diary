@@ -1,12 +1,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {readJournal} from './personal-journal.mjs';
 import { conversation } from './memory-scope.mjs';
-export function createLegacyReader({ config, cookie = () => '' }) {
+export function createLegacyReader({ config, cookie = () => '', journalDir = () => '' }) {
   function authorized(key) {
     const c = conversation(key);
     return c && (c.kind === 'private' ? c.id === String(config.ownerQQ) : config.allow?.groups?.map(String).includes(c.id));
   }
-  async function read({ key, kind, query, messageId }) {
+  async function read({ key, kind, query, messageId, day, cursor }) {
     if (!authorized(key)) throw new Error('会话未授权');
     if (kind === 'files') {
       if (!/^-?[1-9]\d*$/.test(String(messageId || ''))) throw new Error('需要原消息编号');
@@ -22,7 +23,11 @@ export function createLegacyReader({ config, cookie = () => '' }) {
     }
     if (kind !== 'memory') throw new Error('未知资料类型');
     const needle = String(query || '').trim().toLowerCase();
-    if (needle.length < 2 || needle.length > 120) return { ok: false, error: '用2至120字说明要找哪件事' };
+    if ((!day && !cursor && needle.length < 2) || needle.length > 120) return { ok: false, error: '用2至120字说明要找哪件事，或提供日期/分页' };
+    if(journalDir()) {
+      const journal=readJournal(journalDir(),{key,ownerQQ:config.ownerQQ,query:needle,day,cursor});
+      if(journal.entries.length||day||cursor)return{...journal,found:journal.matched,results:journal.entries.map(row=>({source:row.source,at:row.at,sender:row.speaker,senderId:row.senderId,text:row.text,privateOnly:row.privateOnly}))};
+    }
     const source = path.join(config.whaleCompat.legacyMemoryDir, 'index.jsonl');
     if (fs.statSync(source).size > 64 * 1024 * 1024) throw new Error('归档索引过大，需先整理');
     const privateOwner = conversation(key).kind === 'private';

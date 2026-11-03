@@ -20,6 +20,13 @@ const sendRoute = route => /^\/api\/(?:send\/|socialV2\/(?:send-|reply|fundpilot
 export function createWhaleRuntime({ root, config, control, now = Date.now, disk = fs, log = () => {}, clean = x => x }) {
   const dir = path.join(root, 'state'); disk.mkdirSync(dir, { recursive: true });
   const ledger = createDeliveryState({ fs: disk, hash: digest, basePath: path.join(dir, 'whale-delivery').replaceAll('\\', '/'), namespace: 'whale-surfcore-114', now, diag: log });
+  // Capture once in the running process. Disk hashes alone cannot prove a reload.
+  const loadedBuild185 = { revision: 187, pid: process.pid, startedAt: now(), sources: {} };
+  try { loadedBuild185.upstream = JSON.parse(disk.readFileSync(path.join(root,'whale-overlay-manifest.json'),'utf8')).upstream; } catch {}
+  for (const name of ['src/bridge.js', 'whale-compat/runtime.mjs']) {
+    try { loadedBuild185.sources[name] = crypto.createHash('sha256').update(disk.readFileSync(path.join(root, name))).digest('hex'); }
+    catch { loadedBuild185.sources[name] = null; }
+  }
   const contexts = new AsyncLocalStorage();
   const active = new Set();
   const intakeQueues = new Map();
@@ -237,7 +244,7 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
   }
 
   function status() {
-    return { healthy: ledger.healthy, ready, pendingIncoming: Object.values(ledger.data.inbox).filter(r => r.stage === 'buffered').length, uncertain: Object.values(ledger.data.outbox).filter(r => ['sending', 'uncertain'].includes(r.status)).length, calls: Object.keys(ledger.data.calls || {}).length };
+    return { build: { ...loadedBuild185, sources: { ...loadedBuild185.sources } }, healthy: ledger.healthy, ready, pendingIncoming: Object.values(ledger.data.inbox).filter(r => r.stage === 'buffered').length, uncertain: Object.values(ledger.data.outbox).filter(r => ['sending', 'uncertain'].includes(r.status)).length, calls: Object.keys(ledger.data.calls || {}).length };
   }
   return { syncControl, incoming, recover, reconcileUncertain151, onEvent, action, guard, quiet, enterRequest, authorizeRequest, send, ownerNotice, status, ledger, contexts };
 }

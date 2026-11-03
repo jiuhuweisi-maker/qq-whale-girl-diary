@@ -21,5 +21,9 @@
   "plugins/surfcore/tools/lib/my-dynamics.mjs",
   "dsh/agent-presets/qq-chat-v2/agent.cordis.yml",
   "plugins/surfcore/presets/qq-chat-v2.patch.yml",
-  "scripts/audit-bridge-harness.mjs"
+  "scripts/audit-bridge-harness.mjs",
+  "plugins/surfcore/tools/commands/dm.mjs",
+  "plugins/surfcore/tools/commands/personal-journal.mjs",
+  "package.json",
+  "package-lock.json"
 ]

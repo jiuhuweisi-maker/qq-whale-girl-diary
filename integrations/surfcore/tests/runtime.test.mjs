@@ -123,4 +123,14 @@ await check('fatDecision159 rotates only fat idle cooled sessions within daily c
   assert.ok(fatDecision159({ ...base, ctx: 200000, limits: L2 }), 'defaults the 150k threshold');
   assert.equal(fatDecision159({ ...base, ctx: 100000, limits: L2 }), null, 'default 150k spares lean sessions');
 });
+await check('running build proof stays tied to the loaded process when disk source changes',async()=>{
+ const f=fixture(),sep=process.platform==='win32'?'\\':'/';
+ const bridge=['','fake','src','bridge.js'].join(sep),runtime=['','fake','whale-compat','runtime.mjs'].join(sep);
+ f.disk.files.set(bridge,Buffer.from('bridge-old'));f.disk.files.set(runtime,Buffer.from('runtime-old'));
+ const loaded=createWhaleRuntime(f.options),before=loaded.status().build;
+ assert.equal(before.revision,187);assert.equal(before.pid,process.pid);assert.match(before.sources['src/bridge.js'],/^[a-f0-9]{64}$/);
+ f.disk.files.set(bridge,Buffer.from('bridge-new'));
+ assert.equal(loaded.status().build.sources['src/bridge.js'],before.sources['src/bridge.js']);
+ assert.notEqual(createWhaleRuntime(f.options).status().build.sources['src/bridge.js'],before.sources['src/bridge.js']);
+});
 console.log('PASS_ALL ' + passed);
