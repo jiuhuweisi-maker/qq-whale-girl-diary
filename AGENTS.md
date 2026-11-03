@@ -1,6 +1,6 @@
 # 鲸戒项目接手入口
 
-当前完整部署版：**适配187 / SurfCore 0.8.8**，固定官方提交见 `integrations/surfcore/version.mjs`。先读 `docs/PATCH187-CLOSEOUT-2026-11-03.md`；私密断点在仓库外 `.ops/CONTINUE187.md`，以最新段落为准。不要依据归档里的旧拓扑、数字和“未完成”重做部署。
+当前完整部署版：**适配188 / SurfCore 0.8.8**，固定官方提交见 `integrations/surfcore/version.mjs`。先读 `docs/PATCH188-INTAKE-RECOVERY-2026-11-03.md`；私密断点在仓库外 `.ops/CONTINUE188.md`，以最新段落为准。不要依据归档里的旧拓扑、数字和“未完成”重做部署。
 
 ## 开工
 

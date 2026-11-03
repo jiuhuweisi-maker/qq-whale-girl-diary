@@ -1941,7 +1941,9 @@ async function main() {
       const cookie = discoverDshSessionCookie(base);
       const response = await fetch(base + '/dsh-qq-bridge/surfcore-control', {
         method: 'POST', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + key, ...(cookie ? { cookie } : {}) },
-        body: JSON.stringify(message || { statusOnly: true }), signal: AbortSignal.timeout(8000)
+        // The authoritative source lookup inside this route already has an 8s
+        // deadline. The outer request must allow its verified response to arrive.
+        body: JSON.stringify(message || { statusOnly: true }), signal: AbortSignal.timeout(12000)
       });
       if (!response.ok) throw new Error('主人控制接口暂不可用');
       return response.json();
@@ -3993,7 +3995,11 @@ async function main() {
       }
     }
   };
+  let dshCheckInFlight188 = false;
   const checkDsh = async () => {
+    if (dshCheckInFlight188) return;
+    dshCheckInFlight188 = true;
+    try {
     let ok = false;
     try {
       await api.settings.describe({});
@@ -4008,7 +4014,6 @@ async function main() {
       reconcileSessionPolicies();
       if (!dshReady) {
         dshReady = true;
-        await whale.recover((key, event) => { const [kind, id] = key.split(':'); return handleIncomingWhale(kind, id, event, cfg); }, (key, event) => getSocialV2State(key).recentMessages.some(m => String(m.messageId) === String(event.message_id ?? event.msg_id)));
         lastMode = currentMode;
         log(`DSH 已就绪（模式: ${currentMode}）`);
         // 每天定时早安（DSH 在线才排定；桥接重启会重新排）
@@ -4055,10 +4060,18 @@ async function main() {
         log(`桥接模式已切换为: ${currentMode}`);
         lastMode = currentMode;
       }
+      // Recovery is not limited to a false→true transition. An isolated intake
+      // timeout while DSH stays healthy otherwise used to remain buffered forever.
+      if (!whale.status().ready) {
+        try { await whale.syncControl(); }
+        catch { log('[收件恢复] 主人控制状态仍未确认，保留收件等待下一次检查'); }
+      }
+      await whale.recover((key,event)=>{const[kind,id]=key.split(':');return handleIncomingWhale(kind,id,event,cfg);},(key,event)=>getSocialV2State(key).recentMessages.some(m=>String(m.messageId)===String(event.message_id??event.msg_id)));
     } else if (dshReady) {
       dshReady = false;
       log('⚠️ DSH 不可用（重启中？），QQ 消息将入队等待');
     }
+    } finally { dshCheckInFlight188 = false; }
   };
   function startDshWatch() {
     if (dshCheckStarted) return;

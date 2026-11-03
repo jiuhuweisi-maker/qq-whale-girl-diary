@@ -128,9 +128,29 @@ await check('running build proof stays tied to the loaded process when disk sour
  const bridge=['','fake','src','bridge.js'].join(sep),runtime=['','fake','whale-compat','runtime.mjs'].join(sep);
  f.disk.files.set(bridge,Buffer.from('bridge-old'));f.disk.files.set(runtime,Buffer.from('runtime-old'));
  const loaded=createWhaleRuntime(f.options),before=loaded.status().build;
- assert.equal(before.revision,187);assert.equal(before.pid,process.pid);assert.match(before.sources['src/bridge.js'],/^[a-f0-9]{64}$/);
+ assert.equal(before.revision,188);assert.equal(before.pid,process.pid);assert.match(before.sources['src/bridge.js'],/^[a-f0-9]{64}$/);
  f.disk.files.set(bridge,Buffer.from('bridge-new'));
  assert.equal(loaded.status().build.sources['src/bridge.js'],before.sources['src/bridge.js']);
  assert.notEqual(createWhaleRuntime(f.options).status().build.sources['src/bridge.js'],before.sources['src/bridge.js']);
+});
+await check('one failed recovered intake cannot block other channels and retries persist across restart',async()=>{
+ const f=fixture();await f.w.syncControl();for(const key of ['group:7001','group:7002'])await assert.rejects(f.w.incoming(key,f.event,()=>{throw Error('temporary');}));
+ let attempted=0,delivered=0;await f.w.recover(key=>{if(key==='group:7001'){attempted++;throw Error('control timeout');}delivered++;},()=>false);
+ assert.equal(attempted,1);assert.equal(delivered,1);const next=createWhaleRuntime(f.options);await next.syncControl();await next.recover(()=>attempted++,()=>false);assert.equal(attempted,1);
+ f.clock.now+=5000;await next.recover(()=>attempted++,()=>false);assert.equal(attempted,2);assert.equal(next.status().pendingIncoming,0);
+});
+await check('recovery cannot race an intake that is still actively running',async()=>{
+ const f=fixture();await f.w.syncControl();let release;const gate=new Promise(r=>release=r);let entered;const started=new Promise(r=>entered=r);const pending=f.w.incoming('group:7001',f.event,async()=>{entered();await gate;});await started;
+ await f.w.recover(()=>{throw Error('duplicate intake');},()=>false);release();await pending;assert.equal(f.w.status().pendingIncoming,0);
+});
+await check('parallel recovery sweeps coalesce without adding duplicate context',async()=>{
+ const f=fixture();await f.w.syncControl();await assert.rejects(f.w.incoming('group:7001',f.event,()=>{throw Error('crash');}));let n=0;const deliver=async()=>{n++;await new Promise(r=>setTimeout(r,10));};await Promise.all([f.w.recover(deliver,()=>false),f.w.recover(deliver,()=>false)]);assert.equal(n,1);
+});
+await check('a pending intake that loses authorization is closed without delivery',async()=>{
+ const f=fixture();await f.w.syncControl();await assert.rejects(f.w.incoming('group:7001',f.event,()=>{throw Error('crash');}));f.cfg.allow.groups=[];await f.w.recover(()=>{throw Error('unauthorized');},()=>false);assert.equal(f.w.status().pendingIncoming,0);
+});
+await check('unconfirmed control retains group intake instead of treating it as an explicit quiet instruction',async()=>{
+ const f=fixture();f.control.ok=false;await assert.rejects(f.w.syncControl());let delivered=0;await assert.rejects(f.w.incoming('group:7001',f.event,()=>delivered++));assert.equal(f.w.status().pendingIncoming,1);assert.equal(delivered,0);
+ f.control.ok=true;await f.w.syncControl();await f.w.recover(()=>delivered++,()=>false);assert.equal(delivered,1);assert.equal(f.w.status().pendingIncoming,0);
 });
 console.log('PASS_ALL ' + passed);

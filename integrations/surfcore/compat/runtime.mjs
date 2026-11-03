@@ -21,7 +21,7 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
   const dir = path.join(root, 'state'); disk.mkdirSync(dir, { recursive: true });
   const ledger = createDeliveryState({ fs: disk, hash: digest, basePath: path.join(dir, 'whale-delivery').replaceAll('\\', '/'), namespace: 'whale-surfcore-114', now, diag: log });
   // Capture once in the running process. Disk hashes alone cannot prove a reload.
-  const loadedBuild185 = { revision: 187, pid: process.pid, startedAt: now(), sources: {} };
+  const loadedBuild185 = { revision: 188, pid: process.pid, startedAt: now(), sources: {} };
   try { loadedBuild185.upstream = JSON.parse(disk.readFileSync(path.join(root,'whale-overlay-manifest.json'),'utf8')).upstream; } catch {}
   for (const name of ['src/bridge.js', 'whale-compat/runtime.mjs']) {
     try { loadedBuild185.sources[name] = crypto.createHash('sha256').update(disk.readFileSync(path.join(root, name))).digest('hex'); }
@@ -30,6 +30,7 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
   const contexts = new AsyncLocalStorage();
   const active = new Set();
   const intakeQueues = new Map();
+  let recoveryInFlight = null;
   let ready = false;
   const liveTurns = new Map();
   function requireHealthy() { if (!ledger.healthy) throw new Error('本地收发记录不可用，已暂停发送'); }
@@ -85,18 +86,35 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
         const result = await syncControl({ channel: conversation(key).kind, messageId: id });
         if (result.handled) { change(data => { data.inbox[receipt].stage = 'completed'; delete data.inbox[receipt].event; }); return { handled: true }; }
       }
+      if (!ready) throw new Error('主人控制状态尚未确认，收件保留待恢复');
       if (quiet(key)) { change(data => { data.inbox[receipt].stage = 'skipped'; delete data.inbox[receipt].event; }); return { skipped: 'quiet' }; }
       await fn();
       change(data => { data.inbox[receipt].stage = 'completed'; delete data.inbox[receipt].event; });
       return { ok: true };
     } finally { active.delete(receipt); }
   }
-  async function recover(deliver, hasMessage) {
+  function recover(deliver, hasMessage) {
+    if (recoveryInFlight) return recoveryInFlight;
+    recoveryInFlight = recoverPending(deliver, hasMessage).finally(() => { recoveryInFlight = null; });
+    return recoveryInFlight;
+  }
+  async function recoverPending(deliver, hasMessage) {
     for (const [receipt, row] of Object.entries(ledger.data.inbox)) {
       if (row.stage !== 'buffered') continue;
-      if (row.expiresAt < now()) { change(d => { d.inbox[receipt].stage = 'expired'; delete d.inbox[receipt].event; }); continue; }
+      if (active.has(receipt)) continue;
+      if (row.expiresAt <= now()) { change(d => { d.inbox[receipt].stage = 'expired'; delete d.inbox[receipt].event; }); continue; }
+      if (!row.event || !allowed(row.key) || config.deny?.users?.map(String).includes(String(row.event.user_id))) {
+        change(d => { d.inbox[receipt].stage = 'skipped'; delete d.inbox[receipt].event; }); continue;
+      }
       if (hasMessage(row.key, row.event)) { change(d => { d.inbox[receipt].stage = 'completed'; delete d.inbox[receipt].event; }); continue; }
-      await incoming(row.key, row.event, () => deliver(row.key, row.event), { restoring: true });
+      if (Number(row.retryAt || 0) > now()) continue;
+      try { await incoming(row.key, row.event, () => deliver(row.key, row.event), { restoring: true }); }
+      catch {
+        // Retain each failed intake independently. One transient owner-control
+        // timeout must not block every other channel, or retry in a hot loop.
+        change(d => { const pending=d.inbox[receipt]; if(pending?.stage!=='buffered')return;pending.recoveryAttempts=Number(pending.recoveryAttempts||0)+1;pending.retryAt=now()+Math.min(60000,5000*2**Math.min(4,pending.recoveryAttempts-1)); });
+        log('[收件恢复] 本次未完成，已保留并退避；不重登QQ、不补发过期消息');
+      }
     }
   }
   function onEvent(key, sessionId, event) {
