@@ -64,11 +64,61 @@ export function appendJournal(dir,rows,{source='memory'}={}) {
   }return{added};});
 }
 
-export function readJournal(dir,{query='',day='',key='',ownerQQ='',platform='qq',internal=false,limit=12,cursor=null,maxLines=20000}={}) {
+// Topic searches rank the entire permitted snapshot, not just the first page.
+// The cursor freezes both the person and every append-only file boundary, so
+// new messages (including backdated imports) cannot move results between pages.
+function rankedJournal(dir,{needle,key,ownerQQ,platform,internal,limit,maxLines,cursor,focus}) {
+ const scope=sha([key,ownerQQ,platform,internal,needle]),target=journalDir(dir);
+ let p;
+ if(cursor){
+  try{if(typeof cursor!=='string'||cursor.length>300000)throw Error();p=JSON.parse(Buffer.from(cursor,'base64url').toString());}catch{throw Error('日记分页无效');}
+  if(p?.version!==4||p.scope!==scope||!Array.isArray(p.files)||p.files.length>4096||p.files.some(x=>!Array.isArray(x)||!dayName.test(x[0])||!Number.isSafeInteger(x[1])||x[1]<0)||!Number.isInteger(p.phase)||p.phase<0||p.phase>2||!Number.isInteger(p.fileIndex)||p.fileIndex<0||p.fileIndex>=p.files.length||!Number.isSafeInteger(p.before)||p.before<0||p.before>p.files[p.fileIndex][1]||!Number.isSafeInteger(p.offset)||p.offset<0||p.offset>2*1024*1024||typeof p.senderId!=='string'||!/^([1-9]\d{0,119})?$/.test(p.senderId))throw Error('日记分页无效');
+ }else{
+  let names=[];try{names=fs.readdirSync(target).filter(n=>dayName.test(n)).sort().reverse();}catch(e){if(e.code!=='ENOENT')throw e;}
+  if(names.length>4096)throw Error('日记日期过多，需先分年整理');
+  const files=names.map(n=>{const raw=fs.readFileSync(path.join(target,n),'utf8');return[n,raw.slice(0,raw.lastIndexOf('\n')+1).split('\n').length-1];});
+  const id=String(focus?.senderId||'');
+  p={version:4,scope,files,senderId:/^[1-9]\d{0,119}$/.test(id)?id:'',phase:0,fileIndex:0,before:files[0]?.[1]||0,offset:0};
+ }
+ const entries=[],cache=new Map(),ownerPrivate=!!ownerQQ&&key==='private:'+String(ownerQQ),pageLimit=Math.max(1,Math.min(20,Number(limit)||12));
+ let scanned=0,withheld=0,chars=0,nextCursor=null;
+ const continuation=(phase,fileIndex,before,offset=0)=>Buffer.from(JSON.stringify({...p,phase,fileIndex,before,offset})).toString('base64url');
+ outer:for(let phase=p.phase;phase<3;phase++){
+  if(phase===0&&!p.senderId)continue;
+  for(let fi=phase===p.phase?p.fileIndex:0;fi<p.files.length;fi++){
+   const[file,fence]=p.files[fi];
+   if(!cache.has(file)){const raw=fs.readFileSync(path.join(target,file),'utf8');cache.set(file,raw.slice(0,raw.lastIndexOf('\n')+1).split('\n').slice(0,-1));}
+   const lines=cache.get(file);if(lines.length<fence)throw Error('日记快照已改变，请重新检索');
+   const resume=phase===p.phase&&fi===p.fileIndex,before=resume?p.before:fence;
+   for(let i=before-1;i>=0;i--){
+    if(scanned>=Math.max(1,Number(maxLines)||20000)||entries.length>=pageLimit){nextCursor=continuation(phase,fi,i+1);break outer;}
+    scanned++;if(!lines[i])continue;
+    let r;try{r=JSON.parse(lines[i]);}catch{throw Error('日记存在损坏行，未猜测内容');}
+    const body=[r.text,r.detail?'【原记录详情】'+r.detail:'',r.botReply?'【当时自己的回复】'+r.botReply:''].filter(Boolean).join('\n');
+    if(!`${body} ${r.speaker}`.toLocaleLowerCase().includes(needle))continue;
+    const rowPhase=p.senderId&&r.platform===platform&&r.senderId===p.senderId?0:r.key===key?1:2;
+    if(rowPhase!==phase)continue;
+    const localGroup=key.startsWith('group:')&&r.key===key;
+    if(!(ownerPrivate||(platform==='bili'&&internal)||(!r.privateOnly&&(r.platform==='bili'||!r.key||localGroup)))){withheld++;continue;}
+    const offset=resume&&i===p.before-1?p.offset:0,chunk=body.slice(offset,offset+4000);
+    if(entries.length&&chars+chunk.length>10000){nextCursor=continuation(phase,fi,i+1,offset);break outer;}
+    chars+=chunk.length;const{detail,botReply,...visibleRow}=r;
+    entries.push({...visibleRow,text:chunk,part:{start:offset,end:offset+chunk.length,total:body.length},doNotPublish:r.privateOnly===true});
+    if(offset+chunk.length<body.length){nextCursor=continuation(phase,fi,i+1,offset+chunk.length);break outer;}
+   }
+  }
+ }
+ return{ok:true,entries,matched:entries.length,withheld,scanned,nextCursor,ranking:'当前发言人的稳定身份优先，其次当前会话，其次其他有权读取的来源；均须匹配查询。排序不代表事实更确定。',provenance:'个人日记，QQ/B站同一角色共用；旧记录不是当前任务，私密记录不得公开转述。'};
+}
+
+export function readJournal(dir,{query='',day='',key='',ownerQQ='',platform='qq',internal=false,limit=12,cursor=null,maxLines=20000,focus=null}={}) {
  const ownerPrivate=key==='private:'+String(ownerQQ)&&!!ownerQQ;
  if(platform==='qq'&&!ownerPrivate&&!/^group:[1-9]\d*$/.test(key))throw Error('日记读取缺少有效会话');
  if(day&&!/^\d{4}-\d{2}-\d{2}$/.test(day))throw Error('日期须为YYYY-MM-DD');
  const needle=String(query).trim().toLocaleLowerCase();if(needle.length>120)throw Error('查询过长');
+ // Existing date and v3 pagination retain their chronological behavior.
+ let cursorVersion=null;if(cursor){try{cursorVersion=JSON.parse(Buffer.from(cursor,'base64url').toString()).version;}catch{throw Error('日记分页无效');}}
+ if(!day&&needle&&(cursorVersion===4||(!cursor&&focus)))return rankedJournal(dir,{needle,key,ownerQQ,platform,internal,limit,maxLines,cursor,focus});
  const scope=sha([key,platform,needle,day]);
  let position=null;if(cursor){try{position=JSON.parse(Buffer.from(cursor,'base64url').toString());}catch{throw Error('日记分页无效');}if(!position||position.version!==3||position.scope!==scope||!dayName.test(position.file)||!Number.isSafeInteger(position.before)||position.before<0||!Number.isSafeInteger(position.offset)||position.offset<0)throw Error('日记分页无效');}
  let files=[];try{files=fs.readdirSync(journalDir(dir)).filter(n=>dayName.test(n)&&(!day||n===day+'.jsonl')).sort().reverse();}catch(e){if(e.code!=='ENOENT')throw e;}

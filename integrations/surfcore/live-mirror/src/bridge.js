@@ -18,7 +18,7 @@ import {proactiveDelay} from '../whale-compat/proactive-clock.mjs';
 import {interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan} from '../whale-compat/private-availability.mjs';
 import { renderConversationMemory } from '../whale-compat/memory-scope.mjs';
 import { cleanOutput, requestedLiterals } from '../whale-compat/hygiene.mjs';
-import { createLegacyReader } from '../whale-compat/legacy-reader.mjs';
+import { createLegacyReader, journalFocus } from '../whale-compat/legacy-reader.mjs';
 import { legacyMedia } from '../whale-compat/legacy-media.mjs';
 import os from 'node:os';
 import http from 'node:http';
@@ -1930,7 +1930,7 @@ async function main() {
   hardenStateDirAcl();
   acquireLock();
   loadState();
-  const legacyReader = createLegacyReader({ config: cfg, cookie: discoverDshSessionCookie, journalDir:()=>MEMORY_CARD_PATHS.dir });
+  const legacyReader = createLegacyReader({ config: cfg, cookie: discoverDshSessionCookie, journalDir:()=>MEMORY_CARD_PATHS.dir, focus:key=>journalFocus(getSocialV2State(key)) });
   const oldMedia = cfg.whaleCompat.stickerDir ? legacyMedia(cfg) : null;
   const whale = createWhaleRuntime({ root: ROOT, config: cfg, log,
     clean: (text, key) => { const 清果144 = cleanOutput(text, requestedLiterals([{ type: 'text', text: getSocialV2State(key).recentMessages.filter(m => !m.isSelf).slice(-6).map(m => m.plain || '').join('\n') }])); if (清果144.removed) log(`[出站清洁] 摘除系统腔${清果144.removed}处（不记录原文）(${key})`); return 清果144.text; },

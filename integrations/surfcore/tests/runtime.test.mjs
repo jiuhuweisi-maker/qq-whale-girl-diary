@@ -127,8 +127,10 @@ await check('running build proof stays tied to the loaded process when disk sour
  const f=fixture(),sep=process.platform==='win32'?'\\':'/';
  const bridge=['','fake','src','bridge.js'].join(sep),runtime=['','fake','whale-compat','runtime.mjs'].join(sep);
  f.disk.files.set(bridge,Buffer.from('bridge-old'));f.disk.files.set(runtime,Buffer.from('runtime-old'));
+ for(const n of ['legacy-reader.mjs','personal-journal.mjs'])f.disk.files.set(['','fake','whale-compat',n].join(sep),Buffer.from(n+'-old'));
  const loaded=createWhaleRuntime(f.options),before=loaded.status().build;
- assert.equal(before.revision,188);assert.equal(before.pid,process.pid);assert.match(before.sources['src/bridge.js'],/^[a-f0-9]{64}$/);
+ assert.equal(before.revision,(await import('../version.mjs')).OVERLAY_PATCH);assert.equal(before.pid,process.pid);assert.match(before.sources['src/bridge.js'],/^[a-f0-9]{64}$/);
+ for(const n of ['legacy-reader.mjs','personal-journal.mjs']){assert.match(before.sources['whale-compat/'+n],/^[a-f0-9]{64}$/);f.disk.files.set(['','fake','whale-compat',n].join(sep),Buffer.from(n+'-new'));assert.equal(loaded.status().build.sources['whale-compat/'+n],before.sources['whale-compat/'+n]);assert.notEqual(createWhaleRuntime(f.options).status().build.sources['whale-compat/'+n],before.sources['whale-compat/'+n]);}
  f.disk.files.set(bridge,Buffer.from('bridge-new'));
  assert.equal(loaded.status().build.sources['src/bridge.js'],before.sources['src/bridge.js']);
  assert.notEqual(createWhaleRuntime(f.options).status().build.sources['src/bridge.js'],before.sources['src/bridge.js']);

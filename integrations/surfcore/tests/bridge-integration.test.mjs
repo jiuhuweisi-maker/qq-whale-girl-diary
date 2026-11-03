@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { pathToFileURL } from 'node:url';
 import { createWhaleRuntime } from '../compat/runtime.mjs';
 import { renderConversationMemory } from '../compat/memory-scope.mjs';
-import { createLegacyReader } from '../compat/legacy-reader.mjs';
+import { createLegacyReader,journalFocus } from '../compat/legacy-reader.mjs';
 import { createFundPilot } from '../compat/fundpilot.mjs';
 import { recordSessionResult,reserveGenerationRetry } from '../compat/session-recovery.mjs';
 import {scopedToolGuide,qqPersona,conversationFocus,withConversationFocus} from '../compat/conversation-logic.mjs';
@@ -17,8 +17,10 @@ import {legacyMedia} from '../compat/legacy-media.mjs';
 import {interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan} from '../compat/private-availability.mjs';
 import {extractMentions} from '../compat/message-mentions.mjs';
 import {bootstrapToolContext,backgroundPromptRefresh} from '../compat/context-economy.mjs';
+import {appendJournal} from '../compat/personal-journal.mjs';
 const root = path.resolve(process.argv[2]);
 const stickerSemantics = await import(pathToFileURL(path.join(root,'src/sticker-semantics.js')));
+const {serializeModelData}=await import(pathToFileURL(path.join(root,'src/qq-model-view.js')));
 const { cleanOutput, requestedLiterals } = await import(pathToFileURL(path.join(root, 'whale-compat/hygiene.mjs')));
 // Expose the same runtime in the upstream's existing VM harness; no replacement parser/router.
 const harnessPath = path.join(root, 'scripts/audit-bridge-harness.mjs');
@@ -45,7 +47,7 @@ const legacyDir=fs.mkdtempSync(path.join(os.tmpdir(),'whale-stickers-'));fs.writ
 const h = await bridgeHarness({ config: { whaleCompat: { cutover: Math.floor(Date.now()/1000)-1,stickerDir:legacyDir }, purpose: { enabled: false }, social: { enabled: false }, voice: { enabled: false }, biliBridge: { enabled: false }, socialV2: { enabled: true, tokenGuard: { enabled: false }, send: { maxPerMinute: 100, maxPerHour: 500 } } }, globals: {
   ...stickerSemantics,extractMentions,bootstrapToolContext,backgroundPromptRefresh,Date:SimDate,safeFetchBuffer:async url=>{assert.equal(url,'https://public.invalid/sticker');return{buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64')};},createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, log:(...a)=>{options.log?.(...a);if(String(a[0]).startsWith('持久消息账本'))console.error('[fixture-ledger]',...a);}, control: async () => structuredClone(control) }),
   createFundPilot:options=>createFundPilot({...options,disk,research:{read:async fund=>({code:fund.code,name:fund.name,unitNav:1.2,asOf:'2026-10-30',measurement:'published_unit_nav',isRealtimePrice:false})},request:async(route,data)=>({mode:'paper',liveTrading:false,cashFen:100000,...(data?{order:data}:{})})}),recordSessionResult,
-  renderConversationMemory, createLegacyReader, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,relationshipBlock,composeConfirmedPersona,contextualFollowUp,proactiveDelay,legacyMedia,interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan,discoverDshSessionCookie: () => ''
+  renderConversationMemory, createLegacyReader, journalFocus, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,relationshipBlock,composeConfirmedPersona,contextualFollowUp,proactiveDelay,legacyMedia,interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan,discoverDshSessionCookie: () => ''
 } });
 const server = h.startConsoleServer();
 if (!server.listening) await new Promise(r => server.once('listening', r));
@@ -113,6 +115,13 @@ try {
   await test('actual role and memory API uses explicit scope', async()=> {assert.equal(h.memoryCardPromptBlock('invalid'),''); assert.equal(h.memoryCardPromptBlock('private:201'),'');});
   await test('actual wake attributes an old quote once without rewriting stored memory',async()=>{const dir=path.join(h.temp,'dsh','surfcore','memory');fs.mkdirSync(dir,{recursive:true});const file=path.join(dir,'memory-card.json'),raw=JSON.stringify({records:[{id:'recall-fixture',text:'我是群里维护服务器的小鱼',speaker:'群友B',source:'qq-group',conversationKey:'group:456',pinned:true,createdAt:new Date().toISOString()}]});fs.writeFileSync(file,raw);const wake=h.buildWakePromptV2('group:456','message');assert.equal(wake.split('【历史记录 · 发言按来源引用】').length-1,1);assert(wake.includes('【历史发言·群友B】'));assert.equal(fs.readFileSync(file,'utf8'),raw);});
   await test('actual recent-message response includes the fresh conversation focus',async()=>{const r=await fetch(base+'/api/socialV2/recent?key=group:456',{headers:{'x-console-token':'fixture-console-token'}}).then(r=>r.json());assert(r.messages.length);assert(r.currentThread.includes('person-'));});
+  await test('actual memory HTTP and MCP serializer rank the current stable sender with one body copy',async()=>{
+    const key='group:456';await h.handleIncoming('group',456,event(1414,201,'说说那次约定'),h.cfg);
+    const dir=path.join(h.temp,'dsh','surfcore','memory');appendJournal(dir,[{at:'2026-11-01T00:00:00Z',text:'排名验证约定本人',senderId:'201',sender:'旧昵称',conversationKey:key},{at:'2026-11-03T00:00:00Z',text:'排名验证约定同名别人',senderId:'202',sender:'旧昵称',conversationKey:key},{at:'2026-11-03T00:00:01Z',text:'排名验证约定私密',senderId:'201',conversationKey:'private:123'}]);
+    const st=h.getSocialV2State(key),r=await fetch(base+'/api/socialV2/legacy-read',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-token':st.agentToken},body:JSON.stringify({key,kind:'memory',query:'排名验证约定',focus:{senderId:'202'}})}).then(r=>r.json());
+    assert.equal(r.ok,true);assert.equal(r.results[0].senderId,'201');assert.equal(r.results.length,2);assert(!('entries'in r));
+    const modelJson=serializeModelData(r);assert.equal(modelJson.split('排名验证约定本人').length-1,1);assert(!modelJson.includes('排名验证约定私密'));
+  });
   await test('actual wake accepts a same-speaker short continuation without an at mention',async()=>{const st={wakeConfig:{triggers:{question:true}},recentMessages:[{userId:'201',time:Date.now()-2000},{isSelf:true,time:Date.now()-1000}]};assert.equal(h.evaluateWakeTriggerV2('group:456',st,event(80,201,'还有呢'),'group','还有呢','还有呢',false),'question');assert.equal(h.evaluateWakeTriggerV2('group:456',st,event(81,202,'还有呢'),'group','还有呢','还有呢',false),null);});
   await test('actual legacy sticker lookup returns a sendable item',async()=>{const key='group:456',token=h.getSocialV2State(key).agentToken;const r=await fetch(base+'/api/socialV2/legacy-read',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-token':token},body:JSON.stringify({key,kind:'stickers',query:'开心'})}).then(r=>r.json());assert.equal(r.ok,true,JSON.stringify(r));assert.equal(r.entries.length,1);});
   await test('actual legacy sticker send reaches the fake QQ image transport',async()=>{const key='group:456',st=h.getSocialV2State(key),sid=await h.ensureSession(key),id=++serial,args={key,token:st.agentToken,id:legacyMedia(h.cfg).search('开心')[0].id};h.whale.onEvent(key,sid,{type:'turn/start',data:{turn:'sticker'}});h.whale.onEvent(key,sid,{type:'tool/call',data:{name:'mcp__snowluma__qq_send_legacy_sticker',callId:'sticker',arguments:JSON.stringify(args)}});const r=await fetch(base+'/api/socialV2/send-legacy-sticker',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1','x-agent-token':st.agentToken,'x-whale-request-id':'11111111-1111-1111-1111-'+String(id).padStart(12,'0'),'x-whale-tool':'qq_send_legacy_sticker','x-whale-args':Buffer.from(JSON.stringify(args)).toString('base64')},body:JSON.stringify(args)}).then(r=>r.json());assert.equal(r.ok,true,JSON.stringify(r));assert(h.calls.http.filter(x=>x.url.endsWith('/send_group_msg')).at(-1).body.message.some(s=>s.type==='image'&&s.data.file.startsWith('base64://')));});
