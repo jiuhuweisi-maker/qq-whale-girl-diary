@@ -39,6 +39,9 @@ export function nightRestPlan({ key, ownerQQ, state, next, now = Date.now() }) {
 export function availabilityNotice(kind, now = Date.now()) {
   const { hour, day } = shanghaiClock(now);
   if (kind === 'budget') return { label: `budget:${day}`, text: '今天的聊天费用到上限啦，这会儿暂时回不了。额度恢复后就能继续聊，不是故意不理你（；ω；）' };
+  if (kind === 'rate') {
+    return {label:`rate:${day}:${hour}`,text:'我看到你刚发的啦。刚才消息发得太密，这会儿回话暂时发不出去。'};
+  }
   if (kind === 'night-rest' && (hour >= 22 || hour < 8)) {
     const morning = Date.parse(`${day}T08:00:00+08:00`) + (hour >= 22 ? 86400000 : 0);
     return { label: `night-rest:${shanghaiClock(morning).day}`, text: '我先去睡啦，晚安呀 🌙（明早见）' };

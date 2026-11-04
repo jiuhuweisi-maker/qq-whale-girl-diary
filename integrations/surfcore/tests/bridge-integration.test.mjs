@@ -193,6 +193,36 @@ try {
     assert.equal(h.calls.prompts.length,prompts);assert.equal(sent.length,1);assert.equal(sent[0].body.user_id,123);assert(sent[0].body.message[0].data.text.includes('费用'));
     fs.unlinkSync(usageFile);h.cfg.socialV2.tokenGuard.enabled=false;
   });
+  await test('owner rate limits are checked before generation, and a new DM is not put into a long wait',async()=>{
+    const key='private:123',st=h.getSocialV2State(key);
+    const now=SimDate.now(),before=h.calls.prompts.length, sentBefore=h.calls.http.length;
+    const oldTimes=st.sendTimes, oldHour=h.cfg.socialV2.send.maxSendPerHour, oldIn=st.lastIncomingAt, oldOut=st.lastAiReplyAt;
+    const oldUnread=st.unread;
+    st.lastIncomingAt=now;st.lastAiReplyAt=now-5000;
+    st.unread=[{seq:2000,messageId:'2010',userId:'123',plain:'刚发的新问题',time:now}];
+    st.sendTimes=[now-100];h.cfg.socialV2.send.maxSendPerHour=1;
+    h.setSnowlumaHealth({connected:true,lastSendFailAt:0,lastSendOkAt:now});
+    try {
+      await h.sendWakePromptV2(key,'private');
+      await h.sendWakePromptV2(key,'private');
+      assert.equal(h.calls.prompts.length,before);
+      assert.equal(st.lastWakeBlock.guardReason,'send-rate');
+      const notices=h.calls.http.slice(sentBefore).filter(r=>r.url.endsWith('/send_private_msg'));
+      assert.equal(notices.length,1);
+      assert(notices[0].body.message[0].data.text.includes('发得太密'));
+      const result=await fetch(base+'/api/socialV2/wait',{method:'POST',headers:{'content-type':'application/json',
+        'x-console-token':'fixture-console-token','x-agent-token':st.agentToken},
+        body:JSON.stringify({key,purpose:'messages',timeoutMs:300000}),signal:AbortSignal.timeout(1000)}).then(r=>r.json());
+      assert.equal(result.waitedMs,0);
+      assert.equal(result.stopped,true);
+      const prompt=h.buildWakePromptV2(key,'private');
+      assert(prompt.includes('接着你们刚说的事聊')&&!prompt.includes('【沉睡前强制等待】')&&!prompt.includes('先判断：群里在聊什么'));
+      assert(h.buildWakePromptV2('group:456','question').includes('【沉睡前强制等待】'));
+    } finally {
+      st.unread=oldUnread;st.sendTimes=oldTimes;st.lastIncomingAt=oldIn;st.lastAiReplyAt=oldOut;
+      h.cfg.socialV2.send.maxSendPerHour=oldHour;
+    }
+  });
   await test('actual overnight wake-config sends one owner goodnight and ends at morning',async()=>{
     const night=Date.parse('2026-10-30T00:45:00+08:00');clockOffset=night-Date.now();
     const st=h.getSocialV2State('private:123');st.lastIncomingAt=night-600000;st.recentMessages=[{isSelf:true,plain:'那我先歇一会儿',time:night-1000}];

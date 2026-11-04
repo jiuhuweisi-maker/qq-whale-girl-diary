@@ -1,6 +1,6 @@
 # 鲸戒项目接手入口
 
-当前完整部署版：**适配200 / SurfCore 0.8.8**，固定官方提交见 `integrations/surfcore/version.mjs`。先读 `docs/PATCH200-GROUP-SEND-CONFIRMATION-2026-11-04.md`；私密断点在仓库外 `.ops/CONTINUE200.md`，以最新段落为准。不要依据归档里的旧拓扑、数字和“未完成”重做部署。
+当前完整部署版为 **适配201 / SurfCore 0.8.8**，固定官方提交见 `integrations/surfcore/version.mjs`。先读 `docs/PATCH201-PRIVATE-REPLY-AND-CONTEXT-2026-11-04.md` 和仓库外的 `.ops/CONTINUE201.md`。不要依据归档里的旧拓扑、数字和“未完成”重做部署。
 
 ## ★ 200 已闭环（DSH 接续，2026-11-04 18:4x）
 

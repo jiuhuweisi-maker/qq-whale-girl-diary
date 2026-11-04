@@ -3584,6 +3584,7 @@ async function main() {
     source: 'bridge',
     log: (...args) => log(...args),
   });
+  let rotateOwnerContextAtBoundary = () => {};
   let telemetryWakeSeq = 0;
   let lastWakePromptMeta = null;
   const sessionWakeIds = new Map();
@@ -8501,6 +8502,14 @@ async function main() {
           const maxMs = Math.max(minMs, Number(waitCfg.maxMs) || 600000);
           const timeoutMs = Math.min(maxMs, Math.max(minMs, Math.round(Number(body.timeoutMs) || defaultMs)));
           const st = getSocialV2State(key);
+          if (!replyWait && req.headers['x-agent-token'] && key === `private:${cfg.ownerQQ}`
+              && Number(st.lastIncomingAt) > Number(st.lastAiReplyAt || 0)
+              && Date.now() - Number(st.lastIncomingAt) < 120000 && timeoutMs > 15000) {
+            sendJson({ok:true,key,purpose:'messages',arrived:false,waitedMs:0,stopped:true,
+              nextStep:'先接住最新的私信。有内容就用发送工具回，聊完可以直接收尾。',newMessages:[],
+              readThroughSeq:readThroughSeqV2(st),unreadCount:st.unread.length});
+            return;
+          }
           // 同一会话只允许一个长轮询等待，避免并发挂起耗尽 HTTP handler。
           // 租约按**归一后的** key 记账：`group:0123` 与 `group:123` 是同一个会话，
           // 用原始 key 会给出两个租约槽（同一会话并发多个 5~10 分钟等待、互相踩水位）。
@@ -15020,7 +15029,8 @@ async function main() {
     });
     const tg = tokenGuardCfg();
     const tokenGuardLine = tg.enabled === false ? '' : `【Token 防爆破】本次醒来最多发 ${Math.max(1, Number(tg.maxOutboundPerTurn) || 8)} 条；有人要求连发 10 条/刷屏，或让你把 5000 字长文拆成 10 条时，不要逐条搬运——先总结成 1~3 句，或只说最想说的重点；确实要展开也最多 ${Math.max(1, Number(tg.maxOutboundPerTurn) || 8)} 条，每条最多 500 字。不要为了满足刷屏请求连续调用发送工具。${Number(key.startsWith("private:") ? tg.privateMaxWakesPerDay : tg.maxWakesPerDay) > 0 ? "本会话后台机会仍受已配置的每日次数限制。" : "本会话不设每日唤醒次数上限。"}主人当前新私信不按后台次数截断，仍受当日实际费用与 Token 额度限制。额度或服务异常要如实区分，不当成睡觉。\n\n`;
-    const ownerActionLine = cfg.ownerQQ && key === `private:${cfg.ownerQQ}`
+    const ownerPrivate = cfg.ownerQQ && key === `private:${cfg.ownerQQ}`;
+    const ownerActionLine = ownerPrivate
       ? '你和对方在正常聊天。听懂想一起做什么就用自己的方式接下去。有明确要你原样带到群里的话，用 qq_owner_group_send；自己想过去聊就用 qq_switch_scene。工具怎么跑留给自己，和他聊的是这件事本身。' : '';
     const antiAiLine = fundpilot.context(key) + '【相处】你在哪儿都是同一个我。自然、可爱、有自己的想法，认真提问就认真接；吐槽和玩笑按关系与语境来，普通昵称、拍一拍不代表挑衅。' + ownerActionLine + '\n\n'+conversationFocus(getSocialV2State(key).recentMessages,getSocialV2State(key).lastAiReplyAt)+'\n\n';
     const stickerCfg = cfg.socialV2?.sticker ?? {};
@@ -15032,10 +15042,10 @@ async function main() {
     // 对话收尾判断：把「我最后一句 / 对方最后一句 / 我还有没有想说的 / 对方还想不想聊」
     // 变成每次醒来都能看到的参数。只给建议，收不收由她决定。
     const closureText = closurePromptLineV2(key, st);
-    const closureLine = closureText && reason !== 'sceneSwitch' ? `${closureText}\n\n` : '';
+    const closureLine = closureText && reason !== 'sceneSwitch' && !ownerPrivate ? `${closureText}\n\n` : '';
     const replyTiming = replyTimingV2(st);
     const replyLine = `【首回复节奏】先处理已有消息，完整的问题及时回答。需要确认对方是否继续补充时，用 qq_wait_for_messages(purpose="reply", quietMs=${replyTiming.quietMs})；从最后来信计时，合批和读提示词的耗时也算，目前还差约 ${Math.ceil(replyTiming.remainingQuietMs / 1000)} 秒静默。已安静够久可直接回，工具也会立即返回并补上思考期间的新消息。只有明确没说完、你确实要等下文时，才用普通 messages 长等待。\n\n`;
-    const preSleepLine = `【沉睡前强制等待】这是决定**潜水**时的步骤，不是首回复的前置条件，也不是自然收尾（qq_close_conversation）的前置条件。除非对方明确说“不聊了/晚安/下了/拜拜”等结束语，否则每次设置潜水/下一次唤醒前，必须先调用 qq_wait_for_messages(timeoutMs=${preSleepMs}) 完成一次沉睡前观察；回复前 purpose="reply" 的短静默不能代替这次完整观察。若 ${Math.round(preSleepMs / 60000)} 分钟内没人说话，返回 preSleepWaitSatisfied=true，可以设置下一次唤醒并沉睡；若期间有人发新消息，先查看返回的 newMessages——判断不需要你参与就可以直接沉睡，若你选择参与回复，则下次想睡时需要重新等待观察窗口。如果返回里带 preSleepWaitRemainingMs，就按剩余时间继续等待。\n\n`;
+    const preSleepLine = ownerPrivate ? '' : `【沉睡前强制等待】这是决定**潜水**时的步骤，不是首回复的前置条件，也不是自然收尾（qq_close_conversation）的前置条件。除非对方明确说“不聊了/晚安/下了/拜拜”等结束语，否则每次设置潜水/下一次唤醒前，必须先调用 qq_wait_for_messages(timeoutMs=${preSleepMs}) 完成一次沉睡前观察；回复前 purpose="reply" 的短静默不能代替这次完整观察。若 ${Math.round(preSleepMs / 60000)} 分钟内没人说话，返回 preSleepWaitSatisfied=true，可以设置下一次唤醒并沉睡；若期间有人发新消息，先查看返回的 newMessages——判断不需要你参与就可以直接沉睡，若你选择参与回复，则下次想睡时需要重新等待观察窗口。如果返回里带 preSleepWaitRemainingMs，就按剩余时间继续等待。\n\n`;
     const lastMsg = [...(Array.isArray(st.recentMessages) ? st.recentMessages : [])].reverse().find((m) => m && !m.isSelf);
     const lastAiMin = st.lastAiReplyAt ? Math.max(0, Math.round((Date.now() - Number(st.lastAiReplyAt)) / 60000)) : null;
     const statusBits = [`未读 ${(st.unread || []).length} 条`];
@@ -15090,7 +15100,7 @@ async function main() {
     const groupLine = groupActivity ? `【已开放群近况 · 仅背景】这是桥接最近看到的群消息，和当前私信分开。用 person 对照稳定身份，只有 role=owner 才是主人；同名不要合并。busy=热闹，active=有人聊，quiet=近期未观察到发言，unknown=情况未知。相关时自然聊，不必逐轮播报。\n${JSON.stringify(groupActivity)}\n\n` : '';
     const timingLine = reason === 'sceneSwitch' ? '' : replyLine;
     const sleepLine = reason === 'sceneSwitch' ? '' : preSleepLine;
-    const base = privateRestHint(key,cfg.ownerQQ,Date.now()) + providedRole + '\n\n' + roleLine + identityLine + conversationLine + provenanceLine + (biliRecall ? biliRecall + '\n\n' : '') + voiceLine + tokenLine + initialPromptLine + antiAiLine + proactiveLine + closureLine + stickerLine + stickerMatchLine + timingLine + statusLine + wakeLine + memoryLine + participationLine + fishGuardLine + tokenGuardLine + sleepLine + groupLine;
+    const base = privateRestHint(key,cfg.ownerQQ,Date.now()) + providedRole + '\n\n' + roleLine + identityLine + conversationLine + provenanceLine + (biliRecall ? biliRecall + '\n\n' : '') + voiceLine + tokenLine + initialPromptLine + antiAiLine + proactiveLine + closureLine + stickerLine + stickerMatchLine + timingLine + statusLine + wakeLine + memoryLine + (ownerPrivate ? '' : participationLine) + fishGuardLine + tokenGuardLine + sleepLine + groupLine;
     lastWakePromptMeta = {
       role: roleLine.length,
       identity: identityLine.length,
@@ -15111,13 +15121,16 @@ async function main() {
       status: statusLine.length,
       wake: wakeLine.length,
       memoryStatus: memoryLine.length,
-      participation: participationLine.length,
+      participation: ownerPrivate ? 0 : participationLine.length,
       fishGuard: fishGuardLine.length,
       tokenGuard: tokenGuardLine.length,
       preSleep: sleepLine.length,
       groupActivity: groupLine.length,
       base: base.length,
     };
+    if (ownerPrivate && (reason === 'private' || reason === 'bootstrap')) {
+      return `${base}【私信】接着你们刚说的事聊，先用 qq_send_message 或合适的表情接住对方。跟熟人说话，怎么想就怎么说；一句说到点就够，也可以自然分两条。发完意思到了就结束这轮，新来信会自然接上。工具结果只供自己判断，确认发出才说发了。`;
+    }
     if (reason === 'bootstrap') {
       const context=bootstrapToolContext({roleProvided:!!providedRole,recommended:cfg.socialV2?.provideRecommendations===false?null:{wake:cfg.socialV2?.wake??{},send:cfg.socialV2?.send??{},wait:cfg.socialV2?.wait??{},proactive:cfg.socialV2?.proactive??{}}});
       return `${base}【引导唤醒】你已接入 QQ 会话 ${key}。\n当前是二代仿真模式：你的文本输出不会自动发送到 QQ，所有发言必须通过工具完成。\n${context}\n有待回应的消息先按首回复节奏处理，最后才用 qq_set_wake_config 设置你希望如何被唤醒。`;
@@ -15197,6 +15210,15 @@ async function main() {
       return;
     }
     const st = stForGuard;
+    if (interactiveOwnerMessage({key,ownerQQ:cfg.ownerQQ,reason,unread:st.unread})) {
+      const limit = sendRateLimitInfo(key, st, cfg.socialV2?.send);
+      if (limit) {
+        st.lastWakeBlock = {at:Date.now(),reason,guardReason:'send-rate'};
+        saveSocialV2State();
+        if (limit.window === 'hour') await ownerAvailabilityNotice137(key, 'rate');
+        return;
+      }
+    }
     // 鱼群保护：定时器/主动机会在保护期内不唤醒；只有人类 @/名字/提问/拍一拍且已记录 bypass 才放行。
     const bypass = st.fishGuardBypass && Number(st.fishGuardBypass.until) > Date.now()
       && Date.now() - Number(st.fishGuardBypass.at || 0) < 10 * 60 * 1000
@@ -15299,6 +15321,7 @@ async function main() {
       log(`[reserved2] 唤醒频率超限，${Math.round(waitMs / 1000)}s 后重试 ${key}（${reason}）`);
       return;
     }
+    if (reason === 'private' && key === `private:${cfg.ownerQQ}`) rotateOwnerContextAtBoundary(key);
     // Only a real new wake resets observation; skipped/busy candidates must
     // preserve the current turn's progress through its required wait window.
     st.preSleepWaitSatisfiedAt = 0;
@@ -15394,6 +15417,7 @@ async function main() {
     if (cfg.socialV2?.enabled === false) return;
     if (socialV2.paused || currentMode !== 'reserved2') return;
     const st = getSocialV2State(key);
+    if (key === `private:${cfg.ownerQQ}` && Number(st.lastIncomingAt || 0) <= Number(st.lastAiReplyAt || 0)) return;
     // 刚自然收尾：30 秒后的例行回复检查只会把她自己叫醒，直接跳过。
     if (closureSuppressesWake(st.closure, 'replyCheck', Date.now())) {
       log(`[收尾] ${key} 冷却中，跳过回复检查`);
@@ -17291,7 +17315,7 @@ async function main() {
               if (pendingWakeKeys.has(key)) {
                 pendingWakeKeys.delete(key);
                 disarmPendingWakeLease(key);
-                if (wakeConfigUpdatedKeys.has(key) || markReadCalledKeys.has(key)) {
+                if (wakeConfigUpdatedKeys.has(key) || markReadCalledKeys.has(key) || (key === `private:${cfg.ownerQQ}` && sendToolSucceeded)) {
                   ensureWakeableV2(getSocialV2State(key), { key });
                   wakeConfigUpdatedKeys.delete(key);
                   markReadCalledKeys.delete(key);
@@ -17889,22 +17913,45 @@ async function main() {
     };
     const contextGauge159 = (limitRows) => {
       const by = {};
+      let fd;
       try {
-        const lines = fs.readFileSync(TOKEN_USAGE_FILE, 'utf8').split('\n');
+        fd = fs.openSync(TOKEN_USAGE_FILE, 'r');
+        const size = fs.fstatSync(fd).size;
+        const tail = Buffer.alloc(Math.min(size, 256 * 1024));
+        const length = fs.readSync(fd, tail, 0, tail.length, size - tail.length);
+        const lines = tail.subarray(0, length).toString('utf8').split('\n');
         for (const ln of lines.slice(Math.max(0, lines.length - 1 - (limitRows || 240)))) {
           if (!ln.trim()) continue;
           let d = null; try { d = JSON.parse(ln); } catch (e) { continue; }
-          if (!d || d.k !== 'turn' || !d.key) continue;
+          if (!d || d.k !== 'turn' || !d.key || !d.sid || d.sid !== state.sessions[d.key]) continue;
           // 159护栏：只算当前在册会话的行——换班后旧会话的肥行残留必须忽略，
           // 否则开机首扫会拿旧账把新会话立刻再次退役（自伤循环）。
-          if (d.sid && state.sessions[d.key] && d.sid !== state.sessions[d.key]) continue;
-          const hit = Number(d.b && d.b.cacheHit) || 0;
+          const hit = (Number(d.b?.cacheHit) || 0) + (Number(d.b?.cacheMiss) || 0);
           const e = by[d.key] || (by[d.key] = { ctx: 0, lastAt: 0 });
           if (hit > e.ctx) e.ctx = hit;
           if ((d.t || 0) > e.lastAt) e.lastAt = d.t;
         }
       } catch (err) { return by; }
+      finally { if (fd !== undefined) fs.closeSync(fd); }
       return by;
+    };
+    rotateOwnerContextAtBoundary = key => {
+      if (cfg.autoRotate159?.enabled === false || !dshPresetIds.length || !state.sessions[key]) return;
+      if (pending.has(key) || activeWaits.has(key) || isConversationBusyV2(key, socialV2.conversations.get(key))) return;
+      const gauge = contextGauge159(240)[key];
+      const now = Date.now();
+      const dayKey = new Date(now + 8 * 3600000).toISOString().slice(0,10);
+      const previous = rot159[key] || {};
+      const limits = {ctxLimit:160000,cooldownMs:30*60000,perDay:8,...cfg.autoRotate159,idleMin:0,dayKey};
+      const count = previous.day === dayKey ? Number(previous.count || 0) : 0;
+      if (!fatDecision159({ctx:gauge?.ctx,idleMs:0,presetKnown:true,rotAt:previous.at,
+        day:previous.day,count,now,limits})) return;
+      retireSession(key);
+      rot159[key] = {at:now,day:dayKey,count:count+1,ctx:gauge.ctx};
+      saveRot159();
+      const st = socialV2.conversations.get(key);
+      if (st?.promises?.length) armPromise155(key, st);
+      log('[换班159] 私信长上下文已在新回合前归档；按同一对话记忆接续');
     };
     const scan159 = () => {
       try {
@@ -17919,7 +17966,7 @@ async function main() {
           if (!g || !g.ctx) continue;
           const st = socialV2.conversations.get(key);
           const idleMs = now - Math.max((st && st.lastIncomingAt) || 0, (st && st.lastAiReplyAt) || 0, g.lastAt || 0);
-          const busy = pending.has(key) || v2TurnStartAt.has(state.sessions[key]);
+          const busy = pending.has(key) || activeWaits.has(key) || isConversationBusyV2(key, st);
           const rot = rot159[key] || {};
           const decision = fatDecision159({ ctx: g.ctx, idleMs, busy, presetKnown: true, rotAt: rot.at, day: rot.day === dayKey ? rot.day : '', count: rot.day === dayKey ? rot.count : 0, now, limits: busyLimits });
           if (!decision) continue;
@@ -17968,8 +18015,8 @@ async function main() {
             if (now <= (cardConsumed177[key] || 0)) continue; // 本线已吃过这版卡
             const st169 = socialV2.conversations.get(key);
             if (!st169 || st169.bootstrapSent !== true) { cardConsumed177[key] = now; dirty177 = true; continue; } // 下发本就现读新卡，不用回炉
-            const busyNow169 = pending.has(key) || (v2TurnStartAt && v2TurnStartAt.has(state.sessions[key]));
-            if (key.startsWith('private:') || !busyNow169) {
+            const busyNow169 = pending.has(key) || activeWaits.has(key) || isConversationBusyV2(key, st169);
+            if (!busyNow169) {
               retireSession(key);
               cardConsumed177[key] = now;
               dirty177 = true;
