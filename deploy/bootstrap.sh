@@ -41,7 +41,7 @@ case "$SURFCORE_ROOT" in /*) ;; *) die "surfcoreRoot 必须是绝对路径";; es
 for p in 3000 13100; do ss -ltn 2>/dev/null | grep -q ":$p " && die "端口 $p 已被占用"; done
 read_setting ownerQQ >/dev/null; read_setting groupQQ >/dev/null; read_setting botQQ >/dev/null
 ok "root / Node $(node -v) / Python $(python3 -V 2>&1 | cut -d' ' -f2) / DSH profile $PROFILE"
-warn "只读提醒：本脚本不部署 NapCat、旧桥、旧 cron、archive/、live-backup/、simulator/、fundpilot"
+warn "只读提醒：本脚本不部署 NapCat、旧桥、旧 cron、旧归档目录、fundpilot"
 
 if [ "$CHECK" = "--check" ]; then
   say "== 预检通过（--check 未写任何文件）=="
@@ -89,5 +89,5 @@ cat <<'NEXT'
 4. 用主人私信一条普通问候验收：核对实际回执、收件人、引用与发送次数；不要往真实群灌测试。
 5. 想和现在这台一模一样，第 3 步必须是同一份私密包；只跑 Git 只能得到同一个「代码和骨架」，不会自动长出她的记忆。
 
-明确不部署（历史遗留，Git 里只留档）：NapCat 容器与 ws 端口、旧 dsh-qq-bridge 平铺镜像、143 构建器、旧主动聊天 cron、archive/、live-backup/、simulator/、fundpilot 模拟盘。
+明确不部署（历史遗留，2026-11-04 已从仓库树移出）：NapCat 容器与 ws 端口、旧 dsh-qq-bridge 平铺镜像、143 构建器、旧主动聊天 cron、旧归档目录、fundpilot 模拟盘。
 NEXT

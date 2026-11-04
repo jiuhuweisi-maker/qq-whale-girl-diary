@@ -5,7 +5,7 @@
 - **换台 Linux 服务器**：[一次部署到最新版](docs/FRESH-SERVER.md)（`deploy/bootstrap.sh` 一条命令构建，`deploy/state-transfer.sh` 搬她的人设与记忆）
 - 新部署：[完整部署说明](docs/DEPLOY-SURFCORE.md) 和 [模板入口](deploy/README.md)
 - 最新验证：[200 带话发群确认漏词修复与实弹验收](docs/PATCH200-GROUP-SEND-CONFIRMATION-2026-11-04.md)
-- 历史版本：[11月3日旧部署归档](archive/2026-11-03/README.md)与[10月30日原件清单](archive/2026-10-30/README.md)
+- 历史版本：已从树里移出（143 构建器、平铺镜像、旧测试草稿、人设卡镜像），需要时从提交 `3deeeb8` 取：`git show 3deeeb8:archive/2026-11-03/README.md`
 - 运维接手：[AGENTS.md](AGENTS.md) 和 [10月30日任务书](docs/CODEX-BRIEF-2026-10-30.md)
 - 可选模拟盘：[服务源码与安装说明](services/fundpilot/README.md)，支持明确订单按需补充虚拟资金；不连接真实券商
 

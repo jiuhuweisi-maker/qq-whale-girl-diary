@@ -55,7 +55,7 @@ bash deploy/bootstrap.sh /root/whale-ops/install.local.json
 
 ## 明确不部署（历史遗留，Git 里只留档）
 
-NapCat 容器与 ws 端口、旧 dsh-qq-bridge 平铺镜像、143 构建器、旧主动聊天 cron、`archive/`、`live-backup/`、`simulator/`、FundPilot 模拟盘。`archive/2026-10-30/`、`archive/2026-11-03/` 只作历史证据，不要用它们安装或覆盖。
+NapCat 容器与 ws 端口、旧 dsh-qq-bridge 平铺镜像、143 构建器、旧主动聊天 cron、`archive/`、`live-backup/`、`simulator/`、FundPilot 模拟盘。后三者已于 2026-11-04 从仓库树移出（提交 `3deeeb8` 之前的 Git 历史可查），不要拿它们安装或覆盖。
 
 ## /opt/qq-cs 里的旧助手脚本（默认都不部署）
 
