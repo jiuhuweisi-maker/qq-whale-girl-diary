@@ -16106,16 +16106,24 @@ async function main() {
       && (lines[0] !== '@全体成员' || /(?:帮我|麻烦|请|去|先|给我|直接).{0,24}(?:群里|群内|群|发|提醒)|^\s*@/.test(context));
   }
 
+  function isOwnerGroupConfirm(text) {
+    const followUp = String(text ?? '').trim().replace(/^(?:鲸戒|鱼)[，,\s]+/, '').replace(/[，,\s]+/g, '');
+    return /^(?:那|那就|那你|你)?(?:现在|这会儿)(?:就)?(?:可以|能)?(?:去群里)?(?:试试(?:看)?|发(?:一下|一遍)?|(?:照|按)刚才(?:的|那几句)?发)[了吧呗呀嘛]?[。！!]*$/.test(followUp)
+      || /^(?:那就|那你就|那你|就|你就|你)?(?:去吧|去群里吧|发吧|去发吧|去群里发吧|(?:照|按)刚才(?:那几句|那三句|说的|的)?(?:发|试试)[吧呗呀]?)[:：。！!]*$/.test(followUp)
+      || /^(?:那|那就)?(?:(?:你)?(?:能不能|能|可以|可不可以|能否)?(?:帮我|帮忙|替我)|(?:请|麻烦)(?:你)?)?(?:把(?:刚才)?(?:这|那)(?:几句|三句|段话|句话)(?:原样)?)?(?:带(?:到群里|过去)|发(?:进群里|到群里|过去)|去群里(?:发|说))(?:一下)?(?:吗|嘛|吧|呗|呀)[。！!？?]*$/.test(followUp)
+      || /^(?:那就)?(?:你)?(?:能|可以|能不能|可不可以)?(?:帮我|麻烦你|请你)(?:发一下|发一遍|说一下)[吗嘛吧呗呀]?[。！!？?]*$/.test(followUp)
+      // 「你试试能不能发了」「试试能不能发」：主人在验证能不能发出去，仍然接着刚才那几句。
+      || /^(?:那|那就|那你|你)?(?:再)?试试(?:看)?(?:现在)?(?:能不能|可不可以|能|可以)?(?:发出去|发了|发)?[了吗呀吧呗嘛]?[。！!？?]*$/.test(followUp)
+      // 「发呀」「去呀」：只有语气、没带新内容，接着刚才的原话发。
+      || /^(?:那|那就|那你|你)?(?:就)?(?:发|去|发出去)[呀啊呗嘛吧][。！!？?]*$/.test(followUp);
+  }
+
   function ownerGroupEvidence(messages, messageId, lines, now) {
     const current = messages.at(-1);
     const currentTime = Number(current?.time);
     if (!current || !current.messageId || !Number.isFinite(currentTime) || now-currentTime > 120000) return null;
     const plain = String(current.plain ?? '');
-    const followUp = plain.trim().replace(/^(?:鲸戒|鱼)[，,\s]+/, '').replace(/[，,\s]+/g, '');
-    const confirmsNow = /^(?:那|那就|那你|你)?(?:现在|这会儿)(?:就)?(?:可以|能)?(?:去群里)?(?:试试(?:看)?|发(?:一下|一遍)?|(?:照|按)刚才(?:的|那几句)?发)[了吧呗呀嘛]?[。！!]*$/.test(followUp)
-      || /^(?:那就|那你就|那你|就|你就|你)?(?:去吧|去群里吧|发吧|去发吧|去群里发吧|(?:照|按)刚才(?:那几句|那三句|说的|的)?(?:发|试试)[吧呗呀]?)[:：。！!]*$/.test(followUp)
-      || /^(?:那|那就)?(?:(?:你)?(?:能不能|能|可以|可不可以|能否)?(?:帮我|帮忙|替我)|(?:请|麻烦)(?:你)?)?(?:把(?:刚才)?(?:这|那)(?:几句|三句|段话|句话)(?:原样)?)?(?:带(?:到群里|过去)|发(?:进群里|到群里|过去)|去群里(?:发|说))(?:一下)?(?:吗|嘛|吧|呗|呀)[。！!？?]*$/.test(followUp)
-      || /^(?:那就)?(?:你)?(?:能|可以|能不能|可不可以)?(?:帮我|麻烦你|请你)(?:发一下|发一遍|说一下)[吗嘛吧呗呀]?[。！!？?]*$/.test(followUp);
+    const confirmsNow = isOwnerGroupConfirm(plain);
     if (!confirmsNow) {
       const later = /(?:过|隔).{0,18}(?:分钟|小时).{0,18}(?:后|再|时候|更久)|等.{0,40}(?:再发|时候)|下次|以后|举例|示例|这样(?:的|说)|看看.{0,12}(?:能|可以)不?(?:能|可以)?发/.test(plain);
       return String(current.messageId) === String(messageId) && !later
@@ -16127,7 +16135,12 @@ async function main() {
         if (String(messageId) !== String(current.messageId) && String(messageId) !== String(draft.messageId)) return null;
         return {current,draft};
       }
-      if (!/^(?:我再发(?:一)?遍[，, ]*)?(?:你)?看看(?:可不可以|能不能)(?:发|发了)[。！？!?\s]*$/.test(String(draft.plain))) return null;
+      // 中间可能隔着「你试试能不能发了」「我刚群里戳你了」这类衔接话：它们不是新指令，继续往前找带原话的那条。
+      const draftText = String(draft.plain ?? '').trim();
+      if (isOwnerGroupConfirm(draftText)
+        || /^(?:我再发(?:一)?遍[，, ]*)?(?:你)?看看(?:可不可以|能不能)(?:发|发了)[。！？!?\s]*$/.test(draftText)
+        || /^(?:我刚?(?:在)?群里?|我)?(?:戳了?你|戳|拍了拍你|拍了拍|拍你|@了你|@你|点了你|点你)(?:一下)?(?:了|呀|啊|嘛|吧)?[。！!？?\s]*$/.test(draftText)) continue;
+      return null;
     }
     return null;
   }

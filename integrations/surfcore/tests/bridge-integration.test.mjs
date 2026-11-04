@@ -304,6 +304,28 @@ try {
     await h.handleIncoming('private',123,dm(2021,'我说的是你要不要去看视频'),h.cfg);
     await h.handleIncoming('private',123,dm(2022,'去吧'),h.cfg);
     assert.equal((await call(2022,['先说这句'])).state,'not_sent');
+    // 2026-11-04 线上回归：主人说「你试试能不能发了」「发呀」时，旧规则不认作确认，群里一条都没发。
+    const retryLines=['@全体成员','111','tmd人都死哪去了🐵💢'];
+    await h.handleIncoming('private',123,dm(2030,'群里可以这样，你闲的发慌的时候，就先单@全体成员，然后发“111”然后再发“tmd人都死哪去了🐵💢”这样的。'),h.cfg);
+    await h.handleIncoming('private',123,dm(2031,'你试试能不能发了'),h.cfg);
+    ownerDispatchFixture=(action)=>action==='get_msg' ? {status:'ok',retcode:0,data:{message_type:'group',group_id:456,message:[{type:'at',data:{qq:'all'}}]}} : null;
+    try {
+      const from=h.calls.http.length;
+      const result=await call(2031,retryLines);
+      assert.equal(result.state,'sent',JSON.stringify(result));
+      assert.deepEqual(h.calls.http.slice(from).filter(r=>r.url.endsWith('/send_group_msg'))
+        .map(r=>r.body.message[0].data.qq ?? r.body.message[0].data.text),['all','111','tmd人都死哪去了🐵💢']);
+    } finally { ownerDispatchFixture=null; }
+    // 中间隔着「我刚群里戳你了」的「发呀」也要接上带原话的那条
+    await h.handleIncoming('private',123,dm(2032,'等我说可以了再去群里发“又一句”'),h.cfg);
+    await h.handleIncoming('private',123,dm(2033,'我刚群里戳你了'),h.cfg);
+    await h.handleIncoming('private',123,dm(2034,'发呀'),h.cfg);
+    {
+      const from=h.calls.http.length;
+      const result=await call(2034,['又一句']);
+      assert.equal(result.state,'sent',JSON.stringify(result));
+      assert.equal(h.calls.http.slice(from).filter(r=>r.url.endsWith('/send_group_msg')).length,1);
+    }
   });
   await test('a bare group number opens the destination and its own turn can send to that group',async()=>{
     h.setReady(true);
