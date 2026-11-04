@@ -1518,7 +1518,7 @@ server.tool('qq_switch_scene',
 );
 
 server.tool('qq_owner_group_send',
-  '主人明确请你把几句原话带到群里时用。若他先交代内容、后说现在试试，用最新的确认消息编号和前面原话，按顺序填 lines。只有明确请你提醒全体时，第一项才填 @全体成员。自己去接话用 qq_switch_scene。只有 sent 才能说全部已发；没发、部分发出或回执不明都按结果如实说。',
+  '主人请你把几句原话带到群里时用。先看上下文：他说“去吧”或“能帮我带过去吗”，如果是在接着刚才的群发计划，用这句新消息的编号和前面的原话，按顺序填 lines。普通聊天、话题不明或他说先别发时不执行。只有明确请你提醒全体时，第一项才填 @全体成员。自己去接话用 qq_switch_scene。只有 sent 才能说全部已发；没发、部分发出或回执不明都按结果如实说。',
   {key:z.string(),token:z.string(),messageId:z.union([z.string(),z.number()]),
     group:z.union([z.string().max(40),z.number().int().positive()]).optional(),
     lines:z.array(z.string().min(1).max(500)).min(1).max(3)},

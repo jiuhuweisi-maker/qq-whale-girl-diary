@@ -292,6 +292,18 @@ try {
     await h.handleIncoming('private',123,dm(1985,'先别发了'),h.cfg);
     await h.handleIncoming('private',123,dm(1986,'现在试试'),h.cfg);
     assert.equal((await call(1986)).state,'not_sent');
+    for (const [offset, followUp] of ['去吧','那就去发吧','能帮我带过去吗？','麻烦把那句话发到群里吧','能帮我发一下吗'].entries()) {
+      const id=1990+offset*2;
+      const selected=['嗨'+offset];
+      await h.handleIncoming('private',123,dm(id,'等我说可以了再去群里发“'+selected[0]+'”'),h.cfg);
+      await h.handleIncoming('private',123,dm(id+1,followUp),h.cfg);
+      const result=await call(id+1,selected);
+      assert.equal(result.state,'sent',followUp+' '+JSON.stringify(result));
+    }
+    await h.handleIncoming('private',123,dm(2020,'去群里发“先说这句”'),h.cfg);
+    await h.handleIncoming('private',123,dm(2021,'我说的是你要不要去看视频'),h.cfg);
+    await h.handleIncoming('private',123,dm(2022,'去吧'),h.cfg);
+    assert.equal((await call(2022,['先说这句'])).state,'not_sent');
   });
   await test('a bare group number opens the destination and its own turn can send to that group',async()=>{
     h.setReady(true);
