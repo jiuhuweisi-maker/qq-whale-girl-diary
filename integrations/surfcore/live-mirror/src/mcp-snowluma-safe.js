@@ -1516,6 +1516,21 @@ server.tool('qq_switch_scene',
   }
 );
 
+server.tool('qq_owner_group_send',
+  '主人在当前私信里用平常话明确请你把具体文字带到群里时，可以自己办。messageId 用他这条新来信的编号，lines 按他说的顺序填原话，只有他确实请你提醒全体时才在第一项填 @全体成员。要自己过去打招呼或接话就用 qq_switch_scene。发完看实际结果，用第一人称正常聊；需要弄清群名时就问群名。',
+  {key:z.string(),token:z.string(),messageId:z.union([z.string(),z.number()]),
+    group:z.union([z.string().max(40),z.number().int().positive()]).optional(),
+    lines:z.array(z.string().min(1).max(500)).min(1).max(3)},
+  async args=>{
+    try {
+      const result=await agentApi('/api/socialV2/owner-group-send',{method:'POST',
+        headers:{'x-agent-token':args.token},body:JSON.stringify(args),timeoutMs:75000});
+      return {content:[{type:'text',text:serializeModelData(result)}]};
+    } catch {
+      return {isError:true,content:[{type:'text',text:'还没拿到完整结果。不要重复发送；如果对方在问结果，就说目前还不确定。'}]};
+    }
+  });
+
 await server.connect(new StdioServerTransport());
 
 async function modelImageParts(image, {chat = false} = {}) {

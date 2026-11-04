@@ -13,22 +13,22 @@ const parseArgs = value => {
   return value && typeof value === 'object' ? value : {};
 };
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const sendTool = name => /(?:^|__)qq_(?:send|reply|poke|fundpilot|switch_scene$)/.test(name);
-const sendRoute = route => /^\/api\/(?:send\/|socialV2\/(?:send-|reply|fundpilot$|scene-switch$))/.test(route);
+const sendTool = name => /(?:^|__)qq_(?:send|reply|poke|fundpilot|switch_scene$|owner_group_send$)/.test(name);
+const sendRoute = route => /^\/api\/(?:send\/|socialV2\/(?:send-|reply|fundpilot$|scene-switch$|owner-group-send$))/.test(route);
 
 // One process owns this ledger. Two fsynced slots are shared with the proven legacy engine.
 export function createWhaleRuntime({ root, config, control, now = Date.now, disk = fs, log = () => {}, clean = x => x }) {
   const dir = path.join(root, 'state'); disk.mkdirSync(dir, { recursive: true });
   const ledger = createDeliveryState({ fs: disk, hash: digest, basePath: path.join(dir, 'whale-delivery').replaceAll('\\', '/'), namespace: 'whale-surfcore-114', now, diag: log });
   // Capture once in the running process. Disk hashes alone cannot prove a reload.
-  const loadedBuild185 = { revision: 195, pid: process.pid, startedAt: now(), sources: {} };
+  const loadedBuild185 = { revision: 197, pid: process.pid, startedAt: now(), sources: {} };
   try { loadedBuild185.upstream = JSON.parse(disk.readFileSync(path.join(root,'whale-overlay-manifest.json'),'utf8')).upstream; } catch {}
   for (const name of ['src/bridge.js', 'whale-compat/runtime.mjs', 'whale-compat/legacy-reader.mjs', 'whale-compat/personal-journal.mjs', 'whale-compat/model-image.mjs']) {
     try { loadedBuild185.sources[name] = crypto.createHash('sha256').update(disk.readFileSync(path.join(root, name))).digest('hex'); }
     catch { loadedBuild185.sources[name] = null; }
   }
   const contexts = new AsyncLocalStorage();
-  const active = new Set();
+  const active = new Map();
   const intakeQueues = new Map();
   let recoveryInFlight = null;
   let ready = false;
@@ -79,7 +79,7 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
     if (!Number.isFinite(time) || time < cutover || time > now() + 5000 || now() - time > 600000) return { skipped: 'historical' };
     const receipt = `${key}:${id}`, prior = ledger.data.inbox[receipt];
     if (active.has(receipt) || (prior && (!restoring || prior.stage !== 'buffered'))) return { skipped: 'duplicate' };
-    active.add(receipt);
+    active.set(receipt, !restoring);
     try {
       if (!prior) change(data => { data.inbox[receipt] = { at: now(), expiresAt: time + 600000, stage: 'buffered', key, event }; });
       if (String(event.user_id) === String(config.ownerQQ)) {
@@ -175,14 +175,16 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
     const ctx = contexts.getStore(), effect = ctx?.effect;
     if (!effect || effect.key !== key || effect.epoch !== epoch(key) || quiet(key)) throw new Error('发送缺少有效的当前回合');
     const source = Array.isArray(segments) ? segments : [];
-    const message = source.map(s => s.type === 'text' ? { ...s, data: { ...s.data, text: clean(String(s.data?.text || ''), key) } } : s).filter(s => s.type !== 'text' || s.data.text.trim());
+    const ownerCommand = effect.ownerGroupCommand === true && conversation(key)?.kind === 'group';
+    const message = source.map(s => s.type === 'text' && !ownerCommand ? { ...s, data: { ...s.data, text: clean(String(s.data?.text || ''), key) } } : s).filter(s => s.type !== 'text' || s.data.text.trim());
     if(message.some(s=>s.type==='text'&&includesParticipantAccount(s.data.text,config,disk)))throw new Error('正文含有成员账号，请改用昵称后再发送；本次尚未发送');
     // 179c：custom_face 是真内容不是内部提示，本行为排除表，179初版误加custom_face已回正
-    if (!message.some(s => !['reply', 'at'].includes(s.type))) throw new Error('本条只有内部提示，已取消发送')
+    const wholeGroup = ownerCommand && message.length === 1 && message[0].type === 'at' && message[0].data.qq === 'all';
+    if (!wholeGroup && !message.some(s => !['reply', 'at'].includes(s.type))) throw new Error('本条只有内部提示，已取消发送')
     if (source.some(s => ['record', 'video'].includes(s.type))) throw new Error('语音和视频发送已关闭');
     const at = message.filter(s => s.type === 'at').map(s => String(s.data.qq));
     const replies = message.filter(s => s.type === 'reply');
-    if (at.length > 1 || at.some(id => id === 'all' || config.deny?.users?.map(String).includes(id)) || replies.length > 1) throw new Error('引用或提醒目标不明确');
+    if (at.length > 1 || at.some(id => (id === 'all' && !wholeGroup) || config.deny?.users?.map(String).includes(id)) || replies.length > 1) throw new Error('引用或提醒目标不明确');
     const id = `${effect.id}:${ctx.part++}`, hash = digest([key, message]);
     const previous = ledger.data.outbox[id];
     if (previous) {
@@ -222,6 +224,35 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
       catch { /* Do not replace the original transport error with a logging error. */ }
       throw error;
     }
+  }
+  async function ownerGroupOnce(source, event, destination, lines, dispatch, report) {
+    const messageId = String(event.message_id ?? event.msg_id ?? '');
+    const owner = String(config.ownerQQ ?? '');
+    const inbound = `${source}:${messageId}`;
+    const direct = active.get(inbound) === true && ledger.data.inbox[inbound]?.stage === 'buffered';
+    const effect = contexts.getStore()?.effect;
+    const fromTurn = !report && effect?.key === source && effect.epoch === epoch(source)
+      && ledger.data.inbox[inbound]?.stage === 'completed';
+    if (!owner || source !== `private:${owner}` || String(event.user_id) !== owner
+        || !(report ? direct : fromTurn) || quiet(source)) return;
+    const id = `owner-group:${inbound}`;
+    if (ledger.data.outbox[id]) return;
+    // Consume the original message before any send. A restart never continues
+    // the remainder of an interrupted batch, even if the inbox is recovered.
+    change(data => { data.outbox[id] = {at: now(), attempts: [now()], status: 'suppressed', key: source}; });
+    const run = (key, suffix, fn) => contexts.run({part: 0, effect: {
+      id: id + suffix, key, epoch: epoch(key), ownerGroupCommand: suffix === ':group',
+    }}, fn);
+    let result;
+    if (!destination || quiet(destination) || conversation(destination)?.kind !== 'group') {
+      result = '这次没发。请指定一个当前可发言的开放群。';
+    } else if (lines.some(line => includesParticipantAccount(line, config, disk))) {
+      result = '这次没发，正文里有成员账号。';
+    } else {
+      result = await run(destination, ':group', () => dispatch(guard(destination)));
+    }
+    if (report && !quiet(source)) await run(source, ':receipt', () => report(result));
+    return result;
   }
   // Two factual owner-only notices, independent of a model turn. Never exposed
   // as an agent tool; group destinations and arbitrary text are impossible.
@@ -264,5 +295,5 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
   function status() {
     return { build: { ...loadedBuild185, sources: { ...loadedBuild185.sources } }, healthy: ledger.healthy, ready, pendingIncoming: Object.values(ledger.data.inbox).filter(r => r.stage === 'buffered').length, uncertain: Object.values(ledger.data.outbox).filter(r => ['sending', 'uncertain'].includes(r.status)).length, calls: Object.keys(ledger.data.calls || {}).length };
   }
-  return { syncControl, incoming, recover, reconcileUncertain151, onEvent, action, guard, quiet, enterRequest, authorizeRequest, send, ownerNotice, status, ledger, contexts };
+  return { syncControl, incoming, recover, reconcileUncertain151, onEvent, action, guard, quiet, enterRequest, authorizeRequest, send, ownerGroupOnce, ownerNotice, status, ledger, contexts };
 }

@@ -83,7 +83,7 @@ function wavFixture() {
   return Buffer.concat([h, data]);
 }
 
-export async function bridgeHarness({ config = {}, savedState, files = {}, globals = {}, history = {} } = {}) {
+export async function bridgeHarness({ config = {}, savedState, files = {}, globals = {}, history = {}, onebotResponse } = {}) {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'qq-audit-bridge-'));
   fs.mkdirSync(path.join(temp, 'src'));
   fs.mkdirSync(path.join(temp, 'state'));
@@ -110,6 +110,8 @@ export async function bridgeHarness({ config = {}, savedState, files = {}, globa
     const body = (() => { try { return JSON.parse(init.body ?? '{}'); } catch { return init.body; } })();
     calls.http.push({ url: String(url), body });
     const action = String(url).split('/').pop();
+    const override = onebotResponse?.(action, body);
+    if (override) return {ok:true,status:200,json:async()=>override};
     // 本地 TTS（voxd）：返回一个最小合法 wav，别让测试去连真实服务。
     if (String(url).includes('/v1/speak/file')) {
       return {

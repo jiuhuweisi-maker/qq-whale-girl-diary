@@ -7047,6 +7047,40 @@ async function main() {
           const id = whaleRequest.effect?.id;
           sendJson(await whale.action(key, `scene-switch:${id}`, ()=>switchScene(body,key))); return;
         }
+        if (req.method === 'POST' && url.pathname === '/api/socialV2/owner-group-send') {
+          const body = await readBody();
+          const {key, messageId, group, lines} = body;
+          if (!cfg.ownerQQ || key !== `private:${cfg.ownerQQ}` || currentMode !== 'reserved2'
+              || !agentTokenOk(key, req.headers['x-agent-token']) || !v2SessionAllowed(key)) {
+            sendJson({ok:false, error:'这个请求只从主人私信接收。'},403); return;
+          }
+          const audited = whale.ledger.data.calls?.[whaleRequest.effect?.id];
+          if (audited?.name !== 'qq_owner_group_send' || String(audited.args.messageId) !== String(messageId)
+              || String(audited.args.group ?? '') !== String(group ?? '') || JSON.stringify(audited.args.lines) !== JSON.stringify(lines)) {
+            sendJson({ok:false, error:'本次发言内容未核对。'},403); return;
+          }
+          const current = getSocialV2State(key).recentMessages.findLast(m => !m.isSelf && !m.history
+            && String(m.userId) === String(cfg.ownerQQ));
+          if (!current || String(current.messageId) !== String(messageId) || Date.now()-Number(current.time) > 120000
+              || !ownerGroupRequestMatches(current.plain, lines)) {
+            sendJson({ok:false, error:'没核对到你刚才明确说要发进群的话。按平时聊天接话，有歧义只问缺的那一处。'}); return;
+          }
+          const groups = [...new Set((cfg.allow?.groups || []).map(sceneGroupKey))]
+            .filter(k => k && isSessionAllowedInCurrentMode(k));
+          const text = String(current.plain);
+          const named = groups.filter(k => {
+            const name = groupNameForMemory(k);
+            return (name && text.includes(name)) || text.includes(k.split(':')[1]);
+          });
+          const destination = named.length === 1 ? named[0] : !named.length && groups.length === 1 ? groups[0] : null;
+          if (!destination || (group != null && sceneGroupKey(group) !== destination)) {
+            sendJson({ok:false, error:'要去哪一个群还没弄清。直接问群名就好。'}); return;
+          }
+          const result = await dispatchOwnerGroup(key, {user_id:current.userId,message_id:current.messageId}, destination, lines);
+          const sent = result?.startsWith('按顺序发了 ') === true;
+          sendJson({ok:sent, outcome:result || '这条已经处理过或失效，请按已知结果说。'});
+          return;
+        }
         if (req.method === 'POST' && url.pathname === '/api/scene-switch-from-bili') {
           if (req.headers['x-agent-call'] !== undefined || req.headers['x-agent-token'] || currentMode !== 'reserved2') {
             sendJson({ok:false,error:'只接受本机 B 站工具请求'},403); return;
@@ -10172,7 +10206,7 @@ async function main() {
     } catch { /* 网自身永不影响收尾 */ }
   }
 
-  async function onebotSendSegments(kind, id, segments) {
+  async function onebotSendSegments(kind, id, segments, {requireReceipt = false} = {}) {
     if (!Array.isArray(segments) || !segments.length) throw new Error('消息段为空');
     const action = kind === 'private' ? 'send_private_msg' : 'send_group_msg';
     const params = kind === 'private' ? { user_id: Number(id), message: segments } : { group_id: Number(id), message: segments };
@@ -10194,6 +10228,9 @@ async function main() {
     const body = await res.json().catch(() => ({}));
     if (!res.ok || body.status !== 'ok' || body.retcode !== 0) {
       throw new Error(`OneBot ${action} 失败: ${body.wording || body.retcode || res.status}`);
+    }
+    if (requireReceipt && !/^-?[1-9]\d*$/.test(String(body.data?.message_id ?? ''))) {
+      throw new Error('QQ 未返回有效消息编号');
     }
     try { noteOutboundSentences154155(kind, id, safeSegments); } catch { /* 观察网绝不拦发送 */ }
     return body.data;
@@ -14977,7 +15014,9 @@ async function main() {
     });
     const tg = tokenGuardCfg();
     const tokenGuardLine = tg.enabled === false ? '' : `【Token 防爆破】本次醒来最多发 ${Math.max(1, Number(tg.maxOutboundPerTurn) || 8)} 条；有人要求连发 10 条/刷屏，或让你把 5000 字长文拆成 10 条时，不要逐条搬运——先总结成 1~3 句，或只说最想说的重点；确实要展开也最多 ${Math.max(1, Number(tg.maxOutboundPerTurn) || 8)} 条，每条最多 500 字。不要为了满足刷屏请求连续调用发送工具。${Number(key.startsWith("private:") ? tg.privateMaxWakesPerDay : tg.maxWakesPerDay) > 0 ? "本会话后台机会仍受已配置的每日次数限制。" : "本会话不设每日唤醒次数上限。"}主人当前新私信不按后台次数截断，仍受当日实际费用与 Token 额度限制。额度或服务异常要如实区分，不当成睡觉。\n\n`;
-    const antiAiLine = fundpilot.context(key) + '【相处】自然、可爱、有自己的想法，认真提问就认真接；吐槽和玩笑按关系与语境来，普通昵称、拍一拍不代表挑衅。\n\n'+conversationFocus(getSocialV2State(key).recentMessages,getSocialV2State(key).lastAiReplyAt)+'\n\n';
+    const ownerActionLine = cfg.ownerQQ && key === `private:${cfg.ownerQQ}`
+      ? '你和对方在正常聊天。听懂想一起做什么就用自己的方式接下去。有明确要你原样带到群里的话，用 qq_owner_group_send；自己想过去聊就用 qq_switch_scene。工具怎么跑留给自己，和他聊的是这件事本身。' : '';
+    const antiAiLine = fundpilot.context(key) + '【相处】你在哪儿都是同一个我。自然、可爱、有自己的想法，认真提问就认真接；吐槽和玩笑按关系与语境来，普通昵称、拍一拍不代表挑衅。' + ownerActionLine + '\n\n'+conversationFocus(getSocialV2State(key).recentMessages,getSocialV2State(key).lastAiReplyAt)+'\n\n';
     const stickerCfg = cfg.socialV2?.sticker ?? {};
     const stickerLine = stickerCfg.enabled !== false && stickerCfg.includeInPrompt !== false
       ? `${buildStickerStrategyHint()}\n${buildStickerContext(stickerEntries, stickerCfg.promptMaxStickers ?? 8)}\n\n`
@@ -16024,6 +16063,102 @@ async function main() {
   }
 
   // QQ 消息 → DSH prompt
+  async function handleOwnerGroupDispatch(key, event) {
+    if (currentMode !== 'reserved2' || key !== `private:${cfg.ownerQQ}`
+        || !cfg.ownerQQ || String(event.user_id) !== String(cfg.ownerQQ)
+        || !Array.isArray(event.message) || !event.message.every(segment => segment.type === 'text')) return false;
+    const text = event.message.map(segment => String(segment.data?.text ?? '')).join('').trim();
+    // Narrow opt-in. The second grammar covers an explicit three-step request
+    // like “去群里@全体成员，发出，然后再发一条…发出，最后发一条…”.
+    const command = /^\/群发(?:[ \t]+([^\r\n]+))?\r?\n([\s\S]+)$/.exec(text);
+    const ordered = /^(?:再试试[：:]\s*)?去群里\s*@全体成员[，,]\s*发出[，,]\s*然后再发一条([^\r\n]+?)\s*发出[，,]\s*最后发一条([^\r\n]+)$/.exec(text);
+    if (!command && !ordered && !/^\/群发(?:\s|$)/.test(text)) return false;
+    const selector = command?.[1]?.trim() || '';
+    const lines = command ? command[2].split(/\r?\n/).map(line => line.trim())
+      : ordered ? ['@全体成员', ordered[1].trim(), ordered[2].trim()] : [];
+    const report = result => onebotSendSegments('private', key.split(':')[1],
+      [{type:'text',data:{text:result}}], {requireReceipt:true});
+    await dispatchOwnerGroup(key, event, selector, lines, report).catch(() => undefined);
+    return true;
+  }
+
+  function ownerGroupRequestMatches(text, lines) {
+    if (typeof text !== 'string' || !Array.isArray(lines) || !lines.length || lines.length > 3) return false;
+    let end = 0;
+    const cues = [];
+    for (const line of lines) {
+      if (typeof line !== 'string' || !line.trim() || line !== line.trim() || line.length > 500) return false;
+      const index = text.indexOf(line, end);
+      if (index < 0) return false;
+      cues.push(text.slice(end,index));
+      end = index + line.length;
+    }
+    cues.push(text.slice(end));
+    const context = cues.join(' ');
+    return /(?:群里|群内|群聊|群).{0,36}(?:发|说|喊|提醒|带个话)|(?:发|说|喊|提醒).{0,18}(?:到|进|在).{0,12}群/.test(context)
+      && !/(?:别|不要|不用|不准|不能|没有让|没让|没叫|不是让|如果|假如|比如|举例).{0,32}(?:发|说|喊|提醒|群|全体)|(?:能不能|可不可以).{0,12}(?:做到|实现)/.test(context)
+      && (lines[0] !== '@全体成员' || /(?:帮我|麻烦|请|去|先|给我|直接).{0,24}(?:群里|群内|群|发|提醒)|^\s*@/.test(context));
+  }
+
+  async function dispatchOwnerGroup(key, event, selector, lines, report) {
+    const atAll = lines[0] === '@全体成员';
+    const groups = [...new Set((cfg.allow?.groups || []).map(sceneGroupKey))]
+      .filter(group => group && isSessionAllowedInCurrentMode(group));
+    const matches = selector ? groups.filter(group => group === sceneGroupKey(selector) || groupNameForMemory(group) === selector) : groups;
+    const destination = matches.length === 1 ? matches[0] : null;
+    const invalid = !lines.length || lines.length > 3 || (atAll && lines.length === 1) || lines.some((line, index) =>
+      !line || line.length > 500 || (line === '@全体成员' && index !== 0)
+      || /\[CQ:/i.test(line) || redactSensitiveText(line) !== line);
+    const dispatch = sendChain.then(() => whale.ownerGroupOnce(key, event, destination, lines, async assertCurrent => {
+      if (invalid) return '这次没发。消息格式有问题，或有不适合发到群里的内容。';
+      const channel = qqSendChannelStatus();
+      if (!channel.ok || socialV2.paused) return 'QQ 群发送目前不可用，这次没发。';
+      const st = getSocialV2State(destination);
+      const id = destination.split(':')[1];
+      let confirmed = 0;
+      for (const line of lines) {
+        try {
+          assertCurrent();
+          if (!isSessionAllowedInCurrentMode(destination) || socialV2.paused) throw Error('group_unavailable');
+        } catch {
+          return `确认发了 ${confirmed}/${lines.length} 条。群发送已暂停，剩下的没发。`;
+        }
+        if (sendRateLimitInfo(destination, st, cfg.socialV2?.send, 1)) {
+          return `确认发了 ${confirmed}/${lines.length} 条。达到发送频率上限，剩下的没发。`;
+        }
+        st.sendTimes = [...st.sendTimes.slice(-499), Date.now()];
+        saveSocialV2State();
+        try {
+          const mention = line === '@全体成员';
+          const segments = mention ? [{type:'at',data:{qq:'all'}}] : [{type:'text',data:{text:line}}];
+          const receipt = await onebotSendSegments('group', id, segments, {requireReceipt:true});
+          if (mention) {
+            const httpUrl = String(cfg.snowluma.httpUrl).replace(/\/+$/, '');
+            const res = await fetch(httpUrl + '/get_msg', {method:'POST',
+              headers:{'content-type':'application/json', ...(cfg.snowluma.accessToken ? {authorization:'Bearer '+cfg.snowluma.accessToken} : {})},
+              body:JSON.stringify({message_id:receipt.message_id}),signal:AbortSignal.timeout(5000)});
+            const payload = await res.json();
+            const msg = payload.data;
+            if (!res.ok || payload.retcode !== 0 || msg?.message_type !== 'group'
+                || (msg.group_id != null && String(msg.group_id) !== id)
+                || !Array.isArray(msg.message) || !msg.message.some(segment => segment.type === 'at' && segment.data?.qq === 'all')) {
+              return `确认发了 ${confirmed}/${lines.length} 条。QQ 没确认 @全体成员，后面的没发。`;
+            }
+          }
+          confirmed++;
+          recordSentMessagesV2(destination, [line]);
+          saveSocialV2State();
+        } catch (error) {
+          log('[主人群发] 第 ' + (confirmed + 1) + ' 步未确认（' + (error?.name || 'Error') + '）');
+          return `确认发了 ${confirmed}/${lines.length} 条。第 ${confirmed + 1} 条发送未确认，后面的没发。`;
+        }
+      }
+      return `按顺序发了 ${confirmed} 条，QQ 都有回执。`;
+    }, report));
+    sendChain = dispatch.catch(error => log('[主人群发] 指令或回执未完成（' + (error?.name || 'Error') + '）'));
+    return dispatch;
+  }
+
   async function handleIncoming(kind, id, event, cfg) {
     const key = convKey(kind, id);
     return whale.incoming(key, event, () => handleIncomingWhale(kind, id, event, cfg));
@@ -16042,6 +16177,7 @@ async function main() {
       log(`[黑名单] 忽略 ${key} 来自 ${event.user_id} 的消息（deny.users）`);
       return;
     }
+    if (kind === 'private' && await handleOwnerGroupDispatch(key, event)) return;
     const resolveAtName = async (qq) => {
       // 只有群聊才需要把 @QQ号 解析成群名片/昵称；私聊没有群成员概念
       if (kind !== 'group') return null;

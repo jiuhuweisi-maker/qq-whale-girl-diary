@@ -46,7 +46,8 @@ class SimDate extends Date {
 // production/Linux still uses the original fsynced engine and the real filesystem.
 const disk = { ...fs, openSync(file, mode, ...args) { if (mode === 'r' && fs.statSync(file).isDirectory() && process.platform === 'win32') { const fd = -1000 - descriptors.size; descriptors.add(fd); return fd; } return fs.openSync(file, mode, ...args); }, fsyncSync(fd) { if (!descriptors.has(fd)) fs.fsyncSync(fd); }, closeSync(fd) { if (descriptors.has(fd)) descriptors.delete(fd); else fs.closeSync(fd); } };
 const legacyDir=fs.mkdtempSync(path.join(os.tmpdir(),'whale-stickers-'));fs.writeFileSync(path.join(legacyDir,'happy.png'),Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64'));fs.writeFileSync(path.join(legacyDir,'INDEX.tsv'),'happy.png\t开心测试图\n');
-const h = await bridgeHarness({ config: { whaleCompat: { cutover: Math.floor(Date.now()/1000)-1,stickerDir:legacyDir }, purpose: { enabled: false }, social: { enabled: false }, voice: { enabled: false }, biliBridge: { enabled: false }, socialV2: { enabled: true, tokenGuard: { enabled: false }, send: { maxPerMinute: 100, maxPerHour: 500 } } }, globals: {
+let ownerDispatchFixture;
+const h = await bridgeHarness({ onebotResponse: (action, body) => ownerDispatchFixture?.(action, body), config: { whaleCompat: { cutover: Math.floor(Date.now()/1000)-1,stickerDir:legacyDir }, purpose: { enabled: false }, social: { enabled: false }, voice: { enabled: false }, biliBridge: { enabled: false }, socialV2: { enabled: true, tokenGuard: { enabled: false }, send: { maxPerMinute: 100, maxPerHour: 500 } } }, globals: {
   ...stickerSemantics,...contextSnapshot,extractMentions,bootstrapToolContext,backgroundPromptRefresh,Date:SimDate,safeFetchBuffer:async url=>{assert.equal(url,'https://public.invalid/sticker');return{buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64')};},createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, log:(...a)=>{options.log?.(...a);if(String(a[0]).startsWith('持久消息账本'))console.error('[fixture-ledger]',...a);}, control: async () => structuredClone(control) }),
   createFundPilot:options=>createFundPilot({...options,disk,research:{read:async fund=>({code:fund.code,name:fund.name,unitNav:1.2,asOf:'2026-10-30',measurement:'published_unit_nav',isRealtimePrice:false})},request:async(route,data)=>({mode:'paper',liveTrading:false,cashFen:100000,...(data?{order:data}:{})})}),recordSessionResult,
   renderConversationMemory, createLegacyReader, journalFocus, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,groupActivityView,relationshipBlock,composeConfirmedPersona,contextualFollowUp,proactiveDelay,legacyMedia,interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan,discoverDshSessionCookie: () => ''
@@ -203,6 +204,75 @@ try {
     assert.equal(sent.length,1);assert.equal(sent[0].body.user_id,123);assert(sent[0].body.message[0].data.text.includes('晚安'));assert(!st.wakeConfig.infinite);
     clockOffset=Date.parse('2026-10-30T10:53:00+08:00')-Date.now();
     assert(!h.buildWakePromptV2('private:123','private').includes('【夜间私信】'));clockOffset=0;
+  });
+  await test('only a new explicit owner DM can send an ordered group batch, with native mention and no replay',async()=>{
+    h.setReady(true);
+    h.setSnowlumaHealth({connected:true,lastSendFailAt:0});
+    const start=h.calls.http.length;
+    const line='再试试：去群里@全体成员，发出，然后再发一条111有人吗？发出，最后发一条怎么这么安静🐵💢';
+    const dm=(id,user,text)=>{const e=event(id,user,text);delete e.group_id;return e;};
+    const groupSends=()=>h.calls.http.slice(start).filter(row=>row.url.endsWith('/send_group_msg'));
+    const groupEvent=event(1961,123,'/群发 456\n@全体成员\n测试',[]);
+    await h.handleIncoming('group',456,groupEvent,h.cfg);
+    await h.handleIncoming('private',123,dm(1962,234,'/群发 456\n@全体成员\n测试'),h.cfg);
+    assert.equal(groupSends().length,0);
+    h.socialV2.paused=false;
+    h.setSnowlumaHealth({connected:true,lastSendFailAt:0,lastSendOkAt:SimDate.now()});
+    ownerDispatchFixture=(action)=>action==='get_msg' ? {status:'ok',retcode:0,data:{message_type:'group',group_id:456,message:[{type:'at',data:{qq:'all'}}]}} : null;
+    try {
+      const input=dm(1963,123,line);
+      await h.handleIncoming('private',123,input,h.cfg);
+      await h.handleIncoming('private',123,input,h.cfg);
+      assert.equal(groupSends().length,3,JSON.stringify(h.calls.http.slice(start)));
+      assert.deepEqual(groupSends().map(row=>JSON.stringify(row.body.message)),[
+        JSON.stringify([{type:'at',data:{qq:'all'}}]),
+        JSON.stringify([{type:'text',data:{text:'111有人吗？'}}]),
+        JSON.stringify([{type:'text',data:{text:'怎么这么安静🐵💢'}}]),
+      ]);
+      const report=h.calls.http.slice(start).filter(row=>row.url.endsWith('/send_private_msg'));
+      assert.equal(report.length,1);
+      assert(report[0].body.message[0].data.text.includes('按顺序发了 3 条'));
+      assert.equal(Object.entries(h.whale.ledger.data.outbox).filter(([key,row])=>key.startsWith('owner-group:private:123:1963:group:')&&row.status==='sent'&&row.receipt?.message_id).length,3);
+      const beforeRecovery=groupSends().length;
+      const recovered=dm(1964,123,'/群发 456\n这条恢复后不能补发');
+      h.whale.ledger.change(data=>{data.inbox['private:123:1964']={at:SimDate.now(),expiresAt:SimDate.now()+60000,stage:'buffered',key:'private:123',event:recovered};});
+      await h.whale.recover(async()=>{await h.whale.ownerGroupOnce('private:123',recovered,'group:456',['恢复样本'],()=>{throw Error('必须拒绝恢复群发');},()=>{});},()=>false);
+      assert.equal(groupSends().length,beforeRecovery);
+      ownerDispatchFixture=(action,body)=>action==='send_group_msg'&&body.message[0]?.data?.text==='第二条被拒' ? {status:'failed',retcode:100} : null;
+      await h.handleIncoming('private',123,dm(1965,123,'/群发 456\n第一条\n第二条被拒\n第三条'),h.cfg);
+      assert.deepEqual(groupSends().slice(3).map(row=>row.body.message[0].data.text),['第一条','第二条被拒']);
+      ownerDispatchFixture=null;
+      await h.handleIncoming('private',123,dm(1966,123,'/群发 456\n@全体成员\n没有确认就不发'),h.cfg);
+      assert.equal(groupSends().length,6);
+      assert.equal(groupSends().at(-1).body.message[0].data.qq,'all');
+    } finally { ownerDispatchFixture=null; }
+  });
+  await test('natural owner language can hand over exact words with no command and no historical or negated send',async()=>{
+    h.setReady(true);
+    h.setSnowlumaHealth({connected:true,lastSendFailAt:0,lastSendOkAt:SimDate.now()});
+    const key='private:123',st=h.getSocialV2State(key),sid=await h.ensureSession(key);
+    const dm=(id,text)=>{const e=event(id,123,text);delete e.group_id;return e;};
+    const lines=['第一句嗨','第二句晚安'];
+    let index=0;
+    async function call(messageId,selected=lines){
+      const args={key,token:st.agentToken,messageId,group:'456',lines:selected};
+      const serial=String(++index).padStart(12,'0');
+      h.whale.onEvent(key,sid,{type:'turn/start',data:{turn:'owner-natural-'+serial}});
+      h.whale.onEvent(key,sid,{type:'tool/call',data:{name:'mcp__snowluma__qq_owner_group_send',callId:'owner-natural-'+serial,arguments:JSON.stringify(args)}});
+      return fetch(base+'/api/socialV2/owner-group-send',{method:'POST',
+        headers:{'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1','x-agent-token':st.agentToken,'x-whale-request-id':'b1c11111-1111-1111-1111-'+serial,'x-whale-tool':'qq_owner_group_send','x-whale-args':Buffer.from(JSON.stringify(args)).toString('base64')},
+        body:JSON.stringify(args)}).then(r=>r.json());
+    }
+    const before=h.calls.http.length;
+    await h.handleIncoming('private',123,dm(1971,'别去群里发第一句嗨，然后说第二句晚安'),h.cfg);
+    assert.equal((await call(1971)).ok,false);
+    await h.handleIncoming('private',123,dm(1972,'鲸戒，能帮我去群里发“第一句嗨”，然后说“第二句晚安”吗'),h.cfg);
+    assert.equal((await call(1971)).ok,false);
+    assert.equal((await call(1972,['第二句晚安','第一句嗨'])).ok,false);
+    const result=await call(1972);
+    assert.equal(result.ok,true,JSON.stringify(result));
+    assert.equal((await call(1972)).ok,false);
+    assert.deepEqual(h.calls.http.slice(before).filter(r=>r.url.endsWith('/send_group_msg')).map(r=>r.body.message[0].data.text),lines);
   });
   await test('a bare group number opens the destination and its own turn can send to that group',async()=>{
     h.setReady(true);
