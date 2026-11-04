@@ -4,6 +4,12 @@ import path from 'node:path';
 export const SCENE_SWITCH_WINDOW_MS = 120000;
 const VIDEO_ID = /^BV[0-9A-Za-z]{10}$/;
 
+export function sceneGroupKey(value) {
+  if (typeof value === 'number' && !Number.isSafeInteger(value)) return '';
+  const match = /^(?:group:)?([1-9]\d{0,19})$/.exec(String(value ?? '').trim());
+  return match ? `group:${match[1]}` : '';
+}
+
 export function publicVideoId(value) {
   const text = String(value ?? '').trim();
   if (VIDEO_ID.test(text)) return text;

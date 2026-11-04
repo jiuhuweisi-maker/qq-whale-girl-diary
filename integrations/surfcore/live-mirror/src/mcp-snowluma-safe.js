@@ -1503,7 +1503,7 @@ server.tool('qq_fundpilot','主人私信里的基金助手：resolve或market带
 
 server.tool('qq_switch_scene',
   '想去另一个地方接话或分享时，可以切到主人的 QQ 私信、已允许的 QQ 群或 B 站。自己选择听众。video 可带公开视频的 BV 号或干净链接。目标收到的是一次换场机会，发言仍用目标场合的工具并看实际回执。state=choose 时从返回的群里选一个。',
-  {key:z.string(),token:z.string(),target:z.enum(['private','group','bili']),group:z.string().max(40).optional(),video:z.string().max(96).optional()},
+  {key:z.string(),token:z.string(),target:z.enum(['private','group','bili']),group:z.union([z.string().max(40),z.number().int().positive()]).optional().describe('可用群号或 group:群号，只有一个可去的群时可以省略'),video:z.string().max(96).optional()},
   async args=>{
     try {
       const result = await agentApi('/api/socialV2/scene-switch', {method:'POST',headers:{'x-agent-token':args.token},body:JSON.stringify(args),timeoutMs:25000});

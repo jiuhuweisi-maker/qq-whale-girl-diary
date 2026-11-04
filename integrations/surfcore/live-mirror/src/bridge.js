@@ -9,7 +9,7 @@ import {modelImage} from '../whale-compat/model-image.mjs';
 // whale114 overlay
 import fs from 'node:fs';
 import { createWhaleRuntime } from '../whale-compat/runtime.mjs';
-import {publicVideoId, sceneOfferFile, sceneSwitchPrompt, SCENE_SWITCH_WINDOW_MS} from '../whale-compat/scene-switch.mjs';
+import {publicVideoId, sceneGroupKey, sceneOfferFile, sceneSwitchPrompt, SCENE_SWITCH_WINDOW_MS} from '../whale-compat/scene-switch.mjs';
 import { createFundPilot } from '../whale-compat/fundpilot.mjs';
 import { recordSessionResult,reserveGenerationRetry } from '../whale-compat/session-recovery.mjs';
 import {scopedToolGuide,qqPersona,conversationFocus,withConversationFocus} from '../whale-compat/conversation-logic.mjs';
@@ -1954,15 +1954,16 @@ async function main() {
   async function switchScene(body, source) {
     const {target, group, video: rawVideo} = body;
     const video = publicVideoId(rawVideo);
-    if (!['group', 'private', 'bili'].includes(target) || (rawVideo && !video) || (group && target !== 'group')) {
+    const hasGroup = group != null && group !== '';
+    if (!['group', 'private', 'bili'].includes(target) || (rawVideo && !video) || (hasGroup && target !== 'group')) {
       return {ok:false, error:'请选择场合，视频只能带公开的 B 站 BV 号或干净的视频链接'};
     }
     const owner = `private:${cfg.ownerQQ}`;
     const groups = [...new Set((cfg.allow?.groups || []).map(id=>`group:${id}`))].filter(key=>isSessionAllowedInCurrentMode(key));
-    if (target === 'group' && !group && groups.length > 1) {
+    if (target === 'group' && !hasGroup && groups.length > 1) {
       return {ok:true, state:'choose', groups:groups.map(key=>({key, name:groupProfile(key, getSocialV2State(key)).name}))};
     }
-    const destination = target === 'private' ? owner : target === 'bili' ? 'bili' : (group || groups[0]);
+    const destination = target === 'private' ? owner : target === 'bili' ? 'bili' : (hasGroup ? sceneGroupKey(group) : groups[0]);
     if (destination === source) return {ok:true, state:'here', hint:'你已经在这里，可以直接按这里的上下文聊天'};
     if (!destination || (target === 'group' && !groups.includes(destination))) return {ok:false, error:'找不到已允许的目标群'};
     if (socialV2.paused || !dshReady || whale.quiet(destination === 'bili' ? source : destination)) return {ok:false, error:'目标目前静音或不可用'};

@@ -55,8 +55,8 @@ if (!server.listening) await new Promise(r => server.once('listening', r));
 const base = 'http://127.0.0.1:' + server.address().port;
 let serial = 0;
 const event = (id, user, text, extra = []) => ({ time: Math.floor(Date.now()/1000), message_id: id, self_id: 999, group_id: 456, user_id: user, sender: { nickname: user === 123 ? '主人' : '同名群友' }, message: [{ type:'text',data:{text} }, ...extra] });
-async function send(messages, { requestId, callId, quote, at } = {}) {
-  const key = 'group:456', st = h.getSocialV2State(key), sessionId = await h.ensureSession(key);
+async function send(messages, { key = 'group:456', requestId, callId, quote, at } = {}) {
+  const st = h.getSocialV2State(key), sessionId = await h.ensureSession(key);
   const id = ++serial;
   const args = { key, token: st.agentToken, messages, ...(quote ? {replyToMessageId:quote} : {}), ...(at ? {atUserId:at} : {}) };
   h.whale.onEvent(key, sessionId, { type:'turn/start',data:{turn: 't' + id} });
@@ -203,13 +203,13 @@ try {
     clockOffset=Date.parse('2026-10-30T10:53:00+08:00')-Date.now();
     assert(!h.buildWakePromptV2('private:123','private').includes('【夜间私信】'));clockOffset=0;
   });
-  await test('actual QQ scene switch opens the destination session without forwarding source text',async()=>{
+  await test('a bare group number opens the destination and its own turn can send to that group',async()=>{
     h.setReady(true);
     const key='private:123', destination='group:457';
     h.cfg.allow.groups.push('457');
     const st=h.getSocialV2State(key),sourceId=await h.ensureSession(key);
     st.recentMessages=[{userId:'123',plain:'私聊样本内容不得跨场',time:Date.now()}];
-    const args={key,token:st.agentToken,target:'group',group:destination,video:'BV1ab2cd3ef4'};
+    const args={key,token:st.agentToken,target:'group',group:'457',video:'BV1ab2cd3ef4'};
     const requestId='11111111-1111-1111-1111-000000019100';
     const headers={'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1','x-agent-token':st.agentToken,'x-whale-request-id':requestId,'x-whale-tool':'qq_switch_scene','x-whale-args':Buffer.from(JSON.stringify(args)).toString('base64')};
     const call=()=>fetch(base+'/api/socialV2/scene-switch',{method:'POST',headers,body:JSON.stringify(args)}).then(r=>r.json());
@@ -226,6 +226,11 @@ try {
     assert.equal(h.calls.sent.length,sends);
     assert.equal((await call()).ok,false);
     assert.equal(h.calls.prompts.length,before+1);
+    const delivery=await send(['这个视频的剪辑好有意思'],{key:destination});
+    assert.equal(delivery.ok,true,JSON.stringify(delivery));
+    assert.equal(delivery.sent,1);
+    const sent=h.calls.http.filter(entry=>entry.url.endsWith('/send_group_msg')).at(-1);
+    assert.equal(String(sent.body.group_id),'457');
   });
   await test('QQ and Bili can enter each others actual session without handing over a message',async()=>{
     const key='private:123',st=h.getSocialV2State(key),sourceId=await h.ensureSession(key);
@@ -241,7 +246,7 @@ try {
     h.cfg.allow.groups.push('458');
     const fromBili=(body,extra={})=>fetch(base+'/api/scene-switch-from-bili',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token',...extra},body:JSON.stringify(body)}).then(r=>r.json());
     assert.equal((await fromBili({target:'group'})).state,'choose');
-    assert.equal((await fromBili({target:'group',group:'group:459'})).ok,false);
+    assert.equal((await fromBili({target:'group',group:459})).ok,false);
     assert.equal((await fromBili({target:'group',group:'group:458',video:'私信原话'})).ok,false);
     assert.equal((await fromBili({target:'group',group:'group:458'},{'x-agent-token':st.agentToken})).ok,false);
     const before=h.calls.prompts.length;
