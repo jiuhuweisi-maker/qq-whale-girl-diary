@@ -18,7 +18,7 @@ import {interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan}
 import {extractMentions} from '../compat/message-mentions.mjs';
 import {bootstrapToolContext,backgroundPromptRefresh} from '../compat/context-economy.mjs';
 import {appendJournal} from '../compat/personal-journal.mjs';
-import {claimBiliSceneOffer} from '../compat/scene-switch.mjs';
+import {claimBiliSceneOffer,sceneSwitchPrompt} from '../compat/scene-switch.mjs';
 const root = path.resolve(process.argv[2]);
 const stickerSemantics = await import(pathToFileURL(path.join(root,'src/sticker-semantics.js')));
 const {serializeModelData}=await import(pathToFileURL(path.join(root,'src/qq-model-view.js')));
@@ -284,14 +284,18 @@ try {
   });
   await test('QQ and Bili can enter each others actual session without handing over a message',async()=>{
     const key='private:123',st=h.getSocialV2State(key),sourceId=await h.ensureSession(key);
-    const args={key,token:st.agentToken,target:'bili',video:'https://www.bilibili.com/video/BV1ab2cd3ef4/'};
+    const args={key,token:st.agentToken,target:'bili',intent:'speak',video:'https://www.bilibili.com/video/BV1ab2cd3ef4/'};
     h.whale.onEvent(key,sourceId,{type:'turn/start',data:{turn:'bili-scene'}});
     h.whale.onEvent(key,sourceId,{type:'tool/call',data:{name:'mcp__snowluma__qq_switch_scene',callId:'bili-scene',arguments:JSON.stringify(args)}});
     const headers={'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1','x-agent-token':st.agentToken,'x-whale-request-id':'11111111-1111-1111-1111-000000019101','x-whale-tool':'qq_switch_scene','x-whale-args':Buffer.from(JSON.stringify(args)).toString('base64')};
     const toBili=await fetch(base+'/api/socialV2/scene-switch',{method:'POST',headers,body:JSON.stringify(args)}).then(r=>r.json());
     assert.equal(toBili.state,'pending',JSON.stringify(toBili));
     const dir=path.join(h.temp,'dsh','surfcore','memory');
-    assert.equal(claimBiliSceneOffer(dir).video,'BV1ab2cd3ef4');
+    const offer=claimBiliSceneOffer(dir);
+    assert.equal(offer.video,'BV1ab2cd3ef4');
+    assert.equal(offer.intent,'speak');
+    const biliPrompt=sceneSwitchPrompt('bili',offer.video,offer);
+    assert(biliPrompt.includes('想公开聊一句') && !biliPrompt.includes('qq_send_message'));
     assert.equal(claimBiliSceneOffer(dir),null);
     h.cfg.allow.groups.push('458');
     const fromBili=(body,extra={})=>fetch(base+'/api/scene-switch-from-bili',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token',...extra},body:JSON.stringify(body)}).then(r=>r.json());
@@ -307,6 +311,11 @@ try {
     assert.equal(h.calls.prompts.length,before+1);
     assert(JSON.stringify(h.calls.prompts.at(-1).content).includes('你现在在当前 QQ 群'));
     assert(JSON.stringify(h.calls.prompts.at(-1).content).includes('再决定要不要开口'));
+    h.cfg.allow.groups.push('460');
+    const talk=await fromBili({target:'group',group:'460',intent:'speak'});
+    assert.equal(talk.state,'accepted');
+    assert.equal(talk.intent,'speak');
+    assert(JSON.stringify(h.calls.prompts.at(-1).content).includes('先用当前会话的 qq_send_message 实际发出'));
   });
   console.log('PASS_ALL ' + passed);
 } finally {await new Promise(r=>server.close(r)); await h.close();assert.equal(path.dirname(legacyDir),path.resolve(os.tmpdir()));fs.rmSync(legacyDir,{recursive:true});}

@@ -67,7 +67,7 @@ const [cmd, ...rest] = process.argv.slice(2)
 if (!cmd || cmd === 'help' || cmd === '-h' || cmd === '--help') {
   console.log('用法: node bili.mjs <命令> [参数...]\n')
   console.log('命令:')
-  console.log('  scene             去 QQ 私信或群：scene private|group [--group group:编号] [--video BV号]')
+  console.log('  scene             去 QQ 私信或群：scene private|group [--group group:编号] [--intent look|speak] [--video BV号]')
   for (const [name, [, desc]] of Object.entries(map)) console.log(`  ${name.padEnd(16)} ${desc}`)
   console.log('\n安全约定（脚本里也强制）:')
   console.log('  · 写操作必须显式给 --dry（只打印请求）或 --go（真的发）')
@@ -79,13 +79,13 @@ if (cmd === 'scene') {
   try {
     const [target, ...flags] = rest
     if (!['private', 'group'].includes(target)) throw Error('请选择 private 或 group')
-    const {values} = parseArgs({args:flags,options:{group:{type:'string'},video:{type:'string'}}})
+    const {values} = parseArgs({args:flags,options:{group:{type:'string'},video:{type:'string'},intent:{type:'string'}}})
     const {QQ_CONFIG} = await import('../lib/paths.js')
     const config = JSON.parse(fs.readFileSync(QQ_CONFIG, 'utf8'))
     const token = config.consoleToken || fs.readFileSync(path.join(path.dirname(QQ_CONFIG), 'state/console-token'), 'utf8').trim()
     const response = await fetch(`http://127.0.0.1:${Number(config.consolePort) || 3100}/api/scene-switch-from-bili`, {
       method:'POST', headers:{'content-type':'application/json','x-console-token':token},
-      body:JSON.stringify({target,group:values.group,video:values.video}),signal:AbortSignal.timeout(25000),
+      body:JSON.stringify({target,group:values.group,video:values.video,intent:values.intent}),signal:AbortSignal.timeout(25000),
     })
     const result = await response.json()
     console.log(JSON.stringify(result))

@@ -1959,20 +1959,23 @@ async function main() {
       return {ok:false, error:'请选择场合，视频只能带公开的 B 站 BV 号或干净的视频链接'};
     }
     const owner = `private:${cfg.ownerQQ}`;
-    if (!['look', 'speak'].includes(intent) || (target === 'bili' && intent !== 'look')) {
-      return {ok:false, error:'换场意图无效。去 QQ 开口选 speak，只想看看选 look。'};
+    if (!['look', 'speak'].includes(intent)) {
+      return {ok:false, error:'换场意图无效。想开口选 speak，只想看看选 look。'};
     }
     if (check !== undefined && (!cfg.ownerQQ || source !== owner || target !== 'group'
         || intent !== 'speak' || typeof check !== 'string' || !/^[0-9]{1,3}$/.test(check))) {
       return {ok:false, error:'数字测试只用于主人私信明确约好的群内测试，请用一至三位数字。'};
     }
-    const groups = [...new Set((cfg.allow?.groups || []).map(id=>`group:${id}`))].filter(key=>isSessionAllowedInCurrentMode(key));
+    const groups = [...new Set((cfg.allow?.groups || []).map(sceneGroupKey))].filter(key=>isSessionAllowedInCurrentMode(key));
     if (target === 'group' && !hasGroup && groups.length > 1) {
       return {ok:true, state:'choose', groups:groups.map(key=>({key, name:groupProfile(key, getSocialV2State(key)).name}))};
     }
     const destination = target === 'private' ? owner : target === 'bili' ? 'bili' : (hasGroup ? sceneGroupKey(group) : groups[0]);
     if (destination === source) return {ok:true, state:'here', hint:'你已经在这里，可以直接按这里的上下文聊天'};
     if (!destination || (target === 'group' && !groups.includes(destination))) return {ok:false, error:'找不到已允许的目标群'};
+    if (target === 'private' && (!cfg.ownerQQ || !isSessionAllowedInCurrentMode(owner))) {
+      return {ok:false, error:'主人的私信当前不可用'};
+    }
     if (socialV2.paused || !dshReady || whale.quiet(destination === 'bili' ? source : destination)) return {ok:false, error:'目标目前静音或不可用'};
     if (destination !== 'bili' && isConversationBusyV2(destination, getSocialV2State(destination))) {
       return {ok:false, error:'目标正在聊这一轮，等自然收尾再决定'};
@@ -1987,8 +1990,8 @@ async function main() {
     })) return {ok:false, error:'这次换场未能登记'};
     if (destination === 'bili') {
       fs.mkdirSync(MEMORY_CARD_PATHS.dir,{recursive:true});
-      atomicWriteJson(sceneOfferFile(MEMORY_CARD_PATHS.dir),{at,video});
-      return {ok:true, state:'pending', hint:'B站下次检查时会决定是否接上，当前还没发言'};
+      atomicWriteJson(sceneOfferFile(MEMORY_CARD_PATHS.dir),{at,video,intent});
+      return {ok:true, state:'pending', intent, hint:'已登记这次去 B 站的意图，是否到达和发言还未确认。'};
     }
     const result = await sendWakePromptV2(destination, 'sceneSwitch', {video, intent, check});
     return result?.ok === true && !result.skipped
