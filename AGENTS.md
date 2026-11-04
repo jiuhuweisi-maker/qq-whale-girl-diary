@@ -1,6 +1,6 @@
 # 鲸戒项目接手入口
 
-当前完整部署版：**适配193 / SurfCore 0.8.8**，固定官方提交见 `integrations/surfcore/version.mjs`。先读 `docs/PATCH193-SELF-WAKE-AND-GROUP-CONTEXT-2026-11-04.md`；私密断点在仓库外 `.ops/CONTINUE193.md`，以最新段落为准。不要依据归档里的旧拓扑、数字和“未完成”重做部署。
+当前完整部署版：**适配194 / SurfCore 0.8.8**，固定官方提交见 `integrations/surfcore/version.mjs`。先读 `docs/PATCH194-SCENE-INTENT-2026-11-04.md`；私密断点在仓库外 `.ops/CONTINUE194.md`，以最新段落为准。不要依据归档里的旧拓扑、数字和“未完成”重做部署。
 
 ## 开工
 

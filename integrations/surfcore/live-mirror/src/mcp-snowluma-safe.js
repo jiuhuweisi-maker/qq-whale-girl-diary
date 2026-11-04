@@ -1502,14 +1502,16 @@ server.tool('qq_fundpilot','主人私信里的基金助手：resolve或market带
 },async args=>{try{const result=await agentApi('/api/socialV2/fundpilot',{method:'POST',headers:{'x-agent-token':args.token},body:JSON.stringify(args),timeoutMs:30000});return {content:[{type:'text',text:serializeModelData(result)}]};}catch(error){return {isError:true,content:[{type:'text',text:'这次没有确认查询或设置完成。先查状态和已保存的计划，别重复操作；模拟下单也不要换个说法重试。'+(String(error?.message||'').includes('收盘')?'现在收盘了。':'')}]};}});
 
 server.tool('qq_switch_scene',
-  '想去另一个地方接话或分享时，可以切到主人的 QQ 私信、已允许的 QQ 群或 B 站。自己选择听众。video 可带公开视频的 BV 号或干净链接。目标收到的是一次换场机会，发言仍用目标场合的工具并看实际回执。state=choose 时从返回的群里选一个。',
-  {key:z.string(),token:z.string(),target:z.enum(['private','group','bili']),group:z.union([z.string().max(40),z.number().int().positive()]).optional().describe('可用群号或 group:群号，只有一个可去的群时可以省略'),video:z.string().max(96).optional()},
+  '自己选择去主人的 QQ 私信、已允许的 QQ 群或 B 站。去 QQ 开口选 intent=speak，去看看选 intent=look。video 可带公开 BV 号或链接。state=choose 时先选群；accepted 只说明已换场，是否发出以目标发送回执为准。当前回合仍留在原处。你在各处是同一个人。',
+  {key:z.string(),token:z.string(),target:z.enum(['private','group','bili']),group:z.union([z.string().max(40),z.number().int().positive()]).optional().describe('可用群号或 group:群号，只有一个可去的群时可以省略'),video:z.string().max(96).optional(),
+    intent:z.enum(['look','speak']).optional().describe('QQ 场合：已经决定开口用 speak，只想看看用 look'),
+    check:z.string().regex(/^[0-9]{1,3}$/).optional().describe('仅主人私信明确要求去群里发一至三位数字测试时使用，同时选 speak')},
   async args=>{
     try {
       const result = await agentApi('/api/socialV2/scene-switch', {method:'POST',headers:{'x-agent-token':args.token},body:JSON.stringify(args),timeoutMs:25000});
       return {content:[{type:'text',text:serializeModelData(result)}]};
-    } catch (error) {
-      return {isError:true,content:[{type:'text',text:`这次没有确认换场。${error.message}。等有新话题再判断。`}]};
+    } catch {
+      return {isError:true,content:[{type:'text',text:'暂时无法确认这次换场。不要把它当作已经发出，也不要立即重试。'}]};
     }
   }
 );

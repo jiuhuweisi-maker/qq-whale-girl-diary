@@ -210,7 +210,7 @@ try {
     h.cfg.allow.groups.push('457');
     const st=h.getSocialV2State(key),sourceId=await h.ensureSession(key);
     st.recentMessages=[{userId:'123',plain:'私聊样本内容不得跨场',time:Date.now()}];
-    const args={key,token:st.agentToken,target:'group',group:'457',video:'BV1ab2cd3ef4'};
+    const args={key,token:st.agentToken,target:'group',group:'457',video:'BV1ab2cd3ef4',intent:'speak',check:'111'};
     const requestId='11111111-1111-1111-1111-000000019100';
     const headers={'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-call':'1','x-agent-token':st.agentToken,'x-whale-request-id':requestId,'x-whale-tool':'qq_switch_scene','x-whale-args':Buffer.from(JSON.stringify(args)).toString('base64')};
     const call=()=>fetch(base+'/api/socialV2/scene-switch',{method:'POST',headers,body:JSON.stringify(args)}).then(r=>r.json());
@@ -219,22 +219,25 @@ try {
     const before=h.calls.prompts.length,sends=h.calls.sent.length;
     const result=await call();
     assert.equal(result.state,'accepted',JSON.stringify(result));
-    assert(result.hint.includes('你这一轮仍在原会话'));
+    assert.equal(result.intent,'speak');
+    assert(result.hint.includes('发言尚未确认') && !result.hint.includes('111'));
     const prompt=h.calls.prompts.at(-1);
     assert.equal(h.calls.prompts.length,before+1);
     assert.notEqual(prompt.sessionId,sourceId);
     assert(JSON.stringify(prompt.content).includes('www.bilibili.com/video/BV1ab2cd3ef4'));
     assert(!JSON.stringify(prompt.content).includes('私聊样本内容不得跨场'));
-    assert(JSON.stringify(prompt.content).includes('不用等有人先开口或 @你'));
+    assert(JSON.stringify(prompt.content).includes('只发数字 111'));
+    assert(JSON.stringify(prompt.content).includes('先用当前会话的 qq_send_message 实际发出'));
     assert(!JSON.stringify(prompt.content).includes('【首回复节奏】'));
     assert.equal(h.calls.sent.length,sends);
     assert.equal((await call()).ok,false);
     assert.equal(h.calls.prompts.length,before+1);
-    const delivery=await send(['这个视频的剪辑好有意思'],{key:destination});
+    const delivery=await send(['111'],{key:destination});
     assert.equal(delivery.ok,true,JSON.stringify(delivery));
     assert.equal(delivery.sent,1);
     const sent=h.calls.http.filter(entry=>entry.url.endsWith('/send_group_msg')).at(-1);
     assert.equal(String(sent.body.group_id),'457');
+    assert(sent.body.message.some(segment=>segment.data.text==='111'));
   });
   await test('only the owner sees observed group activity and same-name speakers remain distinct',async()=>{
     const group = h.getSocialV2State('group:456');
@@ -295,11 +298,15 @@ try {
     assert.equal((await fromBili({target:'group'})).state,'choose');
     assert.equal((await fromBili({target:'group',group:459})).ok,false);
     assert.equal((await fromBili({target:'group',group:'group:458',video:'私信原话'})).ok,false);
+    assert.equal((await fromBili({target:'group',group:'group:458',intent:'speak',check:'111'})).ok,false);
     assert.equal((await fromBili({target:'group',group:'group:458'},{'x-agent-token':st.agentToken})).ok,false);
     const before=h.calls.prompts.length;
-    assert.equal((await fromBili({target:'group',group:'group:458'})).state,'accepted');
+    const switched=await fromBili({target:'group',group:'group:458'});
+    assert.equal(switched.state,'accepted');
+    assert.equal(switched.intent,'look');
     assert.equal(h.calls.prompts.length,before+1);
     assert(JSON.stringify(h.calls.prompts.at(-1).content).includes('你现在在当前 QQ 群'));
+    assert(JSON.stringify(h.calls.prompts.at(-1).content).includes('再决定要不要开口'));
   });
   console.log('PASS_ALL ' + passed);
 } finally {await new Promise(r=>server.close(r)); await h.close();assert.equal(path.dirname(legacyDir),path.resolve(os.tmpdir()));fs.rmSync(legacyDir,{recursive:true});}
