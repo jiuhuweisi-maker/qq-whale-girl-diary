@@ -57,8 +57,17 @@ bash deploy/bootstrap.sh /root/whale-ops/install.local.json
 
 NapCat 容器与 ws 端口、旧 dsh-qq-bridge 平铺镜像、143 构建器、旧主动聊天 cron、`archive/`、`live-backup/`、`simulator/`、FundPilot 模拟盘。`archive/2026-10-30/`、`archive/2026-11-03/` 只作历史证据，不要用它们安装或覆盖。
 
-## 已知坑
+## /opt/qq-cs 里的旧助手脚本（默认都不部署）
 
+生产机 `/opt/qq-cs` 除 relay 外还有一批 10 月 23–29 的旧脚本，Git 里没有或与线上不同：
+
+- **Git 里没有**：`eventd.py`、`her_balance.py`、`her_pick_pic.py`、`her_send_pic.py`、`sanitize_live.py`——旧时代助手，cron 已经不跑，按"废弃不部署"处理。
+- **与线上不同**：`poke.py`、`auto_memes.py`、`weekly_report.py` 是旧版本；`wsd.py` 线上那份把 OneBot WS 票直接写死在 `WS_URL` 里，Git 版是脱敏的 `ws://127.0.0.1:3001`。要复刻戳一戳转发，自己把票填进脱敏位置（票不进 Git）。
+- **cron 实际只跑五个**：`live_backup.sh`、`memory_store.py`、`watchdog.sh`、`snowluma-guard.sh`、`version_check.sh`。`version_check.sh` 已补进 `scripts/`，但**默认不装**——先确认 `notify.conf` 里的 webhook 是你自己的。
+
+所以"一模一样"的边界是清楚的：**她怎么说话、怎么记事、怎么发图、怎么换场，全在 536 个文件里；这堆旧脚本只影响备份、巡检、戳一戳这些外围动作。**
+
+## 已知坑
 - **`version.mjs` 的 `OVERLAY_PATCH` 必须等于线上实际补丁号**。2026-11-04 之前它停在 199，而代码已是 200——新构建会打上错的版本号，`init.mjs` 的版本校验也会跟着错位。已修成 200；以后每次上补丁都要同步这一行。
 - `build-upstream.sh` 会 `npm ci`，小内存机（2G 且已有服务）容易顶到 OOM。要么在空闲时段跑，要么先加 swap；**不要在生产机上边跑边重启 DSH**。
 - 镜像 `/opt/whale-live` 的 origin 是 `ssh://git@ssh.github.com`，服务器上没有私钥会 `Permission denied`；公开仓库按 HTTPS 匿名取即可。
