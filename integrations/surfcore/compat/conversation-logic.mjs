@@ -1,5 +1,44 @@
 // Keep conversational guidance separate from product tools and generation recovery.
 import {personAnchor} from './relationships.mjs';
+
+export function groupActivityView(groups, {now, owner, self, blockedUsers, connected, redact, since = 0}) {
+  const observed = groups.map(({key, name, messages}) => {
+    const incoming = messages.filter(m => m && !m.isSelf && m.messageId
+      && (!self || String(m.userId) !== String(self)) && !blockedUsers.has(String(m.userId ?? '').trim())
+      && Number(m.time) > 0 && Number(m.time) <= now)
+      .sort((a, b) => Number(b.time) - Number(a.time));
+    return {key, name, incoming, lastSeenAt: Number(incoming[0]?.time || 0)};
+  }).filter(group => !since || group.lastSeenAt > since)
+    .sort((a, b) => b.lastSeenAt - a.lastSeenAt).slice(0, 2);
+  if (!observed.length) return null;
+  const account = m => /^[1-9]\d*$/.test(String(m.userId ?? '')) ? String(m.userId) : '';
+  const clean = (value, max) => redact(String(value ?? '')).replace(/\s+/g, ' ').trim().slice(0, max);
+  return {
+    windowMinutes: 10,
+    groups: observed.map(({key, name, incoming, lastSeenAt}) => {
+      const fresh = connected ? incoming.filter(m => Number(m.time) > now - 600000) : [];
+      const speakerCount = new Set(fresh.map(account).filter(Boolean)).size;
+      const status = !connected || !lastSeenAt ? 'unknown' : fresh.length >= 8 && speakerCount >= 3
+        ? 'busy' : fresh.length ? 'active' : 'quiet';
+      const excerpts = fresh.filter(m => Number(m.time) > since && String(m.plain ?? '').trim())
+        .slice(0, 2).reverse().map(m => {
+          const id = account(m);
+          const speaker = String(m.sender ?? '').trim();
+          return {
+            at: new Date(Number(m.time)).toISOString(),
+            speaker: /^\d+$/.test(speaker) ? '' : clean(speaker, 40),
+            person: id ? personAnchor(id) : null,
+            role: id ? (id === String(owner) ? 'owner' : 'member') : 'unknown',
+            text: clean(m.plain, 90),
+          };
+        });
+      return {group: personAnchor(key).replace('person-', 'group-'), name: clean(name, 60), status,
+        messages: connected ? fresh.length : null,
+        lastSeenAt: lastSeenAt ? new Date(lastSeenAt).toISOString() : null, excerpts};
+    }),
+  };
+}
+
 function mentionContext(message) {
   if (!Array.isArray(message.mentions) || !message.mentions.length) return '';
   return ' {明确@：' + message.mentions.map(m => {

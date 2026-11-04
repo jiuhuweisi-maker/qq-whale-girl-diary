@@ -9,7 +9,7 @@ import { renderConversationMemory } from '../compat/memory-scope.mjs';
 import { createLegacyReader,journalFocus } from '../compat/legacy-reader.mjs';
 import { createFundPilot } from '../compat/fundpilot.mjs';
 import { recordSessionResult,reserveGenerationRetry } from '../compat/session-recovery.mjs';
-import {scopedToolGuide,qqPersona,conversationFocus,withConversationFocus} from '../compat/conversation-logic.mjs';
+import {scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,groupActivityView} from '../compat/conversation-logic.mjs';
 import {relationshipBlock} from '../compat/relationships.mjs';
 import {composeConfirmedPersona,contextualFollowUp} from '../compat/expression-style.mjs';
 import {proactiveDelay} from '../compat/proactive-clock.mjs';
@@ -22,6 +22,7 @@ import {claimBiliSceneOffer} from '../compat/scene-switch.mjs';
 const root = path.resolve(process.argv[2]);
 const stickerSemantics = await import(pathToFileURL(path.join(root,'src/sticker-semantics.js')));
 const {serializeModelData}=await import(pathToFileURL(path.join(root,'src/qq-model-view.js')));
+const contextSnapshot = await import(pathToFileURL(path.join(root,'src/context-snapshot.js')));
 const { cleanOutput, requestedLiterals } = await import(pathToFileURL(path.join(root, 'whale-compat/hygiene.mjs')));
 // Expose the same runtime in the upstream's existing VM harness; no replacement parser/router.
 const harnessPath = path.join(root, 'scripts/audit-bridge-harness.mjs');
@@ -46,9 +47,9 @@ class SimDate extends Date {
 const disk = { ...fs, openSync(file, mode, ...args) { if (mode === 'r' && fs.statSync(file).isDirectory() && process.platform === 'win32') { const fd = -1000 - descriptors.size; descriptors.add(fd); return fd; } return fs.openSync(file, mode, ...args); }, fsyncSync(fd) { if (!descriptors.has(fd)) fs.fsyncSync(fd); }, closeSync(fd) { if (descriptors.has(fd)) descriptors.delete(fd); else fs.closeSync(fd); } };
 const legacyDir=fs.mkdtempSync(path.join(os.tmpdir(),'whale-stickers-'));fs.writeFileSync(path.join(legacyDir,'happy.png'),Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64'));fs.writeFileSync(path.join(legacyDir,'INDEX.tsv'),'happy.png\t开心测试图\n');
 const h = await bridgeHarness({ config: { whaleCompat: { cutover: Math.floor(Date.now()/1000)-1,stickerDir:legacyDir }, purpose: { enabled: false }, social: { enabled: false }, voice: { enabled: false }, biliBridge: { enabled: false }, socialV2: { enabled: true, tokenGuard: { enabled: false }, send: { maxPerMinute: 100, maxPerHour: 500 } } }, globals: {
-  ...stickerSemantics,extractMentions,bootstrapToolContext,backgroundPromptRefresh,Date:SimDate,safeFetchBuffer:async url=>{assert.equal(url,'https://public.invalid/sticker');return{buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64')};},createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, log:(...a)=>{options.log?.(...a);if(String(a[0]).startsWith('持久消息账本'))console.error('[fixture-ledger]',...a);}, control: async () => structuredClone(control) }),
+  ...stickerSemantics,...contextSnapshot,extractMentions,bootstrapToolContext,backgroundPromptRefresh,Date:SimDate,safeFetchBuffer:async url=>{assert.equal(url,'https://public.invalid/sticker');return{buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64')};},createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, log:(...a)=>{options.log?.(...a);if(String(a[0]).startsWith('持久消息账本'))console.error('[fixture-ledger]',...a);}, control: async () => structuredClone(control) }),
   createFundPilot:options=>createFundPilot({...options,disk,research:{read:async fund=>({code:fund.code,name:fund.name,unitNav:1.2,asOf:'2026-10-30',measurement:'published_unit_nav',isRealtimePrice:false})},request:async(route,data)=>({mode:'paper',liveTrading:false,cashFen:100000,...(data?{order:data}:{})})}),recordSessionResult,
-  renderConversationMemory, createLegacyReader, journalFocus, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,relationshipBlock,composeConfirmedPersona,contextualFollowUp,proactiveDelay,legacyMedia,interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan,discoverDshSessionCookie: () => ''
+  renderConversationMemory, createLegacyReader, journalFocus, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,groupActivityView,relationshipBlock,composeConfirmedPersona,contextualFollowUp,proactiveDelay,legacyMedia,interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan,discoverDshSessionCookie: () => ''
 } });
 const server = h.startConsoleServer();
 if (!server.listening) await new Promise(r => server.once('listening', r));
@@ -218,11 +219,14 @@ try {
     const before=h.calls.prompts.length,sends=h.calls.sent.length;
     const result=await call();
     assert.equal(result.state,'accepted',JSON.stringify(result));
+    assert(result.hint.includes('你这一轮仍在原会话'));
     const prompt=h.calls.prompts.at(-1);
     assert.equal(h.calls.prompts.length,before+1);
     assert.notEqual(prompt.sessionId,sourceId);
     assert(JSON.stringify(prompt.content).includes('www.bilibili.com/video/BV1ab2cd3ef4'));
     assert(!JSON.stringify(prompt.content).includes('私聊样本内容不得跨场'));
+    assert(JSON.stringify(prompt.content).includes('不用等有人先开口或 @你'));
+    assert(!JSON.stringify(prompt.content).includes('【首回复节奏】'));
     assert.equal(h.calls.sent.length,sends);
     assert.equal((await call()).ok,false);
     assert.equal(h.calls.prompts.length,before+1);
@@ -231,6 +235,49 @@ try {
     assert.equal(delivery.sent,1);
     const sent=h.calls.http.filter(entry=>entry.url.endsWith('/send_group_msg')).at(-1);
     assert.equal(String(sent.body.group_id),'457');
+  });
+  await test('only the owner sees observed group activity and same-name speakers remain distinct',async()=>{
+    const group = h.getSocialV2State('group:456');
+    const previous = group.recentMessages;
+    const at = SimDate.now();
+    const owner = h.getSocialV2State('private:123');
+    const snapshot = (key, token) => fetch(base+'/api/socialV2/snapshot?key='+key, {
+      headers: {'x-console-token':'fixture-console-token', ...(token ? {'x-agent-token':token} : {})},
+    });
+    const view = async () => {
+      const response = await snapshot('private:123', owner.agentToken);
+      assert.equal(response.status, 200, await response.clone().text());
+      return (await response.json()).groupActivity;
+    };
+    h.setSnowlumaHealth({connected:true});
+    try {
+      group.recentMessages = Array.from({length:8}, (_,i) => ({
+        messageId: String(i+1), userId: ['333','456','123'][i%3], sender: '同名',
+        isOwner: i === 6, plain: '群消息'+i, time: at-1000+i,
+      }));
+      const activity = await view();
+      const observed = activity.groups.find(item => item.status === 'busy');
+      assert.equal(observed.messages, 8);
+      assert.deepEqual(observed.excerpts.map(m => [m.speaker,m.role]), [['同名','member'],['同名','member']]);
+      assert.notEqual(observed.excerpts[0].person, observed.excerpts[1].person);
+      group.recentMessages.at(-1).userId = '123';
+      assert.equal((await view()).groups[0].excerpts.at(-1).role,'owner');
+      const prompt = h.buildWakePromptV2('private:123','private');
+      assert(prompt.includes('【已开放群近况 · 仅背景】') && prompt.includes('群消息7'));
+      assert(!h.buildWakePromptV2('group:456','question').includes('【已开放群近况 · 仅背景】'));
+      assert(!(await (await snapshot('group:456', group.agentToken)).json()).groupActivity);
+      assert(!(await (await snapshot('private:123')).json()).groupActivity);
+      assert.equal((await snapshot('private:123', group.agentToken)).status, 403);
+      for (const message of group.recentMessages) message.time -= 601000;
+      assert.equal((await view()).groups[0].status,'quiet');
+      h.setSnowlumaHealth({connected:false});
+      const unknown = (await view()).groups[0];
+      assert.equal(unknown.status,'unknown');
+      assert.deepEqual(unknown.excerpts, []);
+    } finally {
+      group.recentMessages = previous;
+      h.setSnowlumaHealth({connected:true});
+    }
   });
   await test('QQ and Bili can enter each others actual session without handing over a message',async()=>{
     const key='private:123',st=h.getSocialV2State(key),sourceId=await h.ensureSession(key);

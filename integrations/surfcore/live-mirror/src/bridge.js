@@ -12,7 +12,7 @@ import { createWhaleRuntime } from '../whale-compat/runtime.mjs';
 import {publicVideoId, sceneGroupKey, sceneOfferFile, sceneSwitchPrompt, SCENE_SWITCH_WINDOW_MS} from '../whale-compat/scene-switch.mjs';
 import { createFundPilot } from '../whale-compat/fundpilot.mjs';
 import { recordSessionResult,reserveGenerationRetry } from '../whale-compat/session-recovery.mjs';
-import {scopedToolGuide,qqPersona,conversationFocus,withConversationFocus} from '../whale-compat/conversation-logic.mjs';
+import {scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,groupActivityView} from '../whale-compat/conversation-logic.mjs';
 import {relationshipBlock} from '../whale-compat/relationships.mjs';
 import {composeConfirmedPersona,contextualFollowUp} from '../whale-compat/expression-style.mjs';
 import {proactiveDelay} from '../whale-compat/proactive-clock.mjs';
@@ -1984,7 +1984,7 @@ async function main() {
       return {ok:true, state:'pending', hint:'B站下次检查时会决定是否接上，当前还没发言'};
     }
     const result = await sendWakePromptV2(destination, 'sceneSwitch', video);
-    return result?.ok === true && !result.skipped ? {ok:true, state:'accepted', hint:'目标会话已接到换场请求，当前还没确认发言'}
+    return result?.ok === true && !result.skipped ? {ok:true, state:'accepted', hint:'目标会话已自行唤醒，会在那里决定是否发言。你这一轮仍在原会话，无需替它发送或请人去 @。目前仅确认唤醒，发言情况要看目标会话的发送回执。'}
       : {ok:false, error:'目标会话没有接到这次换场请求'};
   }
   const fundpilot = createFundPilot({root:ROOT, config:cfg,log,
@@ -6689,7 +6689,8 @@ async function main() {
             caps,
             afterSeq: Number(url.searchParams.get('afterSeq') ?? 0) || 0,
           });
-          sendJson({ ...snapshot, ...(unreadNoticeV2(st) || {}) });
+          const groupActivity = req.headers['x-agent-token'] && ownerGroupActivityV2(key);
+          sendJson({ ...snapshot, ...(unreadNoticeV2(st) || {}), ...(groupActivity ? {groupActivity} : {}) });
           return;
         }
         if (req.method === 'GET' && url.pathname === '/api/socialV2/unread') {
@@ -8675,10 +8676,12 @@ async function main() {
           // 等到消息 → 这是正常工作，不是空转，清零连续等待计数。
           if (arrived) waitStreaks.delete(leaseKey);
           finishWait();
+          const groupActivity = req.headers['x-agent-token'] && ownerGroupActivityV2(key, start);
           sendJson({
             ok: true,
             key,
             purpose: replyWait ? 'reply' : 'messages',
+            ...(groupActivity ? {groupActivity} : {}),
             arrived,
             quiet,
             quietMs,
@@ -13379,7 +13382,10 @@ async function main() {
       promptText = buildWakePromptV2(key, opts.wakeReason, opts.sceneVideo);
       wakeSnapshot = buildWakeSnapshotV2(key);
       if (wakeSnapshot) {
-        promptText += `\n\n【本次消息快照】\n${JSON.stringify(wakeSnapshot)}\n以上消息已提供，无需重复查询；partial=true 时用 qq_get_context_snapshot(afterSeq=readThroughSeq, include=["unread"]) 继续读取。先处理当前消息；回复前如需确认后续补充，用 qq_wait_for_messages(purpose="reply") 补足短静默，已安静够久会立即返回，不要先长等。收尾只确认你已处理的 readThroughSeq（本地 seq，非 QQ messageId），传给 qq_mark_read 或 qq_set_wake_config 的 throughSeq；新到消息留待处理。`;
+        const snapshotGuidance = opts.wakeReason === 'sceneSwitch'
+          ? '这是目标会话的背景，可能没有新消息。想开口就直接发，旧话无需补答。'
+          : '以上消息已提供，无需重复查询；partial=true 时用 qq_get_context_snapshot(afterSeq=readThroughSeq, include=["unread"]) 继续读取。先处理当前消息；回复前如需确认后续补充，用 qq_wait_for_messages(purpose="reply") 补足短静默，已安静够久会立即返回，不要先长等。';
+        promptText += `\n\n【本次消息快照】\n${JSON.stringify(wakeSnapshot)}\n${snapshotGuidance}收尾只确认你已处理的 readThroughSeq（本地 seq，非 QQ messageId），传给 qq_mark_read 或 qq_set_wake_config 的 throughSeq；新到消息留待处理。`;
         // 2026-10-26：快照只装最近的一窗；更早的未读被折叠了（folded）。必须讲清楚"别回去逐条回"，
         // 否则模型看到 partial 就以为要先补读老消息 —— 那正是"一被叫到先回老远的消息"的来源。
         promptText += wakeFoldedNoticeV2(wakeSnapshot.folded);
@@ -14911,6 +14917,18 @@ async function main() {
     return `【当前角色】${name}\n${card}\n（完整角色卡 / 场景语气 / 推荐值 / 可用工具：可调用 qq_get_prompt 查看）\n\n`;
   }
 
+  function ownerGroupActivityV2(key, since = 0) {
+    if (!cfg.ownerQQ || key !== `private:${cfg.ownerQQ}` || !v2ToolEnabled('getRecent')) return null;
+    const groups = [...new Set((cfg.allow?.groups || []).map(sceneGroupKey))]
+      .filter(group => group && isSessionAllowedInCurrentMode(group)).map(group => {
+        const st = socialV2.conversations.get(group);
+        return {key: group, name: groupNameForMemory(group), messages: st?.recentMessages || []};
+      });
+    return groupActivityView(groups, {now: Date.now(), owner: cfg.ownerQQ, self: selfUserId,
+      blockedUsers: new Set((cfg.deny?.users || []).map(id => String(id).trim())), connected: snowlumaHealth.connected === true,
+      redact: redactSensitiveText, since});
+  }
+
   function buildWakePromptV2(key, reason, sceneVideo = '') {
     const providedRole=currentRoleHintV2(key);
     const roleState = readRoleState();
@@ -14958,7 +14976,7 @@ async function main() {
     // 对话收尾判断：把「我最后一句 / 对方最后一句 / 我还有没有想说的 / 对方还想不想聊」
     // 变成每次醒来都能看到的参数。只给建议，收不收由她决定。
     const closureText = closurePromptLineV2(key, st);
-    const closureLine = closureText ? `${closureText}\n\n` : '';
+    const closureLine = closureText && reason !== 'sceneSwitch' ? `${closureText}\n\n` : '';
     const replyTiming = replyTimingV2(st);
     const replyLine = `【首回复节奏】先处理已有消息，完整的问题及时回答。需要确认对方是否继续补充时，用 qq_wait_for_messages(purpose="reply", quietMs=${replyTiming.quietMs})；从最后来信计时，合批和读提示词的耗时也算，目前还差约 ${Math.ceil(replyTiming.remainingQuietMs / 1000)} 秒静默。已安静够久可直接回，工具也会立即返回并补上思考期间的新消息。只有明确没说完、你确实要等下文时，才用普通 messages 长等待。\n\n`;
     const preSleepLine = `【沉睡前强制等待】这是决定**潜水**时的步骤，不是首回复的前置条件，也不是自然收尾（qq_close_conversation）的前置条件。除非对方明确说“不聊了/晚安/下了/拜拜”等结束语，否则每次设置潜水/下一次唤醒前，必须先调用 qq_wait_for_messages(timeoutMs=${preSleepMs}) 完成一次沉睡前观察；回复前 purpose="reply" 的短静默不能代替这次完整观察。若 ${Math.round(preSleepMs / 60000)} 分钟内没人说话，返回 preSleepWaitSatisfied=true，可以设置下一次唤醒并沉睡；若期间有人发新消息，先查看返回的 newMessages——判断不需要你参与就可以直接沉睡，若你选择参与回复，则下次想睡时需要重新等待观察窗口。如果返回里带 preSleepWaitRemainingMs，就按剩余时间继续等待。\n\n`;
@@ -15012,7 +15030,11 @@ async function main() {
     const memoryCardLine = memoryCardText ? `${memoryCardText}\n\n` : '';
     const conversationLine = conversationIdentityLineV2(key);
     const voiceLine = voiceStatusLine();
-    const base = privateRestHint(key,cfg.ownerQQ,Date.now()) + providedRole + '\n\n' + roleLine + identityLine + conversationLine + provenanceLine + (biliRecall ? biliRecall + '\n\n' : '') + voiceLine + tokenLine + initialPromptLine + antiAiLine + proactiveLine + closureLine + stickerLine + stickerMatchLine + replyLine + statusLine + wakeLine + memoryLine + participationLine + fishGuardLine + tokenGuardLine + preSleepLine;
+    const groupActivity = ownerGroupActivityV2(key);
+    const groupLine = groupActivity ? `【已开放群近况 · 仅背景】这是桥接最近看到的群消息，和当前私信分开。用 person 对照稳定身份，只有 role=owner 才是主人；同名不要合并。busy=热闹，active=有人聊，quiet=近期未观察到发言，unknown=情况未知。相关时自然聊，不必逐轮播报。\n${JSON.stringify(groupActivity)}\n\n` : '';
+    const timingLine = reason === 'sceneSwitch' ? '' : replyLine;
+    const sleepLine = reason === 'sceneSwitch' ? '' : preSleepLine;
+    const base = privateRestHint(key,cfg.ownerQQ,Date.now()) + providedRole + '\n\n' + roleLine + identityLine + conversationLine + provenanceLine + (biliRecall ? biliRecall + '\n\n' : '') + voiceLine + tokenLine + initialPromptLine + antiAiLine + proactiveLine + closureLine + stickerLine + stickerMatchLine + timingLine + statusLine + wakeLine + memoryLine + participationLine + fishGuardLine + tokenGuardLine + sleepLine + groupLine;
     lastWakePromptMeta = {
       role: roleLine.length,
       identity: identityLine.length,
@@ -15029,14 +15051,15 @@ async function main() {
       closure: closureLine.length,
       sticker: stickerLine.length,
       stickerMatch: stickerMatchLine.length,
-      reply: replyLine.length,
+      reply: timingLine.length,
       status: statusLine.length,
       wake: wakeLine.length,
       memoryStatus: memoryLine.length,
       participation: participationLine.length,
       fishGuard: fishGuardLine.length,
       tokenGuard: tokenGuardLine.length,
-      preSleep: preSleepLine.length,
+      preSleep: sleepLine.length,
+      groupActivity: groupLine.length,
       base: base.length,
     };
     if (reason === 'bootstrap') {

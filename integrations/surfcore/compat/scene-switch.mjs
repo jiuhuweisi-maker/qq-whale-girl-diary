@@ -42,5 +42,6 @@ export function claimBiliSceneOffer(dir, now = Date.now()) {
 export function sceneSwitchPrompt(target, video = '') {
   const audience = target === 'bili' ? 'B站公开场合' : target === 'group' ? '当前 QQ 群' : '主人的 QQ 私信';
   const topic = VIDEO_ID.test(video) ? `你刚才有兴趣聊这个公开视频：https://www.bilibili.com/video/${video}。` : '你刚才想来这边看看。';
-  return `【换场】你现在在${audience}。${topic}先看看这里的人和话题，再决定要不要分享、接话或安静离开。可以说自己的看法，照这里的说话习惯聊。跨场合可以用公开资料和自己的感受，私下聊过的原话、身份和账目留在原场合。这里用自己的发送工具，按真实回执判断是否发出。`;
+  const arrival = target === 'bili' ? '' : '这轮已在目标会话醒来。有话想说就直接用当前会话的 qq_send_message，不用等有人先开口或 @你；没想说可以用 qq_close_conversation 自然收尾。';
+  return `【换场】你现在在${audience}。${topic}先看看这里的人和话题，再决定要不要分享、接话或安静离开。${arrival}可以说自己的看法，照这里的说话习惯聊。跨场合可以用公开资料和自己的感受，私下聊过的原话、身份和账目留在原场合。这里用自己的发送工具，按真实回执判断是否发出。`;
 }
