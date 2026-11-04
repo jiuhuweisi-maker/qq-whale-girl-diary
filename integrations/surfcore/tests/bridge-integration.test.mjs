@@ -273,6 +273,25 @@ try {
     assert.equal(result.ok,true,JSON.stringify(result));
     assert.equal((await call(1972)).ok,false);
     assert.deepEqual(h.calls.http.slice(before).filter(r=>r.url.endsWith('/send_group_msg')).map(r=>r.body.message[0].data.text),lines);
+    const atLines=['@全体成员','111','人呢😅'];
+    await h.handleIncoming('private',123,dm(1981,'群里可以这样，过个一小时或者更久，就先单@全体成员，然后发“111”然后再发“人呢😅”这样的。'),h.cfg);
+    assert.equal((await call(1981,atLines)).state,'not_sent');
+    await h.handleIncoming('private',123,dm(1982,'我再发遍，你看看可不可以发了'),h.cfg);
+    assert.equal((await call(1981,atLines)).state,'not_sent');
+    await h.handleIncoming('private',123,dm(1983,'你现在就可以试试'),h.cfg);
+    ownerDispatchFixture=(action)=>action==='get_msg' ? {status:'ok',retcode:0,data:{message_type:'group',group_id:456,message:[{type:'at',data:{qq:'all'}}]}} : null;
+    try {
+      const from=h.calls.http.length;
+      const result=await call(1983,atLines);
+      assert.equal(result.state,'sent',JSON.stringify(result));
+      assert.equal((await call(1981,atLines)).state,'already_handled');
+      assert.deepEqual(h.calls.http.slice(from).filter(r=>r.url.endsWith('/send_group_msg'))
+        .map(r=>r.body.message[0].data.qq ?? r.body.message[0].data.text),['all','111','人呢😅']);
+    } finally { ownerDispatchFixture=null; }
+    await h.handleIncoming('private',123,dm(1984,'去群里发第一句嗨，然后说第二句晚安'),h.cfg);
+    await h.handleIncoming('private',123,dm(1985,'先别发了'),h.cfg);
+    await h.handleIncoming('private',123,dm(1986,'现在试试'),h.cfg);
+    assert.equal((await call(1986)).state,'not_sent');
   });
   await test('a bare group number opens the destination and its own turn can send to that group',async()=>{
     h.setReady(true);

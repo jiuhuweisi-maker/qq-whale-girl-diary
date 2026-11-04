@@ -7059,26 +7059,32 @@ async function main() {
               || String(audited.args.group ?? '') !== String(group ?? '') || JSON.stringify(audited.args.lines) !== JSON.stringify(lines)) {
             sendJson({ok:false, error:'本次发言内容未核对。'},403); return;
           }
-          const current = getSocialV2State(key).recentMessages.findLast(m => !m.isSelf && !m.history
+          const ownerMessages = () => getSocialV2State(key).recentMessages.filter(m => !m.isSelf && !m.history
             && String(m.userId) === String(cfg.ownerQQ));
-          if (!current || String(current.messageId) !== String(messageId) || Date.now()-Number(current.time) > 120000
-              || !ownerGroupRequestMatches(current.plain, lines)) {
-            sendJson({ok:false, error:'没核对到你刚才明确说要发进群的话。按平时聊天接话，有歧义只问缺的那一处。'}); return;
+          const evidence = ownerGroupEvidence(ownerMessages(), messageId, lines, Date.now());
+          if (!evidence) {
+            sendJson({ok:false, state:'not_sent', error:'群里一条都没发。没核对到当前的发送意思和原话。'}); return;
           }
+          const {current, draft} = evidence;
           const groups = [...new Set((cfg.allow?.groups || []).map(sceneGroupKey))]
             .filter(k => k && isSessionAllowedInCurrentMode(k));
-          const text = String(current.plain);
+          const text = String(draft.plain);
           const named = groups.filter(k => {
             const name = groupNameForMemory(k);
             return (name && text.includes(name)) || text.includes(k.split(':')[1]);
           });
           const destination = named.length === 1 ? named[0] : !named.length && groups.length === 1 ? groups[0] : null;
           if (!destination || (group != null && sceneGroupKey(group) !== destination)) {
-            sendJson({ok:false, error:'要去哪一个群还没弄清。直接问群名就好。'}); return;
+            sendJson({ok:false, state:'not_sent', error:'群里一条都没发。要去哪一个群还没弄清。'}); return;
           }
-          const result = await dispatchOwnerGroup(key, {user_id:current.userId,message_id:current.messageId}, destination, lines);
+          const stillCurrent = () => ownerMessages().at(-1) === current;
+          const result = await dispatchOwnerGroup(key, {user_id:current.userId,message_id:current.messageId,
+            draft_message_id:draft.messageId}, destination, lines, undefined, stillCurrent);
           const sent = result?.startsWith('按顺序发了 ') === true;
-          sendJson({ok:sent, outcome:result || '这条已经处理过或失效，请按已知结果说。'});
+          const state = sent ? 'sent' : !result ? 'already_handled'
+            : /^确认发了 [1-9]/.test(result) ? 'partial'
+            : /未确认|没确认/.test(result) ? 'unconfirmed' : 'not_sent';
+          sendJson({ok:sent, state, outcome:result || '本次没有再次发送。原来的发送情况只能按已有回执说。'});
           return;
         }
         if (req.method === 'POST' && url.pathname === '/api/scene-switch-from-bili') {
@@ -16100,7 +16106,29 @@ async function main() {
       && (lines[0] !== '@全体成员' || /(?:帮我|麻烦|请|去|先|给我|直接).{0,24}(?:群里|群内|群|发|提醒)|^\s*@/.test(context));
   }
 
-  async function dispatchOwnerGroup(key, event, selector, lines, report) {
+  function ownerGroupEvidence(messages, messageId, lines, now) {
+    const current = messages.at(-1);
+    const currentTime = Number(current?.time);
+    if (!current || !current.messageId || !Number.isFinite(currentTime) || now-currentTime > 120000) return null;
+    const plain = String(current.plain ?? '');
+    const confirmsNow = /^(?:(?:鲸戒|鱼|那你|你)[，, ]*)?(?:(?:现在|这会儿)[ ]*(?:就)?[ ]*(?:可以|能)?[ ]*(?:去群里)?[ ]*(?:试试(?:看)?|发(?:一下|吧|一遍)?|照刚才(?:的|那几句)?发)|(?:就|现在就)?(?:照|按)刚才(?:那几句|那三句|说的|的)?(?:发|试试))(?:了|吧|呗|呀|嘛)?[。！!\s]*$/.test(plain);
+    if (!confirmsNow) {
+      const later = /(?:过|隔).{0,18}(?:分钟|小时).{0,18}(?:后|再|时候|更久)|等.{0,40}(?:再发|时候)|下次|以后|举例|示例|这样(?:的|说)|看看.{0,12}(?:能|可以)不?(?:能|可以)?发/.test(plain);
+      return String(current.messageId) === String(messageId) && !later
+        && ownerGroupRequestMatches(plain, lines) ? {current, draft:current} : null;
+    }
+    for (const draft of messages.slice(-4,-1).reverse()) {
+      if (!draft.messageId || currentTime-Number(draft.time) > 120000) return null;
+      if (ownerGroupRequestMatches(draft.plain, lines)) {
+        if (String(messageId) !== String(current.messageId) && String(messageId) !== String(draft.messageId)) return null;
+        return {current,draft};
+      }
+      if (!/^(?:我再发(?:一)?遍[，, ]*)?(?:你)?看看(?:可不可以|能不能)(?:发|发了)[。！？!?\s]*$/.test(String(draft.plain))) return null;
+    }
+    return null;
+  }
+
+  async function dispatchOwnerGroup(key, event, selector, lines, report, stillCurrent = () => true) {
     const atAll = lines[0] === '@全体成员';
     const groups = [...new Set((cfg.allow?.groups || []).map(sceneGroupKey))]
       .filter(group => group && isSessionAllowedInCurrentMode(group));
@@ -16110,6 +16138,7 @@ async function main() {
       !line || line.length > 500 || (line === '@全体成员' && index !== 0)
       || /\[CQ:/i.test(line) || redactSensitiveText(line) !== line);
     const dispatch = sendChain.then(() => whale.ownerGroupOnce(key, event, destination, lines, async assertCurrent => {
+      if (!stillCurrent()) return '群里一条都没发。你后来又说了别的，这次先停。';
       if (invalid) return '这次没发。消息格式有问题，或有不适合发到群里的内容。';
       const channel = qqSendChannelStatus();
       if (!channel.ok || socialV2.paused) return 'QQ 群发送目前不可用，这次没发。';

@@ -157,7 +157,7 @@ function errorText(value, fallback) {
 
 async function agentApi(path, init = {}) {
   const timeoutMs = init.timeoutMs || 15000;
-  const { timeoutMs: _omit, ...rest } = init;
+  const { timeoutMs: _omit, keepBusinessResult = false, ...rest } = init;
   const headers = agentHeaders(rest.headers);
   const call = whaleCalls.getStore();
   if (call) { headers['x-whale-request-id'] = call.id; headers['x-whale-tool'] = call.name; headers['x-whale-args'] = Buffer.from(JSON.stringify(call.args)).toString('base64'); }
@@ -166,6 +166,7 @@ async function agentApi(path, init = {}) {
   try { body = await res.json(); } catch { body = null; }
   if (!res.ok) {
     const err = new Error(errorText(body?.error, `桥接 API HTTP ${res.status}`) + (body?.hint ? `；建议：${body.hint}` : ''));
+    err.status = res.status;
     if (body?.code) err.code = String(body.code);
     if (body?.hint) err.hint = String(body.hint);
     throw err;
@@ -173,7 +174,7 @@ async function agentApi(path, init = {}) {
   // 桥接的部分端点会用 200 + {ok:false,error} 表达业务失败（例如发送被审计拦截）。
   // 不检查 body.ok 会把「被拦截」当成「发送成功」上报给模型 —— 模型据此认为消息已发出，
   // 于是不再重试也不告诉用户，是典型的静默错误。
-  if (body && typeof body === 'object' && body.ok === false) {
+  if (!keepBusinessResult && body && typeof body === 'object' && body.ok === false) {
     throw new Error(errorText(body.error, '桥接 API 返回 ok:false（未说明原因）'));
   }
   return body;
@@ -1517,17 +1518,20 @@ server.tool('qq_switch_scene',
 );
 
 server.tool('qq_owner_group_send',
-  '主人在当前私信里用平常话明确请你把具体文字带到群里时，可以自己办。messageId 用他这条新来信的编号，lines 按他说的顺序填原话，只有他确实请你提醒全体时才在第一项填 @全体成员。要自己过去打招呼或接话就用 qq_switch_scene。发完看实际结果，用第一人称正常聊；需要弄清群名时就问群名。',
+  '主人明确请你把几句原话带到群里时用。若他先交代内容、后说现在试试，用最新的确认消息编号和前面原话，按顺序填 lines。只有明确请你提醒全体时，第一项才填 @全体成员。自己去接话用 qq_switch_scene。只有 sent 才能说全部已发；没发、部分发出或回执不明都按结果如实说。',
   {key:z.string(),token:z.string(),messageId:z.union([z.string(),z.number()]),
     group:z.union([z.string().max(40),z.number().int().positive()]).optional(),
     lines:z.array(z.string().min(1).max(500)).min(1).max(3)},
   async args=>{
     try {
       const result=await agentApi('/api/socialV2/owner-group-send',{method:'POST',
-        headers:{'x-agent-token':args.token},body:JSON.stringify(args),timeoutMs:75000});
+        headers:{'x-agent-token':args.token},body:JSON.stringify(args),timeoutMs:75000,keepBusinessResult:true});
       return {content:[{type:'text',text:serializeModelData(result)}]};
-    } catch {
-      return {isError:true,content:[{type:'text',text:'还没拿到完整结果。不要重复发送；如果对方在问结果，就说目前还不确定。'}]};
+    } catch (error) {
+      const rejected = [400,401,403,415].includes(error?.status);
+      return {isError:true,content:[{type:'text',text:serializeModelData(rejected
+        ? {state:'not_sent',outcome:'这次在发送前被拒，群里没发。'}
+        : {state:'unconfirmed',outcome:'没有拿到发送回执。不能说已经发过，也不要再发一遍。'})}]};
     }
   });
 

@@ -21,7 +21,7 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
   const dir = path.join(root, 'state'); disk.mkdirSync(dir, { recursive: true });
   const ledger = createDeliveryState({ fs: disk, hash: digest, basePath: path.join(dir, 'whale-delivery').replaceAll('\\', '/'), namespace: 'whale-surfcore-114', now, diag: log });
   // Capture once in the running process. Disk hashes alone cannot prove a reload.
-  const loadedBuild185 = { revision: 197, pid: process.pid, startedAt: now(), sources: {} };
+  const loadedBuild185 = { revision: 198, pid: process.pid, startedAt: now(), sources: {} };
   try { loadedBuild185.upstream = JSON.parse(disk.readFileSync(path.join(root,'whale-overlay-manifest.json'),'utf8')).upstream; } catch {}
   for (const name of ['src/bridge.js', 'whale-compat/runtime.mjs', 'whale-compat/legacy-reader.mjs', 'whale-compat/personal-journal.mjs', 'whale-compat/model-image.mjs']) {
     try { loadedBuild185.sources[name] = crypto.createHash('sha256').update(disk.readFileSync(path.join(root, name))).digest('hex'); }
@@ -231,11 +231,12 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
     const inbound = `${source}:${messageId}`;
     const direct = active.get(inbound) === true && ledger.data.inbox[inbound]?.stage === 'buffered';
     const effect = contexts.getStore()?.effect;
+    const draft = event.draft_message_id ? `${source}:${event.draft_message_id}` : inbound;
     const fromTurn = !report && effect?.key === source && effect.epoch === epoch(source)
-      && ledger.data.inbox[inbound]?.stage === 'completed';
+      && ledger.data.inbox[inbound]?.stage === 'completed' && ledger.data.inbox[draft]?.stage === 'completed';
     if (!owner || source !== `private:${owner}` || String(event.user_id) !== owner
         || !(report ? direct : fromTurn) || quiet(source)) return;
-    const id = `owner-group:${inbound}`;
+    const id = `owner-group:${draft}`;
     if (ledger.data.outbox[id]) return;
     // Consume the original message before any send. A restart never continues
     // the remainder of an interrupted batch, even if the inbox is recovered.
