@@ -21,9 +21,9 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
   const dir = path.join(root, 'state'); disk.mkdirSync(dir, { recursive: true });
   const ledger = createDeliveryState({ fs: disk, hash: digest, basePath: path.join(dir, 'whale-delivery').replaceAll('\\', '/'), namespace: 'whale-surfcore-114', now, diag: log });
   // Capture once in the running process. Disk hashes alone cannot prove a reload.
-  const loadedBuild185 = { revision: 189, pid: process.pid, startedAt: now(), sources: {} };
+  const loadedBuild185 = { revision: 190, pid: process.pid, startedAt: now(), sources: {} };
   try { loadedBuild185.upstream = JSON.parse(disk.readFileSync(path.join(root,'whale-overlay-manifest.json'),'utf8')).upstream; } catch {}
-  for (const name of ['src/bridge.js', 'whale-compat/runtime.mjs', 'whale-compat/legacy-reader.mjs', 'whale-compat/personal-journal.mjs']) {
+  for (const name of ['src/bridge.js', 'whale-compat/runtime.mjs', 'whale-compat/legacy-reader.mjs', 'whale-compat/personal-journal.mjs', 'whale-compat/model-image.mjs']) {
     try { loadedBuild185.sources[name] = crypto.createHash('sha256').update(disk.readFileSync(path.join(root, name))).digest('hex'); }
     catch { loadedBuild185.sources[name] = null; }
   }

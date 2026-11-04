@@ -1,4 +1,4 @@
-import {modelImage} from '../whale-compat/model-image.mjs';
+import {modelImage, chatImagePreview} from '../whale-compat/model-image.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 const whaleCalls = new AsyncLocalStorage();
@@ -1101,33 +1101,39 @@ server.tool(
 if (cfg.socialV2?.tools?.getImages !== false) {
   server.tool(
     'qq_get_message_images',
-    '获取指定 QQ 消息中的图片/表情，并直接以图像内容返回给模型（视觉模型可“看懂”）。当消息文本里出现 [图片]、[表情] 或 hasMedia=true 时调用。支持一条消息里的多张图片/表情；二代模式下必须携带会话令牌。看图时先认人再聊内容：图里如果出现你自己的账号、主页、资料卡、头像或动态，那就是你自己，先认出来再说，别当成别人的页面。',
+    '获取指定 QQ 消息中的图片/表情。日常看图用轻量预览，按能看清的大意接话；对方明确要读小字或看细节时，直接传 detailed=true。支持一条消息里的多张图，二代模式下必须携带会话令牌。图里如果出现你自己的账号、主页、资料卡、头像或动态，先认出自己再聊。',
     {
       key: z.string().describe('会话 key，格式 group:群号 或 private:QQ号'),
       messageId: z.union([z.number(), z.string()]).describe('要查看的消息 id（QQ 消息 id 可为负数；二代也可用本地 seq）'),
+      detailed: z.boolean().optional().describe('明确要看小字、截图细节时使用原有较清晰预览'),
       token: z.string().optional().describe('二代会话令牌（reserved2 下必填，见唤醒提示中的【会话令牌】）')
     },
-    async ({ key, messageId, token }) => {
+    async ({ key, messageId, token, detailed }) => {
       try {
         const q = new URLSearchParams({ key, messageId: String(messageId) });
+        const fetchStarted = Date.now();
         const data = await agentApi(`/api/images/message?${q.toString()}`, {
           headers: token ? { 'x-agent-token': token } : {},
           timeoutMs: 180000
         });
+        const fetchMs = Date.now() - fetchStarted;
         const images = Array.isArray(data?.images) ? data.images : [];
         if (!images.length) {
           return { content: [{ type: 'text', text: `消息 ${messageId} 没有可返回的图片/表情：${data?.note || '未找到'}` }] };
         }
         const content = [];
         const textParts = [];
+        const previewStarted = Date.now();
         for (const img of images) {
           if (img?.data && img?.mimeType) {
             textParts.push(`[${img.kind === 'face' ? '表情' : '图片'}${img.index ?? ''}${img.text ? ' ' + img.text : ''}]`);
-            content.push(...await modelImageParts(img));
+            const chat = !detailed && img.kind === 'image' && !img.emojiId && String(img.subType || '') !== '1';
+            content.push(...await modelImageParts(img, {chat}));
           } else {
             textParts.push(`[${img.kind === 'face' ? '表情' : '图片'}${img.index ?? ''}${img.text ? ' ' + img.text : '（获取失败）'}]`);
           }
         }
+        console.error(`[图片读取] ${JSON.stringify({fetchMs, previewMs: Date.now() - previewStarted, detailed: detailed === true, count: images.length})}`);
         if (textParts.length) {
           content.unshift({ type: 'text', text: `消息 ${messageId} 的媒体内容（${images.length} 项）：\n${textParts.join('\n')}` });
         }
@@ -1497,4 +1503,25 @@ server.tool('qq_fundpilot','主人私信里的基金助手：resolve或market带
 
 await server.connect(new StdioServerTransport());
 
-async function modelImageParts(image) { const p=await modelImage(image,{dependencies:cfg.whaleCompat?.imageDeps});return [...(p.preview?[{type:'text',text:p.firstFrame?'以下为动画首帧预览，原图保留。':'以下为可读预览，原图保留。'}]:[]),{type:'image',mimeType:p.mimeType,data:p.data}]; }
+async function modelImageParts(image, {chat = false} = {}) {
+  const options = {dependencies: cfg.whaleCompat?.imageDeps};
+  let preview;
+  if (chat) {
+    try {
+      preview = chatImagePreview(Buffer.from(image.data, 'base64'), options);
+    } catch {
+      // Let the existing compatibility path handle other formats and report unreadable images.
+      console.error('[图片读取] 轻量预览回退');
+    }
+  }
+  const picture = preview || await modelImage(image, options);
+  const parts = [];
+  if (picture.preview) {
+    const text = preview
+      ? (picture.firstFrame ? '动画首帧的轻量预览，按看清的大意回应。' : '轻量预览，按看清的大意回应。')
+      : (picture.firstFrame ? '以下为动画首帧预览，原图保留。' : '以下为可读预览，原图保留。');
+    parts.push({type: 'text', text});
+  }
+  parts.push({type: 'image', mimeType: picture.mimeType, data: picture.data});
+  return parts;
+}
