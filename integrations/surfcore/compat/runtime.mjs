@@ -13,15 +13,15 @@ const parseArgs = value => {
   return value && typeof value === 'object' ? value : {};
 };
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const sendTool = name => /(?:^|__)qq_(?:send|reply|poke|fundpilot)/.test(name);
-const sendRoute = route => /^\/api\/(?:send\/|socialV2\/(?:send-|reply|fundpilot$))/.test(route);
+const sendTool = name => /(?:^|__)qq_(?:send|reply|poke|fundpilot|switch_scene$)/.test(name);
+const sendRoute = route => /^\/api\/(?:send\/|socialV2\/(?:send-|reply|fundpilot$|scene-switch$))/.test(route);
 
 // One process owns this ledger. Two fsynced slots are shared with the proven legacy engine.
 export function createWhaleRuntime({ root, config, control, now = Date.now, disk = fs, log = () => {}, clean = x => x }) {
   const dir = path.join(root, 'state'); disk.mkdirSync(dir, { recursive: true });
   const ledger = createDeliveryState({ fs: disk, hash: digest, basePath: path.join(dir, 'whale-delivery').replaceAll('\\', '/'), namespace: 'whale-surfcore-114', now, diag: log });
   // Capture once in the running process. Disk hashes alone cannot prove a reload.
-  const loadedBuild185 = { revision: 190, pid: process.pid, startedAt: now(), sources: {} };
+  const loadedBuild185 = { revision: 191, pid: process.pid, startedAt: now(), sources: {} };
   try { loadedBuild185.upstream = JSON.parse(disk.readFileSync(path.join(root,'whale-overlay-manifest.json'),'utf8')).upstream; } catch {}
   for (const name of ['src/bridge.js', 'whale-compat/runtime.mjs', 'whale-compat/legacy-reader.mjs', 'whale-compat/personal-journal.mjs', 'whale-compat/model-image.mjs']) {
     try { loadedBuild185.sources[name] = crypto.createHash('sha256').update(disk.readFileSync(path.join(root, name))).digest('hex'); }

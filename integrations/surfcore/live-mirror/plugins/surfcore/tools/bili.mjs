@@ -2,8 +2,10 @@
 // 统一入口：node bili.mjs <命令> [参数...]
 // 只是把你转到 commands/ 或 verify/ 下的具体脚本，参数原样透传。
 import { spawnSync } from 'node:child_process'
+import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {parseArgs} from 'node:util'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const map = {
@@ -65,6 +67,7 @@ const [cmd, ...rest] = process.argv.slice(2)
 if (!cmd || cmd === 'help' || cmd === '-h' || cmd === '--help') {
   console.log('用法: node bili.mjs <命令> [参数...]\n')
   console.log('命令:')
+  console.log('  scene             去 QQ 私信或群：scene private|group [--group group:编号] [--video BV号]')
   for (const [name, [, desc]] of Object.entries(map)) console.log(`  ${name.padEnd(16)} ${desc}`)
   console.log('\n安全约定（脚本里也强制）:')
   console.log('  · 写操作必须显式给 --dry（只打印请求）或 --go（真的发）')
@@ -72,6 +75,26 @@ if (!cmd || cmd === 'help' || cmd === '-h' || cmd === '--help') {
   console.log('  · 一次一条。批量、定时、多房间铺量不是这套工具的用途')
   process.exit(cmd ? 0 : 2)
 }
+if (cmd === 'scene') {
+  try {
+    const [target, ...flags] = rest
+    if (!['private', 'group'].includes(target)) throw Error('请选择 private 或 group')
+    const {values} = parseArgs({args:flags,options:{group:{type:'string'},video:{type:'string'}}})
+    const {QQ_CONFIG} = await import('../lib/paths.js')
+    const config = JSON.parse(fs.readFileSync(QQ_CONFIG, 'utf8'))
+    const token = config.consoleToken || fs.readFileSync(path.join(path.dirname(QQ_CONFIG), 'state/console-token'), 'utf8').trim()
+    const response = await fetch(`http://127.0.0.1:${Number(config.consolePort) || 3100}/api/scene-switch-from-bili`, {
+      method:'POST', headers:{'content-type':'application/json','x-console-token':token},
+      body:JSON.stringify({target,group:values.group,video:values.video}),signal:AbortSignal.timeout(25000),
+    })
+    const result = await response.json()
+    console.log(JSON.stringify(result))
+    process.exitCode = response.ok && result.ok ? 0 : 1
+  } catch (error) {
+    console.error(`这次未确认换场（${error?.name || 'Error'}）`)
+    process.exitCode = 1
+  }
+} else {
 const entry = map[cmd]
 if (!entry) {
   console.error(`未知命令: ${cmd}\n跑 "node bili.mjs help" 看清单。`)
@@ -79,3 +102,4 @@ if (!entry) {
 }
 const r = spawnSync(process.execPath, [path.join(here, entry[0]), ...rest], { stdio: 'inherit' })
 process.exit(r.status ?? 1)
+}

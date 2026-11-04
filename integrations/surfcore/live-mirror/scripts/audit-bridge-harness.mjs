@@ -1,4 +1,5 @@
 import {recognizeStickerMedia} from '../whale-compat/sticker-recognition.mjs';
+import * as sceneSwitch from '../whale-compat/scene-switch.mjs';
 // Execute the real bridge initialization/functions against temporary files and fake peers.
 // No production config, QQ connection, DSH process, or persistent home is accessed.
 import fs from 'node:fs';
@@ -319,6 +320,7 @@ export async function bridgeHarness({ config = {}, savedState, files = {}, globa
     },
     cleanupTemp: () => {},
     recognizeStickerMedia,
+    ...sceneSwitch,
     ...globals,
   });
   // Execute the pure model view in the bridge realm. Its plain-object checks

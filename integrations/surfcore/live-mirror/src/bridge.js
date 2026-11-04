@@ -9,6 +9,7 @@ import {modelImage} from '../whale-compat/model-image.mjs';
 // whale114 overlay
 import fs from 'node:fs';
 import { createWhaleRuntime } from '../whale-compat/runtime.mjs';
+import {publicVideoId, sceneOfferFile, sceneSwitchPrompt, SCENE_SWITCH_WINDOW_MS} from '../whale-compat/scene-switch.mjs';
 import { createFundPilot } from '../whale-compat/fundpilot.mjs';
 import { recordSessionResult,reserveGenerationRetry } from '../whale-compat/session-recovery.mjs';
 import {scopedToolGuide,qqPersona,conversationFocus,withConversationFocus} from '../whale-compat/conversation-logic.mjs';
@@ -1950,6 +1951,41 @@ async function main() {
     }
   });
   await whale.syncControl();
+  async function switchScene(body, source) {
+    const {target, group, video: rawVideo} = body;
+    const video = publicVideoId(rawVideo);
+    if (!['group', 'private', 'bili'].includes(target) || (rawVideo && !video) || (group && target !== 'group')) {
+      return {ok:false, error:'请选择场合，视频只能带公开的 B 站 BV 号或干净的视频链接'};
+    }
+    const owner = `private:${cfg.ownerQQ}`;
+    const groups = [...new Set((cfg.allow?.groups || []).map(id=>`group:${id}`))].filter(key=>isSessionAllowedInCurrentMode(key));
+    if (target === 'group' && !group && groups.length > 1) {
+      return {ok:true, state:'choose', groups:groups.map(key=>({key, name:groupProfile(key, getSocialV2State(key)).name}))};
+    }
+    const destination = target === 'private' ? owner : target === 'bili' ? 'bili' : (group || groups[0]);
+    if (destination === source) return {ok:true, state:'here', hint:'你已经在这里，可以直接按这里的上下文聊天'};
+    if (!destination || (target === 'group' && !groups.includes(destination))) return {ok:false, error:'找不到已允许的目标群'};
+    if (socialV2.paused || !dshReady || whale.quiet(destination === 'bili' ? source : destination)) return {ok:false, error:'目标目前静音或不可用'};
+    if (destination !== 'bili' && isConversationBusyV2(destination, getSocialV2State(destination))) {
+      return {ok:false, error:'目标正在聊这一轮，等自然收尾再决定'};
+    }
+    const at = Date.now();
+    if (at - Number(whale.ledger.data.sceneSwitchAt?.[destination] || 0) < SCENE_SWITCH_WINDOW_MS) {
+      return {ok:false, error:'刚去过这个场合，让上一轮先自然走完'};
+    }
+    if (!whale.ledger.change(data=>{
+      const recent = Object.entries(data.sceneSwitchAt || {}).filter(([,time])=>at-time < SCENE_SWITCH_WINDOW_MS);
+      data.sceneSwitchAt = {...Object.fromEntries(recent), [destination]:at};
+    })) return {ok:false, error:'这次换场未能登记'};
+    if (destination === 'bili') {
+      fs.mkdirSync(MEMORY_CARD_PATHS.dir,{recursive:true});
+      atomicWriteJson(sceneOfferFile(MEMORY_CARD_PATHS.dir),{at,video});
+      return {ok:true, state:'pending', hint:'B站下次检查时会决定是否接上，当前还没发言'};
+    }
+    const result = await sendWakePromptV2(destination, 'sceneSwitch', video);
+    return result?.ok === true && !result.skipped ? {ok:true, state:'accepted', hint:'目标会话已接到换场请求，当前还没确认发言'}
+      : {ok:false, error:'目标会话没有接到这次换场请求'};
+  }
   const fundpilot = createFundPilot({root:ROOT, config:cfg,log,
     sourceMessage:(key,id)=>getSocialV2State(key).recentMessages.find(m=>String(m.messageId)===id),
     quiet:key=>whale.quiet(key)||socialV2.paused===true,
@@ -6988,6 +7024,23 @@ async function main() {
           }
           sendJson({ ok: true, day: guard.day, conversations: list });
           return;
+        }
+        if (req.method === 'POST' && url.pathname === '/api/socialV2/scene-switch') {
+          const body = await readBody();
+          const key = String(body?.key || '');
+          if (!agentTokenOk(key, req.headers['x-agent-token']) || !v2SessionAllowed(key)) {
+            sendJson({ok:false,error:'当前会话未授权'},403); return;
+          }
+          const id = whaleRequest.effect?.id;
+          sendJson(await whale.action(key, `scene-switch:${id}`, ()=>switchScene(body,key))); return;
+        }
+        if (req.method === 'POST' && url.pathname === '/api/scene-switch-from-bili') {
+          if (req.headers['x-agent-call'] !== undefined || req.headers['x-agent-token'] || currentMode !== 'reserved2') {
+            sendJson({ok:false,error:'只接受本机 B 站工具请求'},403); return;
+          }
+          const body = await readBody();
+          if (body?.target === 'bili') { sendJson({ok:true,state:'here'}); return; }
+          sendJson(await switchScene(body || {}, 'bili')); return;
         }
         if (req.method === 'POST' && url.pathname === '/api/socialV2/wake') {
           const body = await readBody();
@@ -13292,6 +13345,7 @@ async function main() {
     };
     if (wakeBlocked()) return skipWake();
     if (!dshReady) {
+      if (opts.wakeReason === 'sceneSwitch') return {ok:false, error:'会话服务暂不可用'};
       const items = queued.get(key) ?? [];
       if (items.length >= QUEUE_MAX) {
         items.shift();
@@ -13306,6 +13360,7 @@ async function main() {
       sessionId = await ensureSession(key);
     } catch (error) {
       if (String(error?.message ?? error).includes('会话创建期间已重置')) {
+        if (opts.wakeReason === 'sceneSwitch') return {ok:false, error:'目标会话已重置'};
         enqueueForRetry(key, promptText, opts);
         return { ok: true, retried: true };
       }
@@ -13320,7 +13375,7 @@ async function main() {
       // offline queue may have received more messages since this wake was queued.
       wakeState = getSocialV2State(key);
       wakeToken = wakeState.agentToken;
-      promptText = buildWakePromptV2(key, opts.wakeReason);
+      promptText = buildWakePromptV2(key, opts.wakeReason, opts.sceneVideo);
       wakeSnapshot = buildWakeSnapshotV2(key);
       if (wakeSnapshot) {
         promptText += `\n\n【本次消息快照】\n${JSON.stringify(wakeSnapshot)}\n以上消息已提供，无需重复查询；partial=true 时用 qq_get_context_snapshot(afterSeq=readThroughSeq, include=["unread"]) 继续读取。先处理当前消息；回复前如需确认后续补充，用 qq_wait_for_messages(purpose="reply") 补足短静默，已安静够久会立即返回，不要先长等。收尾只确认你已处理的 readThroughSeq（本地 seq，非 QQ messageId），传给 qq_mark_read 或 qq_set_wake_config 的 throughSeq；新到消息留待处理。`;
@@ -14855,7 +14910,7 @@ async function main() {
     return `【当前角色】${name}\n${card}\n（完整角色卡 / 场景语气 / 推荐值 / 可用工具：可调用 qq_get_prompt 查看）\n\n`;
   }
 
-  function buildWakePromptV2(key, reason) {
+  function buildWakePromptV2(key, reason, sceneVideo = '') {
     const providedRole=currentRoleHintV2(key);
     const roleState = readRoleState();
     const roleLine = personaWakeBlockV2(key);
@@ -14939,7 +14994,7 @@ async function main() {
     // 操作者预写的「初始提示词」（圈子主题/群内氛围等）：**只在首次唤醒**注入。
     // 放在最前面几段（角色/令牌之后）而不是末尾，是为了让它在长 prompt 里足够显眼；
     // 后续唤醒不再带它 —— 那时它已经在这条 DSH 会话的上下文里了。
-    const initialPromptText = reason === 'bootstrap' ? formatInitialPromptV2(key) : '';
+    const initialPromptText = reason === 'bootstrap' || (reason === 'sceneSwitch' && !st.bootstrapSent) ? formatInitialPromptV2(key) : '';
     const initialPromptLine = initialPromptText ? `${initialPromptText}\n\n` : '';
     // 人格卡正文由 personaWakeBlockV2 在最前统一注入（2026-11-01 改：以前只给指针，
     // 模型基本不调 qq_get_prompt，等于不知道自己是谁）；这里仍保证 B 站记忆每轮都在：
@@ -14993,8 +15048,9 @@ async function main() {
     if (reason === 'replyCheck') {
       return `${base}【回复检查】${key}\n原因：你刚刚发送过消息，现在回来检查是否有人回复。\n先看有没有人回。如果没人回，这段对话可能已经自然结束：不用硬补一句，也不用为了收尾去等 5 分钟沉睡前观察——直接判断，还有想说的就回，没有就 qq_close_conversation 自然收尾（不是潜水，唤醒配置不变）。如果有人回你，先看【对话收尾判断】再决定接不接；需要确认对方是否说完，用 qq_wait_for_messages(purpose="reply")。`;
     }
+    if (reason === 'sceneSwitch') return `${base}${sceneSwitchPrompt(key.split(':')[0], sceneVideo)}`;
     if (reason === 'proactiveCheck') {
-      return `${base}【主动机会】${key}\n原因：群里已经安静了一段时间，这是一次你可以主动冒泡的机会。\n优先主动开个话题、追问上次没聊完的事、分享一个刚想到的想法；如果一时想不到，可以用 mcp__web-search-safe__web_search 搜一下当前热点/时事/网络热梗，再结合记忆里的群友兴趣挑一个自然角度。只要内容自然，就大胆开口；如果实在没话想说，再安静收尾（qq_mark_read 或 qq_set_wake_config）。`;
+      return `${base}【主动机会】${key}\n你可以自己想想现在想和谁聊。适合这里就开口；更想找主人或去另一个群，可以用 qq_switch_scene 选场合。也可以就看看，没话想说就安静收尾。`;
     }
     if (reason === 'history') {
       return `${base}【上线补历史】${key}\n原因：你刚上线，桥接用 QQ 历史记录把离线期间错过的消息补进了未读（消息带 history=true；若本次快照没内联，可调用 qq_get_context_snapshot(include=["unread"]) 查看）。\n先快速扫一遍补上下文；这些是已经发生的旧消息，除非仍然相关，不要逐条回复或引用，也不要当成刚刚发生。看完可以用 qq_mark_read 或 qq_set_wake_config 安静收尾。`;
@@ -15034,11 +15090,11 @@ async function main() {
       });
     } catch { log('[availability] owner notice unconfirmed; no automatic resend'); return {uncertain:true}; }
   }
-  async function sendWakePromptV2(key, reason) {
+  async function sendWakePromptV2(key, reason, sceneVideo = '') {
     if (cfg.socialV2?.enabled === false) return;
     if (currentMode !== 'reserved2' || socialV2.paused) return;
     const stForGuard = getSocialV2State(key);
-    const autoWake = ['proactiveCheck', 'timeout', 'replyCheck', 'history', 'bootstrap'].includes(String(reason));
+    const autoWake = ['proactiveCheck', 'timeout', 'replyCheck', 'history', 'bootstrap', 'sceneSwitch'].includes(String(reason));
     const channel = qqSendChannelStatus();
     if (!channel.ok) {
       if (!stForGuard.channelGateLoggedAt || Date.now() - stForGuard.channelGateLoggedAt > 10 * 60 * 1000) {
@@ -15094,7 +15150,7 @@ async function main() {
         maxDay: tokenWake.maxDay ?? null,
       };
       logThrottled(`token-guard:${key}`, 10 * 60_000, `[token-guard] 跳过唤醒 ${key}（${reason}）：${tokenWake.error}`);
-      if (tokenWake.retryAfterMs > 0 && !st.tokenRetryTimer) {
+      if (reason !== 'sceneSwitch' && tokenWake.retryAfterMs > 0 && !st.tokenRetryTimer) {
         const cap = tokenWake.reason === 'day' ? 10 * 60_000 : 60_000;
         const waitMs = Math.min(cap, Math.max(1000, Math.round(tokenWake.retryAfterMs)));
         st.tokenRetryTimer = setTimeout(() => {
@@ -15109,6 +15165,7 @@ async function main() {
     // 防重入：如果该会话已经有一个 DSH turn 在进行中（AI 正在思考/调用工具），
     // 或已有排队/在途 prompt，则不再投递新的候选唤醒，避免“思维链进行中又塞入一个 question 唤醒”。
     if (isConversationBusyV2(key, st)) {
+      if (reason === 'sceneSwitch') return;
       if (!Array.isArray(st.pendingWakeReasons)) st.pendingWakeReasons = [];
       const seq = st.lastUnreadSeq || 0;
       if (!st.pendingWakeReasons.some((r) => r && r.reason === reason && r.seq === seq)) {
@@ -15146,7 +15203,7 @@ async function main() {
       }
       // 每次只等一小段（最长 60s）：小时级限频不会一次性睡满一小时而错过中途可用的窗口。
       const waitMs = Math.min(60000, Math.max(1000, Math.round(retryAfterMs) || 5000));
-      if (!st.rateLimitRetryTimer) {
+      if (reason !== 'sceneSwitch' && !st.rateLimitRetryTimer) {
         st.rateLimitRetryTimer = setTimeout(() => {
           st.rateLimitRetryTimer = null;
           // 消息类原因在重试前再确认一次：等待窗口里消息可能已被别的回合处理掉，
@@ -15193,7 +15250,7 @@ async function main() {
     st.wakeConfig.wakeCount = (st.wakeConfig.wakeCount || 0) + 1;
     st.lastWakeReason = reason;
     saveSocialV2State();
-    const promptText = buildWakePromptV2(key, reason);
+    const promptText = buildWakePromptV2(key, reason, sceneVideo);
     log(`[reserved2] 唤醒 ${key}（${reason}）`);
     const rollbackWakeTime = () => {
       const idx = st.wakeTimes.lastIndexOf(wakeTime);
@@ -15207,7 +15264,7 @@ async function main() {
     try {
       pendingWakeKeys.add(key);
       armPendingWakeLease(key);
-      const result = await deliverPrompt(key, promptText, { wakeReason: reason });
+      const result = await deliverPrompt(key, promptText, { wakeReason: reason, sceneVideo });
       const restoreFiniteSleep = () => {
         if (hadFiniteSleep) {
           st.wakeConfig.sleepUntil = prevSleepUntil;
@@ -15227,6 +15284,11 @@ async function main() {
         // 不能在这里删除，否则补投的唤醒回合会丢失“未设置唤醒配置”的安全兜底。
         log(`[reserved2] 唤醒已入队 ${key}（${reason}），等待 DSH 恢复后补投`);
       }
+      if (reason === 'sceneSwitch' && result?.ok === true && !result.skipped && !st.bootstrapSent) {
+        st.bootstrapSent = true;
+        saveSocialV2State();
+      }
+      return result;
     } catch (error) {
       pendingWakeKeys.delete(key);
       disarmPendingWakeLease(key);

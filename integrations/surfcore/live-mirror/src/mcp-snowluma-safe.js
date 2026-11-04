@@ -1501,6 +1501,19 @@ server.tool('qq_fundpilot','主人私信里的基金助手：resolve或market带
   key:z.string(),token:z.string(),action:z.enum(['status','market','journal','order','halt','watch','unwatch','resolve','learning','study','note']),query:z.string().max(160).optional(),note:z.object({summary:z.string().max(1200),topic:z.string().optional(),citations:z.array(z.object({from:z.number(),quote:z.string().max(100)})).max(4)}).optional(),messageId:z.union([z.string(),z.number()]).optional()
 },async args=>{try{const result=await agentApi('/api/socialV2/fundpilot',{method:'POST',headers:{'x-agent-token':args.token},body:JSON.stringify(args),timeoutMs:30000});return {content:[{type:'text',text:serializeModelData(result)}]};}catch(error){return {isError:true,content:[{type:'text',text:'这次没有确认查询或设置完成。先查状态和已保存的计划，别重复操作；模拟下单也不要换个说法重试。'+(String(error?.message||'').includes('收盘')?'现在收盘了。':'')}]};}});
 
+server.tool('qq_switch_scene',
+  '想去另一个地方接话或分享时，可以切到主人的 QQ 私信、已允许的 QQ 群或 B 站。自己选择听众。video 可带公开视频的 BV 号或干净链接。目标收到的是一次换场机会，发言仍用目标场合的工具并看实际回执。state=choose 时从返回的群里选一个。',
+  {key:z.string(),token:z.string(),target:z.enum(['private','group','bili']),group:z.string().max(40).optional(),video:z.string().max(96).optional()},
+  async args=>{
+    try {
+      const result = await agentApi('/api/socialV2/scene-switch', {method:'POST',headers:{'x-agent-token':args.token},body:JSON.stringify(args),timeoutMs:25000});
+      return {content:[{type:'text',text:serializeModelData(result)}]};
+    } catch (error) {
+      return {isError:true,content:[{type:'text',text:`这次没有确认换场。${error.message}。等有新话题再判断。`}]};
+    }
+  }
+);
+
 await server.connect(new StdioServerTransport());
 
 async function modelImageParts(image, {chat = false} = {}) {
