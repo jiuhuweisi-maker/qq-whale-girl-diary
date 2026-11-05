@@ -54,7 +54,8 @@ bash deploy/build-upstream.sh "$SURFCORE_ROOT"
 PATCH=$(node -e 'import(process.argv[1]).then(m=>console.log(m.OVERLAY_PATCH))' "$REPO/integrations/surfcore/version.mjs")
 [ "$PATCH" = "$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).patch)' "$SURFCORE_ROOT/whale-overlay-manifest.json")" ] \
   || die "构建出来的清单版本与 version.mjs 不一致"
-ok "源码就绪，清单 patch=$PATCH（536 文件）"
+SOURCE_COUNT=$(node -e 'console.log(Object.keys(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).sums).length)' "$SURFCORE_ROOT/whale-overlay-manifest.json")
+ok "源码就绪，清单 patch=$PATCH（$SOURCE_COUNT 文件）"
 
 say "== 3/6 装 loopback relay =="
 install -d -m 700 /opt/qq-cs

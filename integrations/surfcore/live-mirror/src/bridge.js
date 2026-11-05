@@ -66,6 +66,7 @@ import {
   normalizePurposeState, parsePurposeMemo, planNextFire, selectPurpose, summarizePurposeState,
 } from './purpose-engine.js';
 import { resolvePriceTable } from './model-prices.js';
+import {collectOperationalInsightsAsync} from '../whale-compat/session-insights.mjs';
 import { catalogChoices, findCatalogModel, pickCatalogFallback } from './model-options.js';
 import { createOutbox } from './outbox.js';
 import {
@@ -4949,6 +4950,9 @@ async function main() {
           sendJson({ok:true,sent:1,messageId:receipt?.message_id}); return;
         }
         if (req.method === 'GET' && url.pathname === '/api/whale-status' && !req.headers['x-agent-token'] && req.headers['x-agent-call'] === undefined) { sendJson(whale.status()); return; }
+        if (req.method === 'GET' && url.pathname === '/api/whale-insights' && !req.headers['x-agent-token'] && req.headers['x-agent-call'] === undefined) {
+          sendJson(await collectOperationalInsightsAsync({root:ROOT,sessionRoot:path.join(process.env.DSH_HOME||path.join(os.homedir(),'.dsh'),'sessions'),pricing:cfg.pricing}));return;
+        }
         if (req.method==='POST' && url.pathname==='/api/socialV2/fundpilot') {
           const body=await readBody(),key=String(body.key||'');
           if(key!=='private:'+String(cfg.ownerQQ)||!agentTokenOk(key,req.headers['x-agent-token'])||!v2SessionAllowed(key)) {sendJson({ok:false,error:'基金助手只在主人自己的私信里使用'},403);return;}

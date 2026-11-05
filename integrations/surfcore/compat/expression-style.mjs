@@ -47,9 +47,14 @@ export function readConfiguredStyle(configFile,{disk=fs}={}) {
 // A new session does not depend on a reminder or a cached preference copy.
 // Only absent/empty files fall back; permission and I/O faults stay visible.
 export function readConfirmedStyle(file,{disk=fs}={}) {
-  if(!file)return EXPRESSION_CORE;
-  try {const text=disk.readFileSync(file,'utf8');return text.trim()?text:EXPRESSION_CORE;}
-  catch(error){if(error.code==='ENOENT')return EXPRESSION_CORE;throw error;}
+  const value=inspectConfirmedStyle(file,{disk});
+  if(value.error)throw value.error;
+  return value.text;
+}
+export function inspectConfirmedStyle(file,{disk=fs}={}) {
+  if(!file)return {text:EXPRESSION_CORE,status:'fallback',reason:'unconfigured'};
+  try {const text=disk.readFileSync(file,'utf8');return text.trim()?{text,status:'loaded'}:{text:EXPRESSION_CORE,status:'fallback',reason:'empty'};}
+  catch(error){return error.code==='ENOENT'?{text:EXPRESSION_CORE,status:'fallback',reason:'missing'}:{text:'',status:'error',reason:'read-failed',error};}
 }
 export function contextualFollowUp(state,event,text,now=Date.now()) {
   if(!/^(?:还有呢|然后呢|再然后呢|怎么说|咋说|所以呢|说下去|继续说|你接着说|为啥呀|为什么呀|[?？]{1,3})[呀啊呢嘛么?？!！。\s]*$/.test(String(text||'').trim()))return false;

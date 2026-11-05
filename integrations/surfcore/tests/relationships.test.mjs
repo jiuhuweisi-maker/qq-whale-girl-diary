@@ -19,3 +19,11 @@ test('fresh Bili sessions recall confirmed QQ relationships internally without m
  assert.equal(relationshipBlock('file',{...opts,key:'',platform:'bili'}),'');
  assert.equal(configuredBiliRelationships('cfg',{disk}),text);
 });
+test('more than twelve relationships prioritize the current sender, mentions and known quote author',()=>{
+ const people=Array.from({length:25},(_,i)=>({userId:String(2000+i),names:['同名'+i],groups:['7001'],fact:'确认事实'+i,confirmed:true,source:{kind:'owner-confirmed'}}));
+ const disk={...opts.disk,readFileSync:()=>JSON.stringify({version:1,people})};
+ const text=relationshipBlock('file',{...opts,disk,messages:[{messageId:'q',userId:'2022'},{messageId:'old',userId:'2001'},{messageId:'new',userId:'2024',mentions:[{userId:'2023'}],replyToMessageId:'q'}]});
+ for(const id of ['2024','2023','2022'])assert(text.includes(personAnchor(id)));
+ assert(text.indexOf(personAnchor('2024'))<text.indexOf(personAnchor('2001')));assert(text.includes('13条确认关系'));
+ const found=relationshipBlock('file',{...opts,disk,query:personAnchor('2020')});assert(found.includes('确认事实20'));assert(!found.includes('确认事实21'));
+});

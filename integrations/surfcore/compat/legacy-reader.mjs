@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {readJournal} from './personal-journal.mjs';
 import { conversation } from './memory-scope.mjs';
+import {relationshipBlock} from './relationships.mjs';
 // Only bridge-owned state supplies this identity; tool arguments and nicknames
 // cannot select a different person or grant access to another conversation.
 export function journalFocus(state,now=Date.now()) {
@@ -30,15 +31,17 @@ export function createLegacyReader({ config, cookie = () => '', journalDir = () 
     if (kind !== 'memory') throw new Error('未知资料类型');
     const needle = String(query || '').trim().toLowerCase();
     if ((!day && !cursor && needle.length < 2) || needle.length > 120) return { ok: false, error: '用2至120字说明要找哪件事，或提供日期/分页' };
+    const relationships=needle?relationshipBlock(config.whaleCompat?.relationshipFile,{key,ownerQQ:config.ownerQQ,allowedGroups:config.allow?.groups,query:needle}):'';
     if(journalDir()) {
       const journal=readJournal(journalDir(),{key,ownerQQ:config.ownerQQ,query:needle,day,cursor,focus:focus(key),internal:true});
       if(journal.entries.length||journal.nextCursor||day||cursor){
         // One copy for the model. The previous response duplicated every body
         // in both entries and results, including long paginated diary chunks.
         const {entries,...metadata}=journal;
-        return {...metadata,found:journal.matched,results:entries.map(({speaker,...row})=>({...row,sender:speaker}))};
+        return {...metadata,...(relationships?{relationships}:{}),found:journal.matched,results:entries.map(({speaker,...row})=>({...row,sender:speaker}))};
       }
     }
+    if(relationships)return {ok:true,found:0,results:[],relationships};
     const source = path.join(config.whaleCompat.legacyMemoryDir, 'index.jsonl');
     if (fs.statSync(source).size > 64 * 1024 * 1024) throw new Error('归档索引过大，需先整理');
     const results = [];
