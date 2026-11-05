@@ -25,5 +25,7 @@
   "plugins/surfcore/tools/commands/dm.mjs",
   "plugins/surfcore/tools/commands/personal-journal.mjs",
   "package.json",
-  "package-lock.json"
+  "package-lock.json",
+  "whale-native-images/package.json",
+  "whale-native-images/package-lock.json"
 ]

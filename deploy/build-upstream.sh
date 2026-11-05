@@ -13,5 +13,6 @@ node "$DEPLOY_REPO/integrations/surfcore/build.mjs" "$BUILD_TARGET"
 # The overlay adds the bounded-image preview dependencies to package + lock.
 # Install that reviewed lockfile, rather than the unmodified upstream package.
 npm --prefix "$BUILD_TARGET" ci --ignore-scripts
+npm --prefix "$BUILD_TARGET/whale-native-images" ci --ignore-scripts --include=optional
 (cd "$BUILD_TARGET" && node scripts/patch-snowluma-sdk.mjs)
 printf '%s\n' 'Source prepared. Next: deploy/init.mjs with a private settings JSON. Nothing is activated.'

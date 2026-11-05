@@ -1,65 +1,49 @@
-import {createRequire} from 'node:module';
-
-const DETAIL = { limit: 32768, edges: [1400, 1100, 850, 640, 480, 320, 240, 160], quality: 65 };
-const CHAT = { limit: 12288, edges: [384, 256, 160], quality: 54 };
-const PNG_SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-
-function makePreview(bytes, dependencies, profile) {
-  const require = createRequire(dependencies || process.env.WHALE_IMAGE_DEPENDENCIES || import.meta.url);
-  const firstFrame = bytes.subarray(0, 3).toString() === 'GIF';
-  try {
-    let decoded;
-    if (bytes.subarray(0, 8).equals(PNG_SIGNATURE)) {
-      if (bytes.readUInt32BE(16) * bytes.readUInt32BE(20) > 12000000) throw Error('pixel-limit');
-      decoded = require('pngjs').PNG.sync.read(bytes, {checkCRC: true});
-    } else if (bytes[0] === 255 && bytes[1] === 216) {
-      decoded = require('jpeg-js').decode(bytes, {useTArray: true, maxResolutionInMP: 12, maxMemoryUsageInMB: 128});
-    } else if (firstFrame) {
-      const gif = new (require('omggif').GifReader)(bytes);
-      if (gif.width * gif.height > 12000000) throw Error('pixel-limit');
-      const data = Buffer.alloc(gif.width * gif.height * 4);
-      gif.decodeAndBlitFrameRGBA(0, data);
-      decoded = {width: gif.width, height: gif.height, data};
-    } else {
-      throw Error('unsupported-preview');
-    }
-
-    if (profile === CHAT && Math.max(decoded.width, decoded.height) <= CHAT.edges[0] && bytes.length <= CHAT.limit) return null;
-
-    const jpeg = require('jpeg-js');
-    for (const edge of profile.edges) {
-      const scale = Math.min(1, edge / Math.max(decoded.width, decoded.height));
-      const width = Math.max(1, Math.round(decoded.width * scale));
-      const height = Math.max(1, Math.round(decoded.height * scale));
-      const data = Buffer.alloc(width * height * 4);
-      for (let y = 0; y < height; y++) {
-        for (let x = 0; x < width; x++) {
-          const fromX = Math.min(decoded.width - 1, Math.floor(x / scale));
-          const fromY = Math.min(decoded.height - 1, Math.floor(y / scale));
-          const from = (fromY * decoded.width + fromX) * 4;
-          const to = (y * width + x) * 4;
-          const alpha = decoded.data[from + 3] / 255;
-          for (let c = 0; c < 3; c++) data[to + c] = Math.round(decoded.data[from + c] * alpha + 255 * (1 - alpha));
-          data[to + 3] = 255;
-        }
-      }
-      const output = jpeg.encode({data, width, height}, profile.quality).data;
-      if (output.length <= profile.limit) {
-        return {mimeType: 'image/jpeg', data: output.toString('base64'), preview: true, width, height, firstFrame};
-      }
-    }
-  } catch (error) {
-    throw new Error('这次未能生成模型可读的图片预览，原图仍保留；尚未看到图，不能判断内容或归因于用户的格式。', {cause: error});
+import{createRequire}from'node:module';import{createHash}from'node:crypto';import{Worker}from'node:worker_threads';
+const failure=()=>Error('这次未能及时生成可读图片预览，原图仍保留；尚未看到图，不能判断内容或归因于用户的格式。');
+function resolveSharp(options) {
+ for(const base of [options.nativeDependencies,process.env.WHALE_NATIVE_IMAGE_DEPENDENCIES,new URL('../whale-native-images/package.json',import.meta.url),new URL('../live-mirror/whale-native-images/package.json',import.meta.url),options.dependencies,import.meta.url]){
+  if(!base)continue;try{return createRequire(base).resolve('sharp');}catch(error){if(error.code!=='MODULE_NOT_FOUND')throw error;}
+ }
+ throw Error('图片预览运行依赖未就绪，原图保留，尚未看到图。');
+}
+// Content-only, bounded, process-local cache. Authorization stays at each caller.
+export function createImagePreviewer({now=Date.now,maxEntries=64,maxBytes=3*1024*1024,ttlMs=1800000,workerFactory=opts=>new Worker(new URL('./image-worker.mjs',import.meta.url),opts)}={}) {
+ const cache=new Map(),pending=new Map(),queue=[];let bytesCached=0,active=0,queuedBytes=0;
+ const evict=()=>{for(const[k,r]of cache)if(now()-r.at>ttlMs){cache.delete(k);bytesCached-=r.size;}while(cache.size>maxEntries||bytesCached>maxBytes){const[k,r]=cache.entries().next().value;cache.delete(k);bytesCached-=r.size;}};
+ function pump(){while(active<1&&queue.length){const job=queue.shift();queuedBytes-=job.bytes.length;if(job.done)continue;active++;job.started=now();job.active=true;
+  try{job.worker=workerFactory({workerData:{sharpPath:job.sharpPath,bytes:job.bytes,chat:job.chat},execArgv:[],resourceLimits:{maxOldGenerationSizeMb:128}});job.bytes=null;
+   job.worker.once('message',r=>job.finish(r.ok?null:failure(),r.result));job.worker.once('error',()=>job.finish(failure()));job.worker.once('exit',()=>{if(!job.done)job.finish(failure())});
+  }catch{job.finish(failure());}
+ }}
+ async function render(bytes,options={}) {
+  if(!Buffer.isBuffer(bytes)||!bytes.length||bytes.length>20*1024*1024)throw failure();
+  if(options.signal?.aborted)throw failure();
+  const sharpPath=resolveSharp(options),chat=options.chat===true,key=createHash('sha256').update(bytes).update(chat?'chat207':'detail207').update(sharpPath).digest('hex'),start=now();evict();
+  if(cache.has(key)){const row=cache.get(key);cache.delete(key);cache.set(key,row);options.trace?.({cacheHit:true,coalesced:false,queueMs:0,convertMs:0,totalMs:now()-start,inputBytes:bytes.length,outputBytes:row.result.data?Buffer.byteLength(row.result.data,'base64'):bytes.length});return row.result;}
+  let job=pending.get(key);const coalesced=!!job;
+  if(!job){if(pending.size>=4||queuedBytes+bytes.length>32*1024*1024)throw failure();
+   let resolve,reject;const promise=new Promise((a,b)=>{resolve=a;reject=b});job={key,bytes,sharpPath,chat,promise,refs:0,done:false,created:now()};
+   job.finish=(error,result)=>{if(job.done)return;job.done=true;clearTimeout(job.timer);pending.delete(key);
+    const at=queue.indexOf(job);if(at>=0){queue.splice(at,1);queuedBytes-=job.bytes.length;}
+    const release=()=>{if(job.active){active--;job.active=false;}pump();};job.bytes=null;
+    if(job.worker)void job.worker.terminate().then(release,release);else release();
+    if(error)reject(error);else{const size=result.data?Buffer.byteLength(result.data,'base64'):64;cache.set(key,{result,size,at:now()});bytesCached+=size;evict();resolve(result);}};
+   job.timer=setTimeout(()=>job.finish(failure()),Math.max(1,Math.min(6000,options.timeoutMs||6000)));
+   pending.set(key,job);queue.push(job);queuedBytes+=bytes.length;pump();
   }
-  throw Error('图片预览仍超出当前附件兼容范围，原图保留，尚未看到图。');
+  job.refs++;
+  try{
+   const result=await new Promise((resolve,reject)=>{const abort=()=>reject(failure());options.signal?.addEventListener('abort',abort,{once:true});job.promise.then(v=>{options.signal?.removeEventListener('abort',abort);resolve(v)},e=>{options.signal?.removeEventListener('abort',abort);reject(e)});if(options.signal?.aborted)abort();});
+   options.trace?.({cacheHit:false,coalesced,queueMs:Math.max(0,(job.started||now())-job.created),convertMs:Math.max(0,now()-(job.started||now())),totalMs:now()-start,inputBytes:bytes.length,outputBytes:result.data?Buffer.byteLength(result.data,'base64'):bytes.length});return result;
+  }finally{job.refs--;if(!job.refs&&!job.done)job.finish(failure());}
+ }
+ return {render,status:()=>({cached:cache.size,bytesCached,pending:pending.size,active})};
 }
-
-export async function modelImage(image, {dependencies} = {}) {
-  const bytes = Buffer.from(image.data, 'base64');
-  if (bytes.length <= DETAIL.limit) return image;
-  return {...image, ...makePreview(bytes, dependencies, DETAIL)};
+const previews=createImagePreviewer();
+export async function modelImage(image,options={}) {
+ const bytes=Buffer.from(image.data,'base64'),result=await previews.render(bytes,options);
+ return result.passThrough?image:{...image,...result};
 }
-
-export function chatImagePreview(bytes, {dependencies} = {}) {
-  return makePreview(bytes, dependencies, CHAT);
+export async function chatImagePreview(bytes,options={}) {
+ const result=await previews.render(bytes,{...options,chat:true});return result.passThrough?null:result;
 }

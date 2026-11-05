@@ -11,7 +11,9 @@ import { createFundPilot } from '../compat/fundpilot.mjs';
 import { recordSessionResult,reserveGenerationRetry } from '../compat/session-recovery.mjs';
 import {scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,groupActivityView} from '../compat/conversation-logic.mjs';
 import {relationshipBlock} from '../compat/relationships.mjs';
-import {composeConfirmedPersona,contextualFollowUp} from '../compat/expression-style.mjs';
+import {composeConfirmedPersona,contextualFollowUp,readConfirmedStyle} from '../compat/expression-style.mjs';
+import {refreshReplyAllowance,pendingReplyCandidate} from '../compat/reply-continuity.mjs';
+import {modelImage} from '../compat/model-image.mjs';
 import {proactiveDelay} from '../compat/proactive-clock.mjs';
 import {legacyMedia} from '../compat/legacy-media.mjs';
 import {interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan} from '../compat/private-availability.mjs';
@@ -48,9 +50,9 @@ const disk = { ...fs, openSync(file, mode, ...args) { if (mode === 'r' && fs.sta
 const legacyDir=fs.mkdtempSync(path.join(os.tmpdir(),'whale-stickers-'));fs.writeFileSync(path.join(legacyDir,'happy.png'),Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64'));fs.writeFileSync(path.join(legacyDir,'INDEX.tsv'),'happy.png\t开心测试图\n');
 let ownerDispatchFixture;
 const h = await bridgeHarness({ onebotResponse: (action, body) => ownerDispatchFixture?.(action, body), config: { whaleCompat: { cutover: Math.floor(Date.now()/1000)-1,stickerDir:legacyDir }, purpose: { enabled: false }, social: { enabled: false }, voice: { enabled: false }, biliBridge: { enabled: false }, socialV2: { enabled: true, tokenGuard: { enabled: false }, send: { maxPerMinute: 100, maxPerHour: 500 } } }, globals: {
-  ...stickerSemantics,...contextSnapshot,extractMentions,bootstrapToolContext,backgroundPromptRefresh,Date:SimDate,safeFetchBuffer:async url=>{assert.equal(url,'https://public.invalid/sticker');return{buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64')};},createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, log:(...a)=>{options.log?.(...a);if(String(a[0]).startsWith('持久消息账本'))console.error('[fixture-ledger]',...a);}, control: async () => structuredClone(control) }),
+  detectImageInput:async()=>true,...stickerSemantics,...contextSnapshot,extractMentions,bootstrapToolContext,backgroundPromptRefresh,Date:SimDate,safeFetchBuffer:async url=>{assert.equal(url,'https://public.invalid/sticker');return{buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64')};},createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, log:(...a)=>{options.log?.(...a);if(String(a[0]).startsWith('持久消息账本'))console.error('[fixture-ledger]',...a);}, control: async () => structuredClone(control) }),
   createFundPilot:options=>createFundPilot({...options,disk,research:{read:async fund=>({code:fund.code,name:fund.name,unitNav:1.2,asOf:'2026-10-30',measurement:'published_unit_nav',isRealtimePrice:false})},request:async(route,data)=>({mode:'paper',liveTrading:false,cashFen:100000,...(data?{order:data}:{})})}),recordSessionResult,
-  renderConversationMemory, createLegacyReader, journalFocus, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,groupActivityView,relationshipBlock,composeConfirmedPersona,contextualFollowUp,proactiveDelay,legacyMedia,interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan,discoverDshSessionCookie: () => ''
+  renderConversationMemory, createLegacyReader, journalFocus, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,groupActivityView,relationshipBlock,composeConfirmedPersona,contextualFollowUp,readConfirmedStyle,refreshReplyAllowance,pendingReplyCandidate,modelImage,proactiveDelay,legacyMedia,interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan,discoverDshSessionCookie: () => ''
 } });
 const server = h.startConsoleServer();
 if (!server.listening) await new Promise(r => server.once('listening', r));
@@ -122,8 +124,9 @@ try {
     const key='group:456';await h.handleIncoming('group',456,event(1414,201,'说说那次约定'),h.cfg);
     const dir=path.join(h.temp,'dsh','surfcore','memory');appendJournal(dir,[{at:'2026-11-01T00:00:00Z',text:'排名验证约定本人',senderId:'201',sender:'旧昵称',conversationKey:key},{at:'2026-11-03T00:00:00Z',text:'排名验证约定同名别人',senderId:'202',sender:'旧昵称',conversationKey:key},{at:'2026-11-03T00:00:01Z',text:'排名验证约定私密',senderId:'201',conversationKey:'private:123'}]);
     const st=h.getSocialV2State(key),r=await fetch(base+'/api/socialV2/legacy-read',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-token':st.agentToken},body:JSON.stringify({key,kind:'memory',query:'排名验证约定',focus:{senderId:'202'}})}).then(r=>r.json());
-    assert.equal(r.ok,true);assert.equal(r.results[0].senderId,'201');assert.equal(r.results.length,2);assert(!('entries'in r));
-    const modelJson=serializeModelData(r);assert.equal(modelJson.split('排名验证约定本人').length-1,1);assert(!modelJson.includes('排名验证约定私密'));
+    assert.equal(r.ok,true);assert.equal(r.results[0].senderId,'201');assert.equal(r.results.length,3);assert(!('entries'in r));
+    const modelJson=serializeModelData(r);assert.equal(modelJson.split('排名验证约定本人').length-1,1);
+    const privateRecall=r.results.find(row=>row.text==='排名验证约定私密');assert(privateRecall?.doNotPublish);assert.equal(privateRecall.senderId,'201');
   });
   await test('actual wake accepts a same-speaker short continuation without an at mention',async()=>{const st={wakeConfig:{triggers:{question:true}},recentMessages:[{userId:'201',time:Date.now()-2000},{isSelf:true,time:Date.now()-1000}]};assert.equal(h.evaluateWakeTriggerV2('group:456',st,event(80,201,'还有呢'),'group','还有呢','还有呢',false),'question');assert.equal(h.evaluateWakeTriggerV2('group:456',st,event(81,202,'还有呢'),'group','还有呢','还有呢',false),null);});
   await test('actual legacy sticker lookup returns a sendable item',async()=>{const key='group:456',token=h.getSocialV2State(key).agentToken;const r=await fetch(base+'/api/socialV2/legacy-read',{method:'POST',headers:{'content-type':'application/json','x-console-token':'fixture-console-token','x-agent-token':token},body:JSON.stringify({key,kind:'stickers',query:'开心'})}).then(r=>r.json());assert.equal(r.ok,true,JSON.stringify(r));assert.equal(r.entries.length,1);});
@@ -469,6 +472,29 @@ try {
     assert.equal(talk.state,'accepted');
     assert.equal(talk.intent,'speak');
     assert(JSON.stringify(h.calls.prompts.at(-1).content).includes('先用当前会话的 qq_send_message 实际发出'));
+  });
+  await test('new real messages shown to the model renew the reply allowance, rereading cannot bypass it',async()=>{
+    const key='private:123',st=h.getSocialV2State(key),saved=h.cfg.socialV2.tokenGuard.enabled;
+    h.cfg.socialV2.tokenGuard.enabled=true;h.cfg.socialV2.tokenGuard.maxOutboundPerTurn=8;
+    const m={messageId:'99001',seq:99001,userId:'123',time:Date.now(),plain:'还在吗'};st.unread=[m];st.tokenTurnSent=8;
+    h.noteModelMessagesV2(st,[m],key);assert.equal(h.tokenGuardSendBlock(key,st,1),null);st.tokenTurnSent=8;
+    h.noteModelMessagesV2(st,[m],key);assert.equal(h.tokenGuardSendBlock(key,st,1).remaining,0);
+    h.noteModelMessagesV2(st,[{...m,messageId:'99002',seq:99002}],key);assert.equal(h.tokenGuardSendBlock(key,st,1),null);
+    h.cfg.socialV2.tokenGuard.enabled=saved;
+  });
+  await test('actual authenticated image endpoint returns prepared preview and refuses wrong conversation tokens',async()=>{
+    h.setImageInputSupport(true);
+    const key='group:456',st=h.getSocialV2State(key);await h.handleIncoming('group',456,event(99003,123,'图',[{type:'image',data:{file:'preview.png'}}]),h.cfg);
+    const route=base+'/api/images/message?key='+encodeURIComponent(key)+'&messageId=99003&preview=chat';
+    const bad=await fetch(route,{headers:{'x-console-token':'fixture-console-token','x-agent-token':'wrong'}});assert.equal(bad.status,403);
+    const r=await fetch(route,{headers:{'x-console-token':'fixture-console-token','x-agent-token':st.agentToken}}),body=await r.json();assert.equal(r.status,200,JSON.stringify(body));assert.equal(body.images[0].previewPolicy,207,JSON.stringify(body));assert(Buffer.byteLength(body.images[0].data,'base64')<=12288);
+  });
+  await test('automatic rotation persists and schedules a fresh unanswered request; ordinary retirement does not',async()=>{
+    const key='private:123',st=h.getSocialV2State(key),m={messageId:'99004',seq:99004,userId:'123',time:Date.now()+1000,plain:'继续刚刚那件事'};
+    await h.ensureSession(key);st.lastAiReplyAt=0;st.recentMessages=[m];st.unread=[m];h.retireSession(key,{continuePending:true});assert.equal(st.pendingReply207.messageId,'99004');assert(st.replyResumeTimer207);assert(!h.state.sessions[key]);
+    const stored=JSON.parse(fs.readFileSync(path.join(h.temp,'state/social-v2.json')));assert.equal(stored.conversations[key].pendingReply207.messageId,'99004');
+    await new Promise(resolve=>setTimeout(resolve,1700));assert.equal(st.pendingReply207.attempts,1);assert(st.pendingWakeTimer);
+    await h.ensureSession(key);h.retireSession(key);assert.equal(st.pendingReply207,null);assert.equal(st.replyResumeTimer207,null);
   });
   console.log('PASS_ALL ' + passed);
 } finally {await new Promise(r=>server.close(r)); await h.close();assert.equal(path.dirname(legacyDir),path.resolve(os.tmpdir()));fs.rmSync(legacyDir,{recursive:true});}

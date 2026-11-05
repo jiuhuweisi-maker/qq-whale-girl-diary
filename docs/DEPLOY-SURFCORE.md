@@ -1,6 +1,6 @@
 # 从 Git 新部署鲸戒
 
-**当前版本为鲸戒适配206 / SurfCore固定0.8.8。** 主入口构建最新完整运行源覆盖层，保留此前耐久回执与主人权限，包含共用日记、按人物/会话优先检索、图片预览兼容和更新保护。旧143构建器和平铺镜像已于 2026-11-04 从仓库树移出，历史提交里可查。
+**当前版本为鲸戒适配207 / SurfCore固定0.8.8。** 主入口构建最新完整运行源覆盖层，保留此前耐久回执与主人权限，包含共用日记、按人物/会话优先检索、图片预览兼容和更新保护。旧143构建器和平铺镜像已于 2026-11-04 从仓库树移出，历史提交里可查。
 
 快速路径见 [换台 Linux 服务器](FRESH-SERVER.md)：`deploy/bootstrap.sh` 把本文的构建、relay、配置生成、控制包注册和离线回归串成一条命令，`deploy/state-transfer.sh` 负责搬人设与记忆。下面仍保留逐步骤的手工说明，便于排错。
 
@@ -23,7 +23,9 @@
 bash deploy/build-upstream.sh /opt/whale-surfcore/current-source
 ```
 
-脚本克隆 [SurfCore](https://github.com/Mieksido/surfcore)，固定提交 `0deb8261afe4c31b3127759ee4de36a1439cf422`（0.8.8），先构建适配的package/lock，再按该lockfile安装依赖并手动运行已审查的SDK补丁。构建器在任何写入前检查504个固定源文件的指纹，然后应用完整的现行覆盖层及兼容模块，生成538文件哈希清单。目标目录必须不存在。不会使用 latest、覆盖已有运行目录、安装桌宠/语音包或启动聊天。
+脚本克隆 [SurfCore](https://github.com/Mieksido/surfcore)，固定提交 `0deb8261afe4c31b3127759ee4de36a1439cf422`（0.8.8），先构建适配的package/lock，再按主目录及独立whale-native-images的lockfile安装依赖并手动运行已审查的SDK补丁。构建器在任何写入前检查504个固定源文件的指纹，然后应用完整的现行覆盖层及兼容模块，生成543文件哈希清单。目标目录必须不存在。不会使用 latest、覆盖已有运行目录、安装桌宠/语音包或启动聊天。
+
+手动在仓库运行图片或桥离线测试时，设置 `WHALE_NATIVE_IMAGE_DEPENDENCIES=/opt/whale-surfcore/current-source/whale-native-images/package.json`，指向上一步实际构建目录；一键部署脚本已自动设置。运行时从自己的独立依赖目录读取，无需修改DSH或全局npm。
 
 ## 本地 relay 与凭据
 

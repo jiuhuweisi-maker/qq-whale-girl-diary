@@ -21,6 +21,9 @@ class UpdateTests(unittest.TestCase):
 
     def test_safe_paths_and_selection(self):
         self.assertTrue(m.selected('src/new.js'))
+        self.assertTrue(m.selected('whale-native-images/package.json'))
+        self.assertTrue(m.selected('whale-native-images/package-lock.json'))
+        self.assertFalse(m.selected('whale-native-images/node_modules/sharp/index.js'))
         for name in ('../config.json', '/src/a.js', 'src/../../a', 'config.json', 'state/log'):
             self.assertFalse(m.selected(name))
 
@@ -60,6 +63,12 @@ class UpdateTests(unittest.TestCase):
         old = json.dumps({'version': '1', 'packages': {'': {'version': '1'}, 'node_modules/same': {'version': '1'}}}).encode()
         new = json.dumps({'version': '2', 'packages': {'': {'version': '2'}, 'node_modules/same': {'version': '1'}}}).encode()
         self.assertEqual(self.merge({'package-lock.json': old}, {'package-lock.json': old}, {'package-lock.json': new})['package-lock.json'], new)
+
+    def test_native_image_contract_survives_but_cannot_be_upgraded_automatically(self):
+        name='whale-native-images/package-lock.json'
+        self.assertEqual(self.merge({}, {name:b'pinned'}, {})[name],b'pinned')
+        with self.assertRaisesRegex(RuntimeError,'native_image_dependency_changed'):
+            self.merge({name:b'pinned'}, {name:b'pinned'}, {name:b'new'})
 
 
 if __name__ == '__main__':

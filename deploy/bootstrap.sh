@@ -74,6 +74,7 @@ node deploy/register-control.mjs "$DSH_HOME" "$PROFILE"
 ok "whale-control 已挂到 $PROFILE"
 
 say "== 6/6 离线回归（不连 QQ、不调模型）=="
+export WHALE_NATIVE_IMAGE_DEPENDENCIES="$SURFCORE_ROOT/whale-native-images/package.json"
 node --test tests/broadcast-intent.test.cjs
 python3 scripts/test_relay.py
 python3 scripts/test_operations.py

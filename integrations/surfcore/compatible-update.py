@@ -47,7 +47,7 @@ def atomic(file, data):
 def selected(name):
     p = PurePosixPath(name)
     return (not p.is_absolute() and '..' not in p.parts and
-            (name in ('package.json', 'package-lock.json') or
+            (name in ('package.json', 'package-lock.json', 'whale-native-images/package.json', 'whale-native-images/package-lock.json') or
              name.startswith(('src/', 'plugins/', 'dsh/', 'scripts/'))))
 
 
@@ -109,6 +109,9 @@ def merge_tree(base, current, latest, scratch):
     if current.get('package-lock.json') or result.get('package-lock.json'):
         if not current.get('package-lock.json') or not result.get('package-lock.json') or effective_lock(current['package-lock.json']) != effective_lock(result['package-lock.json']):
             raise RuntimeError('dependency_lock_changed')
+    for name in ('whale-native-images/package.json', 'whale-native-images/package-lock.json'):
+        if current.get(name) != result.get(name):
+            raise RuntimeError('native_image_dependency_changed')
     # Startup files, new tools, installers and permissions require review even
     # when a textual merge succeeds. They must never silently expand access.
     for name in result:
@@ -129,6 +132,7 @@ def validate(cfg, stage, work):
                SURFCORE_SOURCE=str(stage), TMPDIR=str(home))
     if cfg.get('imageDeps'):
         env['WHALE_IMAGE_DEPENDENCIES'] = cfg['imageDeps']
+    env['WHALE_NATIVE_IMAGE_DEPENDENCIES'] = str(stage / 'whale-native-images/package.json')
     for name in ('dsh/agent-presets/qq-chat-v2/agent.cordis.yml', 'plugins/surfcore/presets/qq-chat-v2.patch.yml'):
         text = (stage / name).read_text()
         if any(s in text for s in ('装唐装傻', '已读乱回', '离谱/没用的答案', 'coding agent powered')):
@@ -139,7 +143,7 @@ def validate(cfg, stage, work):
     suites = [[repo / 'tests/bridge-integration.test.mjs', stage],
               [repo / 'tests/runtime.test.mjs'], [repo / 'tests/personal-journal.test.mjs'],
               [repo / 'tests/journal-ranking.test.mjs'], [repo / 'tests/legacy-reader-payload.test.mjs'],
-              [repo / 'tests/model-image.test.mjs'], [repo / 'tests/prompt-preferences.test.mjs'],
+              [repo / 'tests/model-image.test.mjs'], [repo / 'tests/image-delivery.test.mjs', stage], [repo / 'tests/prompt-preferences.test.mjs'],
               [repo / 'tests/bili-style.test.mjs', stage]]
     for i, args in enumerate(suites):
         p = run([cfg['node']] + args, env=env, timeout=100, check=False)
@@ -263,6 +267,10 @@ def main():
     # No install or install scripts. Existing dependencies have been checked equal.
     if (root / 'node_modules').exists():
         os.symlink(str(root / 'node_modules'), str(stage / 'node_modules'))
+    native = root / 'whale-native-images/node_modules'
+    if native.exists():
+        (stage / 'whale-native-images').mkdir(exist_ok=True)
+        os.symlink(str(native.resolve()), str(stage / 'whale-native-images/node_modules'))
     validate(cfg, stage, attempt)
     if cfg.get('dryRun'):
         return {'status': 'validated-only', 'activated': False, 'upstream': latest}

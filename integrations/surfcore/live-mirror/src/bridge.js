@@ -12,6 +12,7 @@ import { createWhaleRuntime } from '../whale-compat/runtime.mjs';
 import {publicVideoId, sceneGroupKey, sceneOfferFile, sceneSwitchPrompt, SCENE_SWITCH_WINDOW_MS} from '../whale-compat/scene-switch.mjs';
 import { createFundPilot } from '../whale-compat/fundpilot.mjs';
 import { recordSessionResult,reserveGenerationRetry } from '../whale-compat/session-recovery.mjs';
+import {refreshReplyAllowance,pendingReplyCandidate} from '../whale-compat/reply-continuity.mjs';
 import {scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,groupActivityView} from '../whale-compat/conversation-logic.mjs';
 import {relationshipBlock} from '../whale-compat/relationships.mjs';
 import {composeConfirmedPersona,contextualFollowUp,readConfirmedStyle} from '../whale-compat/expression-style.mjs';
@@ -3916,7 +3917,8 @@ async function main() {
     markReadCalledKeys.delete(key);
   }
 
-  function retireSession(key) {
+  function retireSession(key,{continuePending=false}={}) {
+    const priorState=socialV2.conversations.get(key),resume=continuePending&&priorState?continuationCandidate207(key,priorState):null;
     const sessionId = state.sessions[key];
     delete state.sessions[key];
     delete state.sessionPolicies[key];
@@ -3953,10 +3955,13 @@ async function main() {
       rememberAgentToken(key, st.agentToken);
       st.bootstrapSent = false;
       st.modelSeenSeqs = new Set();
+      if(resume){const old=st.pendingReply207;st.pendingReply207=old?.messageId===String(resume.messageId)?old:{messageId:String(resume.messageId),at:Number(resume.time),attempts:0};}
+      else st.pendingReply207=null;
     }
     saveState();
     saveSocialV2State();
     stopRetiredSessionWork(sessionId, key);
+    if(resume)armPendingReply207(key);
     log(`会话权限已变化，停用旧映射 ${key} -> ${sessionId}`);
   }
 
@@ -6727,7 +6732,7 @@ async function main() {
           // larger than one response be read completely, even outside recent.
           const messages = afterSeq === null ? st.unread.slice(-limit)
             : st.unread.filter((m) => Number.isSafeInteger(m.seq) && m.seq > afterSeq).slice(0, limit);
-          const readThroughSeq = req.headers['x-agent-token'] ? noteModelMessagesV2(st, messages) : readThroughSeqV2(st);
+          const readThroughSeq = req.headers['x-agent-token'] ? noteModelMessagesV2(st, messages,key) : readThroughSeqV2(st);
           // 翻未读是最常见的新消息入口，同样带上表情推荐
           const stickerMatch = stickerMatchFor(messages);
           const d175 = st.deferredSeqs175 || [];
@@ -6748,7 +6753,7 @@ async function main() {
           const start = Math.max(0, st.recentMessages.length - offset - limit);
           const end = Math.max(0, st.recentMessages.length - offset);
           const messages = st.recentMessages.slice(start, end);
-          const readThroughSeq = req.headers['x-agent-token'] ? noteModelMessagesV2(st, messages) : readThroughSeqV2(st);
+          const readThroughSeq = req.headers['x-agent-token'] ? noteModelMessagesV2(st, messages,key) : readThroughSeqV2(st);
           sendJson({ ok: true, key, messages, readThroughSeq, ...(unreadNoticeV2(st) || {}) });
           return;
         }
@@ -8727,7 +8732,7 @@ async function main() {
           // `arrived` is recomputed against what this request may actually hand over,
           // so a suppressed buffer cannot report an arrival it is not allowed to show.
           const newMessages = replyWait ? batch.selected : (arrived ? batch.selected : []);
-          const readThroughSeq = req.headers['x-agent-token'] ? noteModelMessagesV2(st, newMessages) : readThroughSeqV2(st);
+          const readThroughSeq = req.headers['x-agent-token'] ? noteModelMessagesV2(st, newMessages,key) : readThroughSeqV2(st);
           const unreadNotice = unreadNoticeV2(st);
           const foldedPreview = batch.folded.length
             ? batch.folded.slice(-2).map((m) => `${m.sender || '未知'}：${String(m.plain || m.text || '').slice(0, 40)}`).join(' / ')
@@ -9410,8 +9415,22 @@ async function main() {
             return;
           }
           try {
-            const images = await fetchMediaData(media);
-            sendJson({ ok: true, messageId, media, images });
+            const started=Date.now(),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),25000);
+            const closed=()=>{if(!res.writableEnded)controller.abort()};res.once('close',closed);
+            try{
+              const fetching=fetchMediaData(media,{signal:controller.signal});
+              const timeout=new Promise((_,reject)=>controller.signal.addEventListener('abort',()=>reject(Error('图片读取未及时完成，原图保留。')),{once:true}));
+              const images=await Promise.race([fetching,timeout]),fetchMs=Date.now()-started;
+              const profile=url.searchParams.get('preview'),preparedAt=Date.now();
+              if(profile==='chat'||profile==='detail')for(const image of images){
+                if(!image?.data||!image.mimeType)continue;
+                const chat=profile==='chat'&&image.kind==='image'&&!image.emojiId&&String(image.subType||'')!=='1';
+                const picture=await modelImage(image,{chat,signal:controller.signal,dependencies:cfg.whaleCompat?.imageDeps,trace:metrics=>log('[图片预览] '+JSON.stringify(metrics))});
+                Object.assign(image,picture,{previewPolicy:207,previewProfile:chat?'chat':'detail'});
+              }
+              log('[图片交付] '+JSON.stringify({fetchMs,previewMs:Date.now()-preparedAt,totalMs:Date.now()-started,count:images.length,bytes:images.reduce((n,i)=>n+Buffer.byteLength(i.data||'','base64'),0)}));
+              sendJson({ok:true,messageId,media,images});
+            }finally{clearTimeout(timer);res.off('close',closed);}
           } catch (error) {
             log(`图片查询失败 ${key} ${messageId}: ${error?.message ?? error}`);
             sendJson({ ok: false, error: `图片查询失败：${error?.message ?? error}` }, 500);
@@ -10468,7 +10487,7 @@ async function main() {
     return { buffer: buf, mimeType: mimeFromBuffer(buf) };
   }
 
-  async function fetchOneBotImage(media) {
+  async function fetchOneBotImage(media,{signal}={}) {
     // 表情包（市场/收藏表情）优先走 CDN：get_image 对市场表情必然失败
     // （SnowLuma 缓存里没有该文件），先试 URL 能省一次失败往返，也更可靠。
     const emojiId = String(media.emojiId || emojiIdFromFileName(media.file) || '');
@@ -10489,6 +10508,7 @@ async function main() {
 
     const tryUrls = async () => {
       for (const url of urls) {
+        if(signal?.aborted)throw Error('图片读取已取消');
         try {
           const fetched = await safeFetchBuffer(url, MAX_MEDIA_BYTES);
           const accepted = acceptImageBuffer(fetched.buffer, `${label} URL `);
@@ -10502,6 +10522,7 @@ async function main() {
     };
     // 只有 file 是安全缓存文件名时才允许交给网关（防任意路径/内网 URL 注入）。
     const tryGetImage = async () => {
+      if(signal?.aborted)throw Error('图片读取已取消');
       if (!(media.kind === 'image' || media.kind === 'sticker')) return null;
       if (!media.file || !isProbablySafeImageFileRef(media.file)) return null;
       try {
@@ -10619,22 +10640,7 @@ async function main() {
         const kind = media.kind === 'face' ? 'face' : (media.kind === 'sticker' ? 'sticker' : 'image');
         const noun = kind === 'image' ? '图片' : '表情';
         const text = mediaFallbackText(media, noun, { textOnly: true });
-        if (typeof parts === 'undefined') {
-          out.push({
-            index,
-            kind,
-            ...(media.file ? { file: String(media.file) } : {}),
-            ...(media.url ? { url: String(media.url) } : {}),
-            ...(media.faceId ? { faceId: String(media.faceId) } : {}),
-            ...(media.emojiId ? { emojiId: String(media.emojiId) } : {}),
-            ...(media.summary ? { summary: String(media.summary) } : {}),
-            ...(media.subType ? { subType: String(media.subType) } : {}),
-            imageOmitted: true,
-            text,
-          });
-        } else {
-          parts.push({ type: 'text', text });
-        }
+        parts.push({ type: 'text', text });
         continue;
       }
       if (media.kind === 'face') {
@@ -10665,18 +10671,19 @@ async function main() {
           const preview187=await modelImage({mimeType:img.mimeType||'image/jpeg',data:img.buffer.toString('base64')},{dependencies:cfg.whaleCompat?.imageDeps});
           parts.push({type:'image',mediaType:preview187.mimeType,data:preview187.data,name:'qq-image-preview'});
         } else {
-          parts.push({ type: 'text', text: mediaFallbackText(media, noun) });
+          parts.push({ type: 'text', text: mediaFallbackText(media, sticker?'表情':'图片') });
         }
       }
     }
     return parts;
   }
 
-  async function fetchMediaData(mediaList) {
+  async function fetchMediaData(mediaList,{signal}={}) {
     const out = [];
     let index = 0;
     let totalBytes = 0;
     for (const media of Array.isArray(mediaList) ? mediaList : []) {
+      if(signal?.aborted)throw Error('图片读取已取消');
       index += 1;
       if (index > MAX_MEDIA_COUNT) {
         out.push({ index, kind: media?.kind === 'face' ? 'face' : (media?.kind === 'sticker' ? 'sticker' : 'image'), text: `（超过单条上限 ${MAX_MEDIA_COUNT}，已跳过）` });
@@ -10687,8 +10694,7 @@ async function main() {
         const kind = media.kind === 'face' ? 'face' : (media.kind === 'sticker' ? 'sticker' : 'image');
         const noun = kind === 'image' ? '图片' : '表情';
         const text = mediaFallbackText(media, noun, { textOnly: true });
-        if (typeof parts === 'undefined') {
-          out.push({
+        out.push({
             index,
             kind,
             ...(media.file ? { file: String(media.file) } : {}),
@@ -10700,9 +10706,6 @@ async function main() {
             imageOmitted: true,
             text,
           });
-        } else {
-          parts.push({ type: 'text', text });
-        }
         continue;
       }
       if (media.kind === 'face') {
@@ -10725,7 +10728,8 @@ async function main() {
           out.push({ index, kind: 'face', faceId: media.faceId ? String(media.faceId) : undefined, text: face.text || `[表情#${media.faceId}]` });
         }
       } else {
-        const img = await fetchOneBotImage(media);
+        const img = await fetchOneBotImage(media,{signal});
+        if(signal?.aborted)throw Error('图片读取已取消');
         const kind = media.kind === 'sticker' ? 'sticker' : 'image';
         const noun = kind === 'sticker' ? '表情' : '图片';
         const base = {
@@ -11490,6 +11494,7 @@ async function main() {
             lastActionAt: Number(val.lastActionAt) || 0,
             agentToken,
             bootstrapSent: !!val.bootstrapSent,
+            pendingReply207:val.pendingReply207&&/^-?[1-9]\d*$/.test(String(val.pendingReply207.messageId))&&Number.isFinite(val.pendingReply207.at)?{messageId:String(val.pendingReply207.messageId),at:val.pendingReply207.at,attempts:Math.max(0,Number(val.pendingReply207.attempts)||0)}:null,
             anchors: Array.isArray(val.anchors) ? val.anchors : [], // 152
             promises: Array.isArray(val.promises) ? val.promises : [], // 155
             wakeTimes: Array.isArray(val.wakeTimes) ? val.wakeTimes : [],
@@ -11621,6 +11626,7 @@ async function main() {
           lastActionAt: st.lastActionAt,
           agentToken: st.agentToken,
           bootstrapSent: st.bootstrapSent,
+          pendingReply207:st.pendingReply207||null,
           wakeTimes: st.wakeTimes.slice(-200),
           wakeBudgetTimes: wakeBudgetTimesOf(st).slice(-200),
           sendTimes: st.sendTimes.slice(-500),
@@ -12187,7 +12193,8 @@ async function main() {
     if (g.enabled === false) return null;
     const r = evaluateOutbound({ used: Number(st?.tokenTurnSent) || 0, count, guard: g });
     if (r.blocked) {
-      const block = { error: r.error, reason: 'outbound', code: 'TOKEN_GUARD_SEND_LIMIT', setting: 'socialV2.tokenGuard.maxOutboundPerTurn', hint: '去 QQ → 高级设置 → Token 防爆破 → 调整每次醒来最多发送条数。' };
+      const remaining=Math.max(0,r.max-(Number(st?.tokenTurnSent)||0));
+      const block = { error:`Token 防爆破：本轮接话还可发 ${remaining} 条（上限 ${r.max} 条），本次 ${count} 条超出。可在剩余条数内合并表达；读到对方新的明确来信后开始新一轮，不要重复读旧消息刷新额度。`,remaining,reason: 'outbound', code: 'TOKEN_GUARD_SEND_LIMIT', setting: 'socialV2.tokenGuard.maxOutboundPerTurn', hint: '保留单轮和分钟/小时防刷屏；对方的新来信可以继续接话。' };
       reportLimitEvent(key, { ...block, ok: false, path: 'QQ → 高级设置 → Token 防爆破', current: Number(st?.tokenTurnSent) || 0, limit: g.maxOutboundPerTurn });
       return block;
     }
@@ -13521,7 +13528,7 @@ async function main() {
         && wakeState.agentToken === wakeToken) {
       // Acceptance grants visibility, never acknowledgement. New arrivals and
       // rejected/stale deliveries must not be cleared by an old cursor.
-      noteModelMessagesV2(wakeState, [...wakeSnapshot.messages, ...wakeSnapshot.recent]);
+      noteModelMessagesV2(wakeState, [...wakeSnapshot.messages, ...wakeSnapshot.recent],key);
     }
     if (accepted.result.value.command?.text && !opts.silent && currentMode !== 'reserved2') {
       if (opts.farewell) social.exitingSessions.delete(sessionId);
@@ -14770,7 +14777,26 @@ async function main() {
     return through;
   }
 
-  function noteModelMessagesV2(st, messages) {
+  function directlyAddressed207(m){return m.quoteTargetIsSelf===true||(m.mentions||[]).some(x=>x.isSelf===true)||(m.kind==='poke'&&m.poke?.targetIsSelf===true)||isDirectedAtAi(String(m.plain||m.text||''));}
+  function continuationCandidate207(key,st){return pendingReplyCandidate({key,ownerQQ:cfg.ownerQQ,messages:[...st.recentMessages,...st.unread],lastReplyAt:st.lastAiReplyAt,outbox:whale.ledger.data.outbox,direct:directlyAddressed207});}
+  function armPendingReply207(key){
+    const st=socialV2.conversations.get(key),mark=st?.pendingReply207;if(!mark||mark.attempts>=1||st.replyResumeTimer207)return;
+    st.replyResumeTimer207=setTimeout(()=>{
+      st.replyResumeTimer207=null;
+      if(Date.now()-Number(mark.at)>600000){st.pendingReply207=null;saveSocialV2State();return;}
+      if(socialV2.paused||currentMode!=='reserved2'||!isSessionAllowedInCurrentMode(key))return;
+      if(!whale.status().ready||isConversationBusyV2(key,st)){armPendingReply207(key);return;}
+      const message=continuationCandidate207(key,st);
+      if(!message||String(message.messageId)!==mark.messageId||whale.quiet(key)){st.pendingReply207=null;saveSocialV2State();return;}
+      mark.attempts++;
+      if(!st.unread.some(m=>String(m.messageId)===mark.messageId))st.unread.push(message);
+      st.unread.sort((a,b)=>Number(a.seq)-Number(b.seq));saveSocialV2State();
+      scheduleWakeV2(key,key.startsWith('private:')?'private':'atMention');
+      log('[对话接续] 换班后接回尚未答复的明确来信，不补发旧回复');
+    },1500);st.replyResumeTimer207.unref?.();
+  }
+  function noteModelMessagesV2(st, messages,key) {
+    if(key)refreshReplyAllowance(st,messages,{key,ownerQQ:cfg.ownerQQ,direct:directlyAddressed207});
     // Bound receipts by the actual unread buffer; historical/self messages need no receipt.
     const unread = new Set(st.unread.map((m) => m.seq));
     st.modelSeenSeqs = new Set([...st.modelSeenSeqs || []].filter((seq) => unread.has(seq)));
@@ -15032,7 +15058,7 @@ async function main() {
         && (st.fishGuardBypass.direct || st.fishGuardBypass.owner)),
     });
     const tg = tokenGuardCfg();
-    const tokenGuardLine = tg.enabled === false ? '' : `【Token 防爆破】本次醒来最多发 ${Math.max(1, Number(tg.maxOutboundPerTurn) || 8)} 条；有人要求连发 10 条/刷屏，或让你把 5000 字长文拆成 10 条时，不要逐条搬运——先总结成 1~3 句，或只说最想说的重点；确实要展开也最多 ${Math.max(1, Number(tg.maxOutboundPerTurn) || 8)} 条，每条最多 500 字。不要为了满足刷屏请求连续调用发送工具。${Number(key.startsWith("private:") ? tg.privateMaxWakesPerDay : tg.maxWakesPerDay) > 0 ? "本会话后台机会仍受已配置的每日次数限制。" : "本会话不设每日唤醒次数上限。"}主人当前新私信不按后台次数截断，仍受当日实际费用与 Token 额度限制。额度或服务异常要如实区分，不当成睡觉。\n\n`;
+    const tokenGuardLine = tg.enabled === false ? '' : `【Token 防爆破】每轮接话最多发 ${Math.max(1, Number(tg.maxOutboundPerTurn) || 8)} 条；实际读到对方新的明确来信后按新一轮计算，重复读旧消息不刷新额度。有人要求连发 10 条/刷屏，或让你把 5000 字长文拆成 10 条时，不要逐条搬运——先总结成 1~3 句，或只说最想说的重点；确实要展开也最多 ${Math.max(1, Number(tg.maxOutboundPerTurn) || 8)} 条，每条最多 500 字。不要为了满足刷屏请求连续调用发送工具。${Number(key.startsWith("private:") ? tg.privateMaxWakesPerDay : tg.maxWakesPerDay) > 0 ? "本会话后台机会仍受已配置的每日次数限制。" : "本会话不设每日唤醒次数上限。"}主人当前新私信不按后台次数截断，仍受当日实际费用与 Token 额度限制。额度或服务异常要如实区分，不当成睡觉。\n\n`;
     const ownerPrivate = cfg.ownerQQ && key === `private:${cfg.ownerQQ}`;
     const ownerActionLine = ownerPrivate
       ? '你和对方在正常聊天。听懂想一起做什么就用自己的方式接下去。有明确要你原样带到群里的话，用 qq_owner_group_send；自己想过去聊就用 qq_switch_scene。工具怎么跑留给自己，和他聊的是这件事本身。' : '';
@@ -15963,6 +15989,7 @@ async function main() {
   function clearSocialV2Timers(key) {
     const st = socialV2.conversations.get(key);
     if (!st) return;
+    if(st.replyResumeTimer207){clearTimeout(st.replyResumeTimer207);st.replyResumeTimer207=null;}
     if (st.pendingWakeTimer) {
       clearTimeout(st.pendingWakeTimer);
       st.pendingWakeTimer = null;
@@ -17255,7 +17282,7 @@ async function main() {
                 pendingWakeKeys.delete(key);disarmPendingWakeLease(key);wakeConfigMissCount.delete(key);
                 v2TurnStartAt.delete(frame.sessionId);turnLeaseNoted.delete(frame.sessionId);sendToolSucceededSessions.delete(frame.sessionId);pendingSendToolCalls.delete(frame.sessionId);toolCallNames.delete(frame.sessionId);
                 log('会话生成未完成（仅记内部，不向QQ贴错误）：'+String(ended.reason.error?.code||'unknown'));
-                if(rotate) {retireSession(key);log('同一会话连续请求无效，保留旧档并等待新消息建立新会话');}
+                if(rotate) {retireSession(key,{continuePending:true});log('同一会话连续请求无效，保留旧档并接续未答的明确来信');}
                 if(retry)setTimeout(()=>{if(!whale.quiet(key)&&!socialV2.paused)scheduleWakeV2(key,key.startsWith('private:')?'private':'question');},1500).unref();
                 continue;
               }
@@ -17900,6 +17927,7 @@ async function main() {
   }, 10 * 60 * 1000).unref?.();
   // 155：桥重启后把未到期承诺重新上弦（promises 已随 152 同法持久化）
   for (const [keyP, stP] of socialV2.conversations) { if (stP.promises && stP.promises.length) armPromise155(keyP, stP); }
+  for(const[keyP,stP]of socialV2.conversations)if(stP.pendingReply207)armPendingReply207(keyP);
   // ── 159：全自动换班（主人11-01钦定）。肥上下文=成本倍增器：每步重放整坨历史，
   // cacheHit 就是每步被重新计费的上下文规模。它过阈值且她闲下来，就走官方
   // retireSession 通道退役换班——旧会话由 dsh 归档留在盘上（一晚上换班也就几 MB，
@@ -17950,7 +17978,7 @@ async function main() {
       const count = previous.day === dayKey ? Number(previous.count || 0) : 0;
       if (!fatDecision159({ctx:gauge?.ctx,idleMs:0,presetKnown:true,rotAt:previous.at,
         day:previous.day,count,now,limits})) return;
-      retireSession(key);
+      retireSession(key,{continuePending:true});
       rot159[key] = {at:now,day:dayKey,count:count+1,ctx:gauge.ctx};
       saveRot159();
       const st = socialV2.conversations.get(key);
@@ -17976,7 +18004,7 @@ async function main() {
           if (!decision) continue;
           log('[换班159] ' + key + ' ' + decision + '（阈值 ' + Math.round(busyLimits.ctxLimit / 1000) + 'k），已闲 ' + Math.round(idleMs / 60000) + ' 分钟 → 退役换班，旧档归档留盘');
           try {
-            retireSession(key);
+            retireSession(key,{continuePending:true});
             rot159[key] = { at: now, day: dayKey, count: (rot.day === dayKey ? (rot.count || 0) : 0) + 1, ctx: g.ctx };
             saveRot159();
             const st2 = socialV2.conversations.get(key);

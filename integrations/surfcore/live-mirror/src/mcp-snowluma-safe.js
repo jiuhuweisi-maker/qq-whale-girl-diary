@@ -1,4 +1,5 @@
-import {modelImage, chatImagePreview} from '../whale-compat/model-image.mjs';
+import {modelImage} from '../whale-compat/model-image.mjs';
+import {instrumentImageTransport} from '../whale-compat/image-transport.mjs';
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { randomUUID } from 'node:crypto';
 const whaleCalls = new AsyncLocalStorage();
@@ -1109,13 +1110,13 @@ if (cfg.socialV2?.tools?.getImages !== false) {
       detailed: z.boolean().optional().describe('明确要看小字、截图细节时使用原有较清晰预览'),
       token: z.string().optional().describe('二代会话令牌（reserved2 下必填，见唤醒提示中的【会话令牌】）')
     },
-    async ({ key, messageId, token, detailed }) => {
+    async ({ key, messageId, token, detailed }, extra) => {
       try {
-        const q = new URLSearchParams({ key, messageId: String(messageId) });
+        const q = new URLSearchParams({ key, messageId: String(messageId), preview: detailed?'detail':'chat' });
         const fetchStarted = Date.now();
         const data = await agentApi(`/api/images/message?${q.toString()}`, {
           headers: token ? { 'x-agent-token': token } : {},
-          timeoutMs: 180000
+          timeoutMs: 30000
         });
         const fetchMs = Date.now() - fetchStarted;
         const images = Array.isArray(data?.images) ? data.images : [];
@@ -1129,7 +1130,7 @@ if (cfg.socialV2?.tools?.getImages !== false) {
           if (img?.data && img?.mimeType) {
             textParts.push(`[${img.kind === 'face' ? '表情' : '图片'}${img.index ?? ''}${img.text ? ' ' + img.text : ''}]`);
             const chat = !detailed && img.kind === 'image' && !img.emojiId && String(img.subType || '') !== '1';
-            content.push(...await modelImageParts(img, {chat}));
+            content.push(...await modelImageParts(img, {chat,signal:extra?.signal}));
           } else {
             textParts.push(`[${img.kind === 'face' ? '表情' : '图片'}${img.index ?? ''}${img.text ? ' ' + img.text : '（获取失败）'}]`);
           }
@@ -1535,23 +1536,16 @@ server.tool('qq_owner_group_send',
     }
   });
 
-await server.connect(new StdioServerTransport());
+await server.connect(instrumentImageTransport(new StdioServerTransport(),{log:metrics=>console.error('[图片传输] '+JSON.stringify(metrics))}));
 
-async function modelImageParts(image, {chat = false} = {}) {
-  const options = {dependencies: cfg.whaleCompat?.imageDeps};
-  let preview;
-  if (chat) {
-    try {
-      preview = chatImagePreview(Buffer.from(image.data, 'base64'), options);
-    } catch {
-      // Let the existing compatibility path handle other formats and report unreadable images.
-      console.error('[图片读取] 轻量预览回退');
-    }
-  }
-  const picture = preview || await modelImage(image, options);
+async function modelImageParts(image, {chat = false,signal} = {}) {
+  const size=Buffer.byteLength(image.data||'','base64');
+  const prepared=image.previewPolicy===207&&image.previewProfile===(chat?'chat':'detail')&&size<=(chat?12288:32768)&&/^image\/(jpeg|png|webp)$/.test(image.mimeType);
+  const picture = prepared?image:await modelImage(image,{chat,signal,dependencies:cfg.whaleCompat?.imageDeps,
+    trace:metrics=>console.error('[图片预览] '+JSON.stringify(metrics))});
   const parts = [];
   if (picture.preview) {
-    const text = preview
+    const text = chat
       ? (picture.firstFrame ? '动画首帧的轻量预览，按看清的大意回应。' : '轻量预览，按看清的大意回应。')
       : (picture.firstFrame ? '以下为动画首帧预览，原图保留。' : '以下为可读预览，原图保留。');
     parts.push({type: 'text', text});
