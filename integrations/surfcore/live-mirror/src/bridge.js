@@ -637,7 +637,7 @@ function isSendToolName(name) {
 // 中英文/数字之间的空格同样会分条，所以不想分条就不要加空格。
 const SPACE_SPLIT_HINT = '想分多条消息时用空格分隔；不想分条就不要加空格，用标点连接。注意：中英文/数字之间的空格也会被当作分条信号。';
 // 群聊指向性提示：引用/回复段表示“这句话是在对被引用的人说”，避免 AI 把群友之间的对话误当成指向自己。
-const DIRECTION_HINT = '注意：消息里的 [引用 某人：...] 表示这句话是在回应被引用的人；引用的是你的消息才是在找你，引用别人时别默认是在找你。';
+const DIRECTION_HINT = '注意：发送者、被引用者和被@者分别看。引用说明正在谈哪条话，当前正文和明确@决定在问谁；引用别人后@你提问也可以是在找你。别人之间的对话可以不接。';
 
 // 已知的二代 agent token 集合：日志/活动/出站文本统一脱敏，防止令牌被模型泄露到 QQ。
 const KNOWN_AGENT_TOKENS = new Set();
@@ -10862,7 +10862,7 @@ async function main() {
     }
     return sendChain.then(() => {
       if (failed.length > 0) {
-        const err = new Error(`QQ 发送失败 ${failed.length}/${messages.length} 条：${failed[0]?.message ?? '未知错误'}｜145备注：这几条确实没送出去，不是你的错，也不是频率限制；对方没看到它们，别为这事向主人解释或改口归因，下轮自然继续即可（运维会看 send-failures 账）。`);
+        const err = new Error(`QQ 发送失败 ${failed.length}/${messages.length} 条：${failed[0]?.message ?? '未知错误'}｜145备注：按实际回执区分已发送、失败和未确认的消息；原因以工具返回为准，结果不明不换工具重发。`);
         err.sent = sent.slice();
         throw err;
       }
@@ -15032,7 +15032,7 @@ async function main() {
     const ownerPrivate = cfg.ownerQQ && key === `private:${cfg.ownerQQ}`;
     const ownerActionLine = ownerPrivate
       ? '你和对方在正常聊天。听懂想一起做什么就用自己的方式接下去。有明确要你原样带到群里的话，用 qq_owner_group_send；自己想过去聊就用 qq_switch_scene。工具怎么跑留给自己，和他聊的是这件事本身。' : '';
-    const antiAiLine = fundpilot.context(key) + '【相处】你在哪儿都是同一个我。自然、可爱、有自己的想法，认真提问就认真接；吐槽和玩笑按关系与语境来，普通昵称、拍一拍不代表挑衅。' + ownerActionLine + '\n\n'+conversationFocus(getSocialV2State(key).recentMessages,getSocialV2State(key).lastAiReplyAt)+'\n\n';
+    const antiAiLine = fundpilot.context(key) + '【相处】群聊、私信和B站都是你自己的经历。自然、可爱、有自己的想法，认真提问就认真接；吐槽和玩笑按关系与语境来，普通昵称、拍一拍不代表挑衅。' + ownerActionLine + '\n\n'+conversationFocus(getSocialV2State(key).recentMessages,getSocialV2State(key).lastAiReplyAt)+'\n\n';
     const stickerCfg = cfg.socialV2?.sticker ?? {};
     const stickerLine = stickerCfg.enabled !== false && stickerCfg.includeInPrompt !== false
       ? `${buildStickerStrategyHint()}\n${buildStickerContext(stickerEntries, stickerCfg.promptMaxStickers ?? 8)}\n\n`
@@ -15156,7 +15156,7 @@ async function main() {
     if (reason === 'poke') {
       return `${base}【唤醒】${key}\n原因：有人拍了一拍（可能拍了你，也可能拍了别人）。\n先看未读/最近消息里的 [拍一拍] 事件：如果是拍你，可以自然回应一句，也可以用 qq_send_poke 回一个拍一拍；如果是拍别人，觉得有趣也可以接梗。除了回应，偶尔也可以主动戳一下正在聊的人/熟人，像真人手贱/提醒/逗一下，但别频繁。不想接就安静收尾（qq_mark_read 或 qq_set_wake_config）。`;
     }
-    return `${base}【唤醒】${key}\n原因：${reason}\n【行动前】先判断：群里在聊什么？热闹还是冷清？有没有人直接找你？对方说完了吗？你有没有真正想说的？\n如果群聊正热但没人叫你，可以插一句有趣的/相关的，插不上再看情况潜水；不要一上来就划走。\n【引用：只在必要时用】只有你这条消息指向的人或消息并非最新一条别人的消息，或者你连续的几句话中不同消息指代的是不同的消息或人时，才用 qq_reply 或 qq_send_message 的 replyToMessageId 指向具体那条；其他情况不要引用，别让对方猜。\n你可以调用工具查看未读消息、人设、状态，自行决定是否发言；决定潜水前必须按上面的【沉睡前强制等待】先等够观察窗口。开口前先看【对话收尾判断】：判断这段已自然结束时，不用再补一句，直接 qq_close_conversation 收尾。`;
+    return `${base}【唤醒】${key}\n原因：${reason}\n【行动前】先判断：群里在聊什么？热闹还是冷清？有没有人直接找你？对方说完了吗？你有没有真正想说的？\n群里热闹也可以只看；有人找你或你真有话想接时再开口。选择不接就不发送潜水说明。\n【引用：只在必要时用】只有你这条消息指向的人或消息并非最新一条别人的消息，或者你连续的几句话中不同消息指代的是不同的消息或人时，才用 qq_reply 或 qq_send_message 的 replyToMessageId 指向具体那条；其他情况不要引用，别让对方猜。\n你可以调用工具查看未读消息、人设、状态，自行决定是否发言；决定潜水前必须按上面的【沉睡前强制等待】先等够观察窗口。开口前先看【对话收尾判断】：判断这段已自然结束时，不用再补一句，直接 qq_close_conversation 收尾。`;
   }
 
   function buildWakeReminderPromptV2(key) {

@@ -8,6 +8,7 @@ const iso=x=>{let t=typeof x==='number'?x:/^\d{10,13}$/.test(String(x))?Number(x
 const dateOf=x=>new Date(x).toLocaleDateString('sv-SE',{timeZone:'Asia/Shanghai'});
 const journalDir=dir=>path.join(dir,'journal');
 const dayName=/^\d{4}-\d{2}-\d{2}\.jsonl$/;
+const recallOnly=(row,key)=>row.privateOnly===true||(row.platform==='qq'&&!!row.key&&row.key!==key);
 
 export function rememberCommunityUsage(dir,{meaning,usage,bvid,root,authorMid,isBot=false,now=Date.now()}={}) {
  if(isBot)throw Error('疑似机器人评论不作为学习样本');
@@ -109,11 +110,11 @@ function rankedJournal(dir,{needle,key,ownerQQ,platform,internal,limit,maxLines,
     const rowPhase=p.senderId&&r.platform===platform&&r.senderId===p.senderId?0:r.key===key?1:2;
     if(rowPhase!==phase)continue;
     const localGroup=key.startsWith('group:')&&r.key===key;
-    if(!(ownerPrivate||(platform==='bili'&&internal)||(!r.privateOnly&&(r.platform==='bili'||!r.key||localGroup)))){withheld++;continue;}
+    if(!(ownerPrivate||internal||(!r.privateOnly&&(r.platform==='bili'||!r.key||localGroup)))){withheld++;continue;}
     const offset=resume&&i===p.before-1?p.offset:0,chunk=body.slice(offset,offset+4000);
     if(entries.length&&chars+chunk.length>10000){nextCursor=continuation(phase,fi,i+1,offset);break outer;}
     chars+=chunk.length;const{detail,botReply,...visibleRow}=r;
-    entries.push({...visibleRow,text:chunk,part:{start:offset,end:offset+chunk.length,total:body.length},doNotPublish:r.privateOnly===true});
+    entries.push({...visibleRow,text:chunk,part:{start:offset,end:offset+chunk.length,total:body.length},doNotPublish:recallOnly(r,key)});
     if(offset+chunk.length<body.length){nextCursor=continuation(phase,fi,i+1,offset+chunk.length);break outer;}
    }
   }
@@ -129,7 +130,7 @@ export function readJournal(dir,{query='',day='',key='',ownerQQ='',platform='qq'
  // Existing date and v3 pagination retain their chronological behavior.
  let cursorVersion=null;if(cursor){try{cursorVersion=JSON.parse(Buffer.from(cursor,'base64url').toString()).version;}catch{throw Error('日记分页无效');}}
  if(!day&&needle&&(cursorVersion===4||(!cursor&&focus)))return rankedJournal(dir,{needle,key,ownerQQ,platform,internal,limit,maxLines,cursor,focus});
- const scope=sha([key,platform,needle,day]);
+ const scope=sha(internal?[key,platform,needle,day,'internal']:[key,platform,needle,day]);
  let position=null;if(cursor){try{position=JSON.parse(Buffer.from(cursor,'base64url').toString());}catch{throw Error('日记分页无效');}if(!position||position.version!==3||position.scope!==scope||!dayName.test(position.file)||!Number.isSafeInteger(position.before)||position.before<0||!Number.isSafeInteger(position.offset)||position.offset<0)throw Error('日记分页无效');}
  let files=[];try{files=fs.readdirSync(journalDir(dir)).filter(n=>dayName.test(n)&&(!day||n===day+'.jsonl')).sort().reverse();}catch(e){if(e.code!=='ENOENT')throw e;}
  const index=files.slice(0,31).map(n=>({day:n.slice(0,10),bytes:fs.statSync(path.join(journalDir(dir),n)).size}));
@@ -146,12 +147,12 @@ export function readJournal(dir,{query='',day='',key='',ownerQQ='',platform='qq'
    const body=[r.text,r.detail?'【原记录详情】'+r.detail:'',r.botReply?'【当时自己的回复】'+r.botReply:''].filter(Boolean).join('\n');
    if(needle&&!`${body} ${r.speaker}`.toLocaleLowerCase().includes(needle))continue;
    const localGroup=key.startsWith('group:')&&r.key===key;
-   const visible=ownerPrivate||(platform==='bili'&&internal)||(!r.privateOnly&&(r.platform==='bili'||!r.key||localGroup));
+   const visible=ownerPrivate||internal||(!r.privateOnly&&(r.platform==='bili'||!r.key||localGroup));
    if(!visible){withheld++;continue;}
    const offset=position&&file===position.file&&i===position.before-1?position.offset:0,chunk=body.slice(offset,offset+4000);
    if(entries.length&&chars+chunk.length>10000){nextCursor=continuation(file,i+1,offset);break outer;}
    chars+=chunk.length;const{detail,botReply,...visibleRow}=r;
-   entries.push({...visibleRow,text:chunk,part:{start:offset,end:offset+chunk.length,total:body.length},doNotPublish:r.privateOnly===true});
+   entries.push({...visibleRow,text:chunk,part:{start:offset,end:offset+chunk.length,total:body.length},doNotPublish:recallOnly(r,key)});
    if(offset+chunk.length<body.length){nextCursor=continuation(file,i+1,offset+chunk.length);break outer;}
   }
  }

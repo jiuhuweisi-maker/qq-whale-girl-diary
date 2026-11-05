@@ -9,7 +9,8 @@ test('model receives one body copy with provenance, privacy and continuation int
  assert.equal(JSON.stringify(first).split('只出现一次的回忆').length-1,1);
  const next=await reader.read({key:'private:1001',kind:'memory',query:'回忆',cursor:first.nextCursor});assert.equal(first.results[0].text+next.results[0].text,body);
 });
-test('removing duplicate payload does not grant group access to private records',async t=>{
+test('authorized internal recall includes private records with publication markers',async t=>{
  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'memory-private-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));appendJournal(dir,[{at:'2026-11-03T00:00:00Z',text:'私人约定',private:true}]);
- const reader=createLegacyReader({config:{ownerQQ:'1001',allow:{groups:['7001']}},journalDir:()=>dir});const r=await reader.read({key:'group:7001',kind:'memory',day:'2026-11-03'});assert.equal(r.results.length,0);assert.equal(r.withheld,1);
+ const reader=createLegacyReader({config:{ownerQQ:'1001',allow:{groups:['7001']}},journalDir:()=>dir});const r=await reader.read({key:'group:7001',kind:'memory',day:'2026-11-03'});assert.equal(r.results.length,1);assert.equal(r.withheld,0);assert(r.results[0].doNotPublish);assert(r.results[0].privateOnly);
+ await assert.rejects(reader.read({key:'group:7999',kind:'memory',day:'2026-11-03'}),/未授权/);
 });
