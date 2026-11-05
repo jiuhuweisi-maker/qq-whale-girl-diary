@@ -195,15 +195,6 @@ function identityContextLines() {
   ].filter(Boolean)
 }
 
-/** 今天已经搭了几条话（读账本，给唤醒提示看进度） */
-function taToday() {
-  try {
-    const q = JSON.parse(fs.readFileSync(path.join(platformDir(), 'quota.json'), 'utf8'))
-    const t = new Date().toLocaleDateString('sv-SE')
-    return (q.log ?? []).filter((x) => x?.ta && new Date(x.at).toLocaleDateString('sv-SE') === t).length
-  } catch { return 0 }
-}
-
 const TICK_MS = 60_000
 const LISTEN_STATE = 'whale-listen.json'
 /** 实时额度：设置页改完下一轮生效（config() 按 mtime 缓存）。 */
@@ -335,7 +326,7 @@ function wakePrompt(st, tools = '') {
       : silenceLines()),
     '按 AGENTS.md 的「看的那晚」流程走一遍（不要等我说话，直接做）：',
     ...(SILENT ? ['本轮只看不说，沿用沉默开关；不发评论、动态、分享或私信。'] : [
-    '这轮有真实想接的话再评论：可爱、吐槽、emoji、颜文字和小括号沿用上面的共享表达习惯，顺着视频的具体内容自然说；没有想说的可以只看。额度、冷却、公开场合边界照旧。',
+    '评论区就按群聊相处：先看看楼里的人在聊什么，按自己的性格接话、开玩笑或起话头，聊到视频以外也很正常；有想接的话再发，可爱、吐槽、emoji、颜文字和小括号沿用共享习惯。',
     ]),
     '1) `node bili.mjs deps` —— 体检红着就报备我、只做读、别对外发',
     `2) 读两本日记（\`${path.join(biliDir, 'whale-diary.md')}\` + \`${path.join(biliDir, 'whale-diary-private.md')}\`）`,
@@ -347,6 +338,8 @@ function wakePrompt(st, tools = '') {
     '   3.5) ⭐ 如果 `feed` 没有新内容（全是看过的/候选不够）→ **不要硬重复深读、不要为了凑数**；',
     '        写一段日记或扫一眼消息就按“轻醒”收工，保住这一趟的质量 ✓',
     '4) 挑 2–3 条深读（完整 `debrief`，含抽帧）',
+    '   看已有热评和楼中楼时，顺便观察普通用户怎样接话和用梗；结合稳定账号、角色自称和重复套话识别疑似机器人，拿不准的先不学。只观察本轮已有材料，不为学习额外批量抓取或唤醒模型。',
+    '   真学懂一个新梗时，用 `journal --learn "含义" --usage "适用语境" --bvid <BV> --root <rpid> --author-mid <mid> [--author-name "昵称"]` 写入共用日记；记的是公共用法，别人经历仍归别人。QQ聊天按话题检索，不为了展示学会了就硬塞。',
     // 2026-10-20：收藏 ≠ 低配的分享 ✓ 它是「我想留着」（内向），和分享（外向）并列
     '4.5) 深读的那几条里，如果某条「我想留着」→ `fav <BV> --reason "…" --dry` → `--go`',
     '     判据（缺一条就别收 ✗）：① 三个月后还会想点开 ② 说得出为什么留（≥6 字）③ 同类已 ≥2 条要 --better',
@@ -356,10 +349,8 @@ function wakePrompt(st, tools = '') {
     '4.6) ⭐ **给鱼点赞**（看完后独立做，不是每条都点）：深读的 BV 里评论多的，跑 `fish-guard like --bvid <BV> --dry` 看目标 → 去掉 `--dry` 真点',
     '     ⚠️ 每天最多 6 个 · 每次最多 4 个 · 两次之间有随机间隔；遇到风控会自己停并记下原因，别硬刷 ✗',
     '     （设置页「鱼群保护 · 运行状态」能看到今天赞了几条、上次失败在哪个 code）',
-    // 2026-10-23（主人定）：**每次醒来至少发一条主动评论**，鱼群泛滥时强制聚拢。
-    //   以前 4.7 是"有话说就说"；现在改成硬规则，避免她看到鱼多就整轮不说话。
-    '4.7) 想评论时，挑一个具体点说自己的感受或接一句梗；不用每轮交一条评论作业：',
-    '     看完想吐槽/想夸/想接梗/想补充 → 直接发一条普通评论（不 @ 我，是你自己在说话）：',
+    '4.7) 想和评论区的人聊时，可以接视频，也可以聊楼里的新话题、玩笑或自己的感受：',
+    '     普通顶层评论是你自己在说话，需要分享给主人时再用 --share：',
     '     `recon <BV>` 拿 aid → `comment --oid <aid> --bvid <BV> --message "…" --auto --dry` → 改成 `--go` → `thread` 复核 ✓',
     `     ⚠️ **鱼群泛滥时默认强制聚拢**（当前设置：${B.fishGuard?.forceGather === false ? '关；要强制就加 --force-gather' : '开'}）：就算没有“回复少/新鲜/没回过”的鱼楼，也强行挑一条鱼楼回；`,
     '        没有合适话头可以跳过；决定发言时仍遵守现有鱼群保护、额度和冷却。',
@@ -372,10 +363,8 @@ function wakePrompt(st, tools = '') {
     '     ⚠️ **必须带 `--ta`** —— 那是"我去搭别人"的账（' + capText(L.taDaily) + ' 条/天）；不带 `--ta` 的楼中楼算"回找我的人"（另一本账）✗',
     '     ⚠️ 这是**楼中楼**（挂在对方那条评论下面），rpid 就是 debrief 里那个 rpid（root 和 parent 填同一个）',
     '     ⚠️ 硬上限：一天 ' + capText(L.taDaily) + ' 条 · 任意两条隔 ' + L.globalMin + ' 分钟 · 同一条评论 ' + Math.round(L.perThreadMin / 60) + ' 小时只回一次（撞上就被拒 ✗）',
-    // 2026-10-21（用户定）：**每天要把搭话额度用完**，每发一条都会私信报备给你 ✓
-    `     ⭐ **今天的搭话额度要花完**：已搭 ${taToday()}/${capText(L.taDaily)} 条，还差 ${Math.max(0, L.taDaily - taToday())} 条 —— 这一轮至少搭 2~3 条，别只搭一条就收工 ✓`,
-    '     （每搭一条，脚本会自动给你发一条带【主动搭话】tag 的私信报备 ✓）',
-    '     ⚠️ 别逐条盖楼、别跟人抬杠 —— 一句话说完就走 ✓',
+    '     想聊就搭一句，没有话头可以略过；对方接话后沿实际楼层继续聊，接完可以自然收住。',
+    '     回复顶层时 root 和 parent 都填该顶层 rpid；回复楼中楼时 root 保留顶层，parent 填这次实际回应的那条。昵称相同也按 mid 区分。',
     // 2026-10-21（用户定）：**每天一条动态** —— 写当天评分最高的那条
     '4.9) ⭐ **记分**：深读过的每条都记一下 `score <BV> --score N --reason "…"`（0~20 分，没到 13 也记 ✓）',
     '     —— 今天的动态要从这里面挑"最高分那条"，不记分就发不出去 ✗',
@@ -414,7 +403,7 @@ function wakePrompt(st, tools = '') {
     '     ⚠️ 必须带视频链接：链接里的 BV 就是「同一视频」的判重依据 ✓',
     '   · via=comment：comment --share --auto --reason … --score … --rank 1（旧功能，仍可用 ✓）',
     ]),
-    '6) 写两本日记（散文体 + 表格 ✓ 私人那本写「偏好校准」）',
+    '6) 写两本日记，记真实看过的、和谁聊过以及自己的感受；有值得记的新梗时再用 journal --learn 留下公共用法。',
     // ⭐ 2026-10-18 主人定：每轮流程**最后**扫一遍"有没有没回的评论" → 有就**一起**推给我 ✓
     '7) ⭐ `comment-digest --hours 24` —— **每轮最后都要扫**：有没回的评论就**一起**推给我（不是一条条报 ✗）',
     '   回不回、怎么回：主人 / 其他人 → 见「倾听」的分两侧规则 ✓',
@@ -1173,43 +1162,6 @@ export function startScheduler(ctx, opts) {
             }, new AbortController().signal)
             log(`[bili-whale] 23:00 待审提醒（${n} 条）`)
           } catch (e) { log(`[bili-whale] 待审提醒失败：${String(e.message).slice(0, 100)}`) }
-          return
-        }
-      }
-    }
-
-    // ── 搭话额度"催进度"（2026-10-21 用户要"每天用完"）──────────────
-    //   16:00 之后如果还没搭够，每 90 分钟提醒她一次，直到用完 ✓
-    if (h >= 16) {
-      const used = taToday()
-      const left = L.taDaily - used
-      if (left > 0) {
-        const tkey = `${today()}:ta-nudge`
-        const last = ns[tkey] ? new Date(ns[tkey]).getTime() : 0
-        if (!last || Date.now() - last > 90 * 60_000) {
-          ns[tkey] = new Date().toISOString()
-          try { fs.writeFileSync(NUDGE, JSON.stringify(ns, null, 2)) } catch {}
-          try {
-            await ensureSession()
-            await promptBili({
-              requestId: `bili-whale-ta-${Date.now()}`,
-              sessionId,
-              mode: 'queue',
-              content: [{
-                type: 'text',
-                text: [
-                  ...identityContextLines(),
-                  `【搭话进度】今天才搭了 ${used}/${L.taDaily} 条，还差 ${left} 条。`,
-                  '',
-                  '去 debrief 的热评里挑几句能接的（吐槽/补充/接梗都算），带 `--ta` 发：',
-                  '`comment --oid <aid> --bvid <BV> --root <rpid> --parent <rpid> --message "…" --auto --ta --dry` → `--go`',
-                  '⚠️ 每轮至少搭 2~3 条；每条都会私信报备给我（【主动搭话】）✓',
-                  toolLine(),
-                ].join('\n'),
-              }],
-            }, new AbortController().signal)
-            log(`[bili-whale] 搭话催进度：${used}/${L.taDaily}`)
-          } catch (e) { log(`[bili-whale] 搭话提醒失败：${String(e.message).slice(0, 100)}`) }
           return
         }
       }

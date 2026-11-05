@@ -9,6 +9,16 @@ const dateOf=x=>new Date(x).toLocaleDateString('sv-SE',{timeZone:'Asia/Shanghai'
 const journalDir=dir=>path.join(dir,'journal');
 const dayName=/^\d{4}-\d{2}-\d{2}\.jsonl$/;
 
+export function rememberCommunityUsage(dir,{meaning,usage,bvid,root,authorMid,isBot=false,now=Date.now()}={}) {
+ if(isBot)throw Error('疑似机器人评论不作为学习样本');
+ meaning=String(meaning||'').trim();usage=String(usage||'').trim();
+ if(!meaning||!usage||meaning.length>300||usage.length>300)throw Error('请简短记录已理解的含义和适用语境');
+ if(!/^BV[0-9A-Za-z]{10}$/.test(String(bvid))||!/^\d{1,22}$/.test(String(root))||!/^\d{1,22}$/.test(String(authorMid))||/^0+$/.test(String(root))||/^0+$/.test(String(authorMid)))throw Error('学习记录缺少真实视频、评论楼层或作者身份');
+ const sourceId=sha([bvid,String(root),String(authorMid),meaning,usage]);
+ return appendJournal(dir,[{at:now,platform:'bili',source:'bili-community-usage',sourceId,speaker:'自己',scope:'shared',
+  text:`【B站梗与接话用法】${meaning}\n适用语境：${usage}\n出处：https://www.bilibili.com/video/${bvid}/#reply${root}\n这是从公共评论观察到的用法，作者身份只作来源线索，别人的话和经历仍归别人。`}],{source:'bili-community-usage'});
+}
+
 function normalize(row,source) {
  if(!row||typeof row!=='object'||row.deleted===true||row.deletedAt||row.forgotten===true)return null;
  const at=iso(row.at??row.createdAt??row.time),text=String(row.text??row.note??row.content??row.title??'').trim();

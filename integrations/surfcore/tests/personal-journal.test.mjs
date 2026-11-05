@@ -1,8 +1,23 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import os from 'node:os';import path from 'node:path';
-import {appendJournal,readJournal,syncBiliDiaries}from'../compat/personal-journal.mjs';
+import {appendJournal,readJournal,syncBiliDiaries,rememberCommunityUsage}from'../compat/personal-journal.mjs';
 import {spawn}from'node:child_process';
 function fixture(t){const dir=fs.mkdtempSync(path.join(os.tmpdir(),'journal186-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));return dir;}
 const at='2026-11-03T00:00:00Z';
+
+test('community usage is remembered once and can be recalled in QQ without importing another persons identity',t=>{
+ const d=fixture(t),note={meaning:'虚构样例梗指表面忙碌实际没进展',usage:'熟人一起吐槽重复劳动时轻轻接一句',bvid:'BV1abcdefghA',root:'1234',authorMid:'5678',now:Date.parse(at)};
+ assert.equal(rememberCommunityUsage(d,note).added,1);
+ assert.equal(rememberCommunityUsage(d,{...note,now:Date.parse(at)+60000}).added,0);
+ appendJournal(d,[{at,text:'秘密约定',conversationKey:'private:1001'}]);
+ const group=readJournal(d,{key:'group:7001',ownerQQ:'1001',query:'样例梗'}).entries;
+ const dm=readJournal(d,{key:'private:1001',ownerQQ:'1001',query:'样例梗'}).entries;
+ assert.equal(group.length,1);assert.deepEqual(group,dm);
+ assert.equal(group[0].platform,'bili');assert.equal(group[0].senderId,'');assert.equal(group[0].speaker,'自己');
+ assert(group[0].text.includes('#reply1234'));assert(!group[0].doNotPublish);
+ assert.throws(()=>rememberCommunityUsage(d,{...note,isBot:true}),/机器人/);
+ assert.throws(()=>rememberCommunityUsage(d,{...note,root:'../file'}),/楼层/);
+ assert.throws(()=>rememberCommunityUsage(d,{...note,usage:''}),/适用语境/);
+});
 test('QQ and Bili read one append-only diary with stable attribution and no duplicate import',t=>{const d=fixture(t),rows=[{at,platform:'qq',text:'柱间就是静',conversationKey:'group:7001',sender:'主人'},{at,platform:'bili',text:'看到一个基金费率视频'}];assert.equal(appendJournal(d,rows).added,2);assert.equal(appendJournal(d,rows).added,0);const a=readJournal(d,{key:'private:1001',ownerQQ:'1001',day:'2026-11-03'}),b=readJournal(d,{platform:'bili',internal:true,day:'2026-11-03'});assert.deepEqual(a.entries,b.entries);assert.equal(a.entries.find(e=>e.text==='柱间就是静').speaker,'主人');});
 test('knowing private events does not expose them to a public group',t=>{const d=fixture(t);appendJournal(d,[{at,text:'秘密约定',conversationKey:'private:1001'},{at,text:'本群约定',conversationKey:'group:7001'},{at,text:'别群约定',conversationKey:'group:7002'},{at,platform:'bili',text:'公开视频约定'}]);const r=readJournal(d,{key:'group:7001',ownerQQ:'1001',query:'约定'});assert.equal(r.withheld,2);assert.deepEqual(r.entries.map(x=>x.text).sort(),['公开视频约定','本群约定']);assert.equal(readJournal(d,{platform:'bili',internal:true,query:'秘密'}).entries[0].doNotPublish,true);});
 test('calendar uses Beijing dates, rejects traversal and pages without losing earlier entries',t=>{const d=fixture(t);appendJournal(d,[1,2,3].map(n=>({at:'2026-11-02T20:00:0'+n+'Z',text:'话题'+n,conversationKey:'group:7001'})));const opts={key:'private:1001',ownerQQ:'1001',query:'话题',maxLines:1};const a=readJournal(d,opts),b=readJournal(d,{...opts,cursor:a.nextCursor});assert(a.nextCursor);assert.notEqual(a.entries[0].id,b.entries[0].id);assert.equal(readJournal(d,{...opts,query:'',day:'2026-11-03',maxLines:20}).matched,3);assert.throws(()=>readJournal(d,{...opts,day:'../../secret'}));});
