@@ -1,5 +1,14 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {EXPRESSION_CORE,mergeConfirmedExpression,upgradeConfirmedStyle,composeConfirmedPersona,confirmedExpressionBlock,readConfiguredStyle,contextualFollowUp} from '../compat/expression-style.mjs';
+import {EXPRESSION_CORE,mergeConfirmedExpression,upgradeConfirmedStyle,composeConfirmedPersona,confirmedExpressionBlock,readConfiguredStyle,readConfirmedStyle,contextualFollowUp} from '../compat/expression-style.mjs';
+test('new sessions retain code defaults when the preference file is absent or empty, without concealing I/O faults',()=>{
+ const missing={readFileSync:()=>{throw Object.assign(Error('missing'),{code:'ENOENT'})}};
+ assert.equal(readConfirmedStyle('missing',{disk:missing}),EXPRESSION_CORE);
+ assert.equal(readConfirmedStyle('empty',{disk:{readFileSync:()=> '  \n'}}),EXPRESSION_CORE);
+ assert.equal(readConfirmedStyle(),EXPRESSION_CORE);
+ const denied={readFileSync:()=>{throw Object.assign(Error('denied'),{code:'EACCES'})}};
+ assert.throws(()=>readConfirmedStyle('denied',{disk:denied}),/denied/);
+ const custom='主人手动确认的另一版';assert.equal(readConfirmedStyle('custom',{disk:{readFileSync:()=>custom}}),custom);
+});
 test('confirmed habits are merged in place without accumulating bans or duplicates',()=>{const old='主人已确认的聊天偏好，按眼前这轮理解：旧习惯\n\n说话不用句号收尾：保留\n\n粗口许可：旧长段\n\n该收就真收：旧重复\n\n额外已确认偏好：保留';const s=upgradeConfirmedStyle(old);assert.equal(upgradeConfirmedStyle(s),s);assert(s.includes('额外已确认偏好：保留'));assert(s.includes('说话不用句号'));assert(!s.includes('旧长段'));assert(!s.includes('旧重复'));for(const w of ['颜文字','emoji','小括号','情绪','基金','B站','表情包'])assert(s.includes(w));});
 test('style is at the front and survives the persona injection budget',()=>{const p=composeConfirmedPersona('人设'.repeat(4000),'可爱颜文字');assert(p.slice(0,6000).includes('可爱颜文字'));assert.equal(p.split('QQ与B站共用').length-1,1);});
 test('shared loader rereads the actual preference file instead of retaining an old cache',()=>{let text='旧';const disk={readFileSync:p=>p==='cfg'?JSON.stringify({whaleCompat:{styleFile:'style'}}):text};assert.equal(readConfiguredStyle('cfg',{disk}),'旧');text='新颜文字';assert.equal(readConfiguredStyle('cfg',{disk}),'新颜文字');assert(confirmedExpressionBlock(text).includes(text));});

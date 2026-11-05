@@ -42,8 +42,14 @@ export function composeConfirmedPersona(persona,style) {
 }
 export function readConfiguredStyle(configFile,{disk=fs}={}) {
   const cfg=JSON.parse(disk.readFileSync(configFile,'utf8'));
-  const file=cfg.whaleCompat?.styleFile;
-  return file?disk.readFileSync(file,'utf8'):'';
+  return readConfirmedStyle(cfg.whaleCompat?.styleFile,{disk});
+}
+// A new session does not depend on a reminder or a cached preference copy.
+// Only absent/empty files fall back; permission and I/O faults stay visible.
+export function readConfirmedStyle(file,{disk=fs}={}) {
+  if(!file)return EXPRESSION_CORE;
+  try {const text=disk.readFileSync(file,'utf8');return text.trim()?text:EXPRESSION_CORE;}
+  catch(error){if(error.code==='ENOENT')return EXPRESSION_CORE;throw error;}
 }
 export function contextualFollowUp(state,event,text,now=Date.now()) {
   if(!/^(?:还有呢|然后呢|再然后呢|怎么说|咋说|所以呢|说下去|继续说|你接着说|为啥呀|为什么呀|[?？]{1,3})[呀啊呢嘛么?？!！。\s]*$/.test(String(text||'').trim()))return false;

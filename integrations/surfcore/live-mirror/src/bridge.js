@@ -14,7 +14,7 @@ import { createFundPilot } from '../whale-compat/fundpilot.mjs';
 import { recordSessionResult,reserveGenerationRetry } from '../whale-compat/session-recovery.mjs';
 import {scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,groupActivityView} from '../whale-compat/conversation-logic.mjs';
 import {relationshipBlock} from '../whale-compat/relationships.mjs';
-import {composeConfirmedPersona,contextualFollowUp} from '../whale-compat/expression-style.mjs';
+import {composeConfirmedPersona,contextualFollowUp,readConfirmedStyle} from '../whale-compat/expression-style.mjs';
 import {proactiveDelay} from '../whale-compat/proactive-clock.mjs';
 import {interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan} from '../whale-compat/private-availability.mjs';
 import { renderConversationMemory } from '../whale-compat/memory-scope.mjs';
@@ -13765,7 +13765,7 @@ async function main() {
   // 原始人格卡（按 mtime 缓存，不截断）。
   function roleRawContent(conversationKey = '') {
     if (cfg.whaleCompat.personaFile) {
-      return composeConfirmedPersona(qqPersona(fs.readFileSync(cfg.whaleCompat.personaFile, 'utf8')), fs.readFileSync(cfg.whaleCompat.styleFile, 'utf8'));
+      return composeConfirmedPersona(qqPersona(fs.readFileSync(cfg.whaleCompat.personaFile, 'utf8')), readConfirmedStyle(cfg.whaleCompat.styleFile));
     }
     try {
       // 角色人格系统：当前角色包里的人格卡优先，不与 roles/*.md 混读。
@@ -13898,7 +13898,7 @@ async function main() {
 
   function roleHintForMode(mode, key = '', personaMode = 'full', opts = {}) {
     const fullCore = roleRawContent(key);
-    const sharedStyle = cfg.whaleCompat.personaFile ? fs.readFileSync(cfg.whaleCompat.styleFile,'utf8') : '';
+    const sharedStyle = cfg.whaleCompat.personaFile ? readConfirmedStyle(cfg.whaleCompat.styleFile) : '';
     const sharedBlock = sharedStyle ? composeConfirmedPersona('',sharedStyle) : '';
     const core = sharedBlock && fullCore.startsWith(sharedBlock) ? fullCore.slice(sharedBlock.length).trimStart() : fullCore;
     const sceneId = personaSceneFromKey(key);
@@ -14995,7 +14995,7 @@ async function main() {
   function buildWakePromptV2(key, reason, scene = {}) {
     const providedRole=currentRoleHintV2(key);
     const roleState = readRoleState();
-    const roleLine = personaWakeBlockV2(key);
+    const roleLine = providedRole ? '' : personaWakeBlockV2(key);
     // B站 记忆简报关掉时（biliBridge.memory.enabled=false），B站 侧的自我锚点会整段消失；
     // 那时补一份自我卡，保证「认得自己的 B站 主页」不依赖记忆同步开关。
     const biliMemoryOn = Boolean(cfg.biliBridge?.enabled) && cfg.biliBridge?.memory?.enabled !== false;

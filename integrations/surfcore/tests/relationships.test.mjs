@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {relationshipBlock,personAnchor,includesParticipantAccount} from '../compat/relationships.mjs';import {scopeMemoryCard} from '../compat/memory-scope.mjs';
+import test from 'node:test';import assert from 'node:assert/strict';import {relationshipBlock,configuredBiliRelationships,personAnchor,includesParticipantAccount} from '../compat/relationships.mjs';import {scopeMemoryCard} from '../compat/memory-scope.mjs';
 const data={version:1,people:[{userId:'1002',names:['柱间','静'],groups:['7001'],fact:'画猫猫虫的群友',confirmed:true,source:{kind:'owner-confirmed'}},{userId:'1003',names:['静'],groups:['7002'],fact:'另一个人',confirmed:true,source:{kind:'owner-confirmed'}},{userId:'1004',names:['猜的'],groups:['7001'],confirmed:false,source:{kind:'model'}}]};
 const opts={key:'group:7001',ownerQQ:'1001',allowedGroups:['7001','7002'],disk:{statSync:()=>({size:1000}),readFileSync:()=>JSON.stringify(data)}};
 test('confirmed nickname relationship is always present without recent messages',()=>{const text=relationshipBlock('file',opts);assert(text.includes('柱间 / 静是同一人'));assert(text.includes(personAnchor('1002')));assert(!text.includes('另一个人'));assert(!text.includes('猜的'));});
@@ -10,3 +10,12 @@ test('Bili operational plan stays saved but is not loaded as QQ experience',()=>
 
 
 test('known member accounts are not output prose; names and fund codes remain valid',()=>{const cfg={ownerQQ:'87654321'};assert(includesParticipantAccount('账号87654321是谁',cfg));assert(!includesParticipantAccount('基金159696，100份',cfg));assert(!includesParticipantAccount('9876543210',cfg));const text=relationshipBlock('file',opts);assert(!text.includes('1002'));});
+test('fresh Bili sessions recall confirmed QQ relationships internally without merging same-name platform identities',()=>{
+ const disk={...opts.disk,readFileSync:p=>p==='cfg'?JSON.stringify({whaleCompat:{relationshipFile:'people'}}):JSON.stringify(data)};
+ const text=configuredBiliRelationships('cfg',{disk});
+ assert(text.includes(personAnchor('1002'))&&text.includes(personAnchor('1003')));
+ assert(text.includes('跨平台对齐表')&&text.includes('非公开素材'));
+ assert(!text.includes('1002')&&!text.includes('1003')&&!text.includes('猜的'));
+ assert.equal(relationshipBlock('file',{...opts,key:'',platform:'bili'}),'');
+ assert.equal(configuredBiliRelationships('cfg',{disk}),text);
+});
