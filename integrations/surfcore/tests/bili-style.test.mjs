@@ -23,4 +23,6 @@ test('the real Bili wake prompt permits social conversation and learns public us
  for(const value of ['共享人设','评论区就按群聊','视频以外','journal --learn','疑似机器人','parent 填这次实际回应'])assert(text.includes(value));
  assert(!/额度要花完|每轮至少搭|还差.*条|一句话说完就走/.test(text));
  assert(!src.includes('bili-whale-ta-'));
+ assert(text.includes('梗和反话'));assert(text.includes('疑似机器人可以略过'));
+ assert(!/给鱼点赞|默认强制聚拢|--force-gather/.test(text));
 });
