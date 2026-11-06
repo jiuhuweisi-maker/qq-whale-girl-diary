@@ -80,6 +80,7 @@ export function qualityPack(pack){
  return {ok:true};
 }
 export function publishPack(home,pack,s=settings(home)){
+ if((s.excludedSources||[]).some(id=>pack?.stats?.sourceCounts?.[id]))return {ok:false,reason:'withdrawn-source'};
  const check=qualityPack(pack);if(!check.ok)return check;
  fs.mkdirSync(path.join(home,'versions'),{recursive:true});
  const old=readJson(path.join(home,'active-pack.json'),null);
@@ -94,6 +95,7 @@ export function rollbackPack(home,version){
  if(!/^v[0-9a-f]{16}$/.test(version||''))throw Error('Invalid version');
  const pack=readJson(path.join(home,'versions',version+'.json'),null);
  if(!qualityPack(pack).ok)throw Error('Rollback pack failed validation');
+ if(settings(home).excludedSources.some(id=>pack.stats.sourceCounts[id]))throw Error('Rollback pack contains a withdrawn source');
  atomicJson(path.join(home,'active-pack.json'),pack);invalidateLanguageCache();return version;
 }
 export async function learnOnce({home=languageHome(),initial=false,automatic=false,excludeAuthorIds=[],fetchImpl=globalThis.fetch,now=Date.now,onProgress=()=>{}}={}){
@@ -142,7 +144,7 @@ export async function learnOnce({home=languageHome(),initial=false,automatic=fal
   const ranked=videos.map((v,i)=>({...v,rank:i%3})).sort((a,b)=>a.rank-b.rank);
   for(const video of ranked){
    stop();if(stats.videosAttempted>=limit.videos||stats.candidates>=limit.candidates)break;
-   if(sources.has(video.bvid))continue;
+   if(sources.has(video.bvid)||s.excludedSources.includes(video.bvid))continue;
    stats.videosAttempted++;let meta={topic:video.topic},decoded=[];
    try{
     await bili.collect(video.bvid,{includeDanmaku:false,retries:0,intervalMs:0,timeoutMs:15000,fetch:async(url,opts)=>{
@@ -193,6 +195,7 @@ export const shanghaiDay=at=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Sha
 export function learnFromBrowse({bvid,data,meta={},excludeAuthorIds=[],home=languageHome(),now=Date.now()}={}){
  const s=settings(home);if(!s.enabled||!s.autoLearn||s.learningMode!=='browse')return {skipped:'disabled'};
  if(!/^BV[0-9A-Za-z]{10}$/.test(bvid||''))return {skipped:'invalid-source'};
+ if(s.excludedSources.includes(bvid))return {skipped:'withdrawn-source'};
  fs.mkdirSync(home,{recursive:true});let lock;
  try{lock=fs.openSync(path.join(home,'learning.lock'),'wx');}catch(e){if(e.code==='EEXIST')return {skipped:'in-progress'};throw e;}
  try{

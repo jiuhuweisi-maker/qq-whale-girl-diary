@@ -30,6 +30,7 @@ export function settings(home=languageHome()){
  const s=readJson(path.join(home,'settings.json'),{}),out={...DEFAULTS,...s,enabled:s.enabled===true,autoLearn:s.autoLearn===true};
  for(const [k,min,max]of [['intervalHours',24,8760],['maxVideos',1,15],['maxCandidates',1,1000],['maxAccepted',1,1000],['maxDurationMs',1000,900000],['maxCorpus',1,5000],['corpusDays',1,90],['maxVersions',2,10],['historyLimit',1,100],['historyHours',1,72],['maxScopes',1,64],['requestIntervalMs',2500,60000]])out[k]=bounded(s[k],DEFAULTS[k],min,max);
  out.excludeAuthorIds=Array.isArray(s.excludeAuthorIds)?s.excludeAuthorIds.map(String).slice(0,100):[];
+ out.excludedSources=Array.isArray(s.excludedSources)?[...new Set(s.excludedSources.filter(x=>/^BV[0-9A-Za-z]{10}$/.test(x)))].slice(0,500):[];
  out.learningMode=s.learningMode==='scheduled'?'scheduled':'browse';
  return out;
 }
@@ -53,6 +54,7 @@ export function currentPack(home=languageHome(),now=Date.now()){
  let cache=caches.get(home);if(cache&&now-cache.at<5000)return cache;
  const s=settings(home);let p=readJson(path.join(home,'active-pack.json'),null);
  if(!p)p=readJson(path.join(HERE,'language-pack.json'),null);
+ if(s.excludedSources.some(id=>p?.stats?.sourceCounts?.[id]))p=null;
  cache={at:now,settings:s,pack:validatePack(p)?p:null};
  if(caches.size>=16)caches.delete(caches.keys().next().value);caches.set(home,cache);return cache;
 }

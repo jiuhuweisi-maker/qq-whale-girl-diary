@@ -6,6 +6,7 @@ import path from 'node:path';
 import {settings,atomicJson,readJson,styleBlock,checkExpression,inspectOutbound,rememberOutbound,historyRows,invalidateLanguageCache,copyHash,hash,validatePack} from '../compat/language-style.mjs';
 import {assessCandidate,distillPack,publishPack,rollbackPack,qualityPack,learnOnce,maybeLearn} from '../compat/language-learning.mjs';
 import {main as manage} from '../compat/language-cli.mjs';
+import {learnFromBrowse} from '../compat/language-learning.mjs';
 
 function fixture(t){const home=fs.mkdtempSync(path.join(os.tmpdir(),'whale-language-'));t.after(()=>fs.rmSync(home,{recursive:true,force:true}));return home;}
 function corpus(){return [
@@ -15,6 +16,15 @@ function corpus(){return [
 function enable(home){atomicJson(path.join(home,'settings.json'),{enabled:true});invalidateLanguageCache();}
 
 test('enhancement and background learning are off on a new install',t=>{const home=fixture(t);assert.equal(settings(home).enabled,false);assert.equal(settings(home).autoLearn,false);assert.equal(styleBlock({home}),'');maybeLearn({home});assert.deepEqual(fs.readdirSync(home),[]);});
+test('source withdrawal persists across browse, pack rollback and re-enabling; audit exposes only counts',async t=>{
+ const home=fixture(t),old=process.env.WHALE_LANGUAGE_HOME;process.env.WHALE_LANGUAGE_HOME=home;t.after(()=>{if(old===undefined)delete process.env.WHALE_LANGUAGE_HOME;else process.env.WHALE_LANGUAGE_HOME=old;});
+ const rows=corpus(),p=distillPack(rows);publishPack(home,p);atomicJson(path.join(home,'corpus.json'),rows);await manage(['enable']);await manage(['resume']);
+ await manage(['forget-source',rows[0].source]);assert(settings(home).excludedSources.includes(rows[0].source));
+ assert.equal(learnFromBrowse({home,bvid:rows[0].source,data:{}}).skipped,'disabled');
+ await manage(['enable']);assert.equal(learnFromBrowse({home,bvid:rows[0].source,data:{}}).skipped,'withdrawn-source');
+ await assert.rejects(manage(['rollback',p.version]),/withdrawn source/);
+ const audit=await manage(['audit']);assert.equal(audit.corpusCount,1);assert(!JSON.stringify(audit).includes(rows[0].text));assert.equal(audit.extraModelCalls,0);
+});
 test('one colloquial phrase and original affectionate habits are not bans',()=>{for(const text of ['这条我认，你昨天确实说过','好好好，晚上一起玩呀 (｡･ω･｡)','主人我困了嘛','不是不想来，而是今天还在加班'])assert(checkExpression(text).ok,text);});
 test('near repetition is caught, tiny reactions and requested quotations are exempt',()=>{const now=Date.now(),history=[{at:now-1000,text:'刚打算出门结果雨又下起来了'}];assert(!checkExpression('刚打算出门，结果雨又下起来了！',{history,now}).ok);assert(checkExpression('哈哈',{history:[{at:now,text:'哈哈'}],now}).ok);assert(checkExpression(history[0].text,{history,context:'请逐字引用原话',now}).ok);});
 test('repeated templates combine frequency with multiple signals; no single-phrase rejection',()=>{const now=Date.now(),history=[1,2,3].map(x=>({at:now-x,text:'我懂你的意思，说白了就是先休息'}));const r=checkExpression('我懂你的意思，说白了就是你得睡觉',{history,now});assert(!r.ok);assert(checkExpression('不是 TCP，而是 UDP',{history,now,context:'解释这段代码'}).ok);});

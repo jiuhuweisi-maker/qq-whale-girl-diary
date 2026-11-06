@@ -22,6 +22,7 @@ import { config } from '../lib/config.mjs'
 import { appendWatch } from '../lib/watch-history.mjs'
 import { formatShotsStats, pruneShots, shotsPath } from '../lib/shots-cache.mjs'
 import {learnFromBrowse} from '../../../../whale-compat/language-learning.mjs'
+import {captureSubtitles,workbenchFile} from '../../../../whale-compat/experience-workbench.mjs'
 
 const argv = process.argv.slice(2)
 const bvid = argv.find((a) => !a.startsWith('--'))
@@ -42,9 +43,9 @@ for (let i = 0; i < argv.length; i += 1) {
   }
 }
 const BUCKET = Number(opt.bucket ?? 30)
-const TOP = Number(opt.top ?? 5)
+const TOP = Number(opt.top ?? (opt.compact?3:5))
 const GRID = String(opt.grid ?? '3x3')
-const NCOM = Number(opt.comments ?? 8)
+const NCOM = Number(opt.comments ?? (opt.compact?5:8))
 const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`
 
 // ── 防提示注入（2026-10-17 加，Kimi 评审指出：只靠 prompt 层不够）──────────
@@ -96,12 +97,12 @@ console.log('══════════ ① 元信息（它自称是什么�
 console.log(`标题: ${d.title}`)
 console.log(`UP: ${d.owner.name}   时长: ${fmt(dur)}   分区: ${d.tname || '-'}   发布: ${new Date(d.pubdate * 1000).toLocaleDateString('zh-CN')}`)
 console.log(`播放 ${d.stat.view}  点赞 ${d.stat.like}  收藏 ${d.stat.favorite}  投币 ${d.stat.coin}  弹幕 ${d.stat.danmaku}  评论 ${d.stat.reply}`)
-if (d.desc) console.log(`简介: ${d.desc.replace(/\n+/g, ' / ').slice(0, 300)}`)
+if (d.desc) console.log(`简介: ${d.desc.replace(/\n+/g, ' / ').slice(0, opt.compact?180:300)}`)
 
 // ── ② 封面 ──
 const coverFile = path.join(shots, 'covers', `${bvid}.jpg`)
 try {
-  const r = await fetch(d.pic, { headers: { 'user-agent': UA, referer: `https://www.bilibili.com/video/${bvid}/` } })
+  const r = await fetch(d.pic, { headers: { 'user-agent': UA, referer: `https://www.bilibili.com/video/${bvid}/` },signal:AbortSignal.timeout(15000) })
   fs.writeFileSync(coverFile, Buffer.from(await r.arrayBuffer()))
   console.log(`\n══════════ ② 封面 ══════════\n${coverFile}（交给 read_image 看）`)
 } catch (e) { console.log(`\n封面下载失败：${e.message}`) }
@@ -112,13 +113,14 @@ let body = []
 if (subs.length) {
   const pick = subs.find((s) => s.lan === 'ai-zh') ?? subs.find((s) => s.lan === 'zh-CN') ?? subs[0]
   const url = String(pick.subtitle_url).startsWith('http') ? pick.subtitle_url : 'https:' + pick.subtitle_url
-  const r = await fetch(url, { headers: { 'user-agent': UA, referer: `https://www.bilibili.com/video/${bvid}/` } })
+  const r = await fetch(url, { headers: { 'user-agent': UA, referer: `https://www.bilibili.com/video/${bvid}/` },signal:AbortSignal.timeout(15000) })
   if (r.ok) { try { body = (JSON.parse(await r.text()).body ?? []) } catch {} }
 }
 const subFile = path.join(shots, 'subs', `${bvid}-debrief.txt`)
 console.log('\n══════════ ③ 官方字幕（它到底说了什么）══════════')
 if (body.length) {
   fs.writeFileSync(subFile, body.map((l) => `[${fmt(l.from)}] ${l.content}`).join('\n'))
+  try{captureSubtitles(workbenchFile(biliStateDir()),{bvid,title:d.title,rows:body})}catch{console.error('[经历资料] 本地来源记录未完成，正常阅读继续')}
   console.log(`有字幕：${body.length} 行（${fmt(body[0].from)} → ${fmt(body.at(-1).to ?? body.at(-1).from)}）→ ${subFile}`)
 } else {
   console.log('✗ 无官方字幕轨道 → 这一路缺失，只能靠弹幕 + 热评 + 画面（这正是要六路互补的原因）')
@@ -137,7 +139,7 @@ const subAt = (t) => {
 console.log(`\n══════════ ④ 弹幕热区（观众在哪炸了）══════════`)
 let danmaku = []
 try {
-  const r = await fetch(`https://comment.bilibili.com/${cid}.xml`, { headers: { 'user-agent': UA, referer: `https://www.bilibili.com/video/${bvid}/` } })
+  const r = await fetch(`https://comment.bilibili.com/${cid}.xml`, { headers: { 'user-agent': UA, referer: `https://www.bilibili.com/video/${bvid}/` },signal:AbortSignal.timeout(15000) })
   const buf = Buffer.from(await r.arrayBuffer())
   let xml = buf.toString('utf8')
   // ⚠️ 2026-10-14：该接口返回**不带 content-encoding 头的 deflate 流**（fetch 不自动解 → 拿到二进制）
@@ -201,7 +203,7 @@ if (!danmaku.length) {
   }
   const all = {}
   for (const x of danmaku) if (!isSpam(x.text) && x.text.length >= 2) all[x.text] = (all[x.text] ?? 0) + 1
-  const topAll = Object.entries(all).sort((a, b2) => b2[1] - a[1]).slice(0, 12)
+  const topAll = Object.entries(all).sort((a, b2) => b2[1] - a[1]).slice(0, opt.compact?6:12)
   console.log(`\n全程高频弹幕（已剔刷屏）: ${topAll.map(([t, c]) => `${t}×${c}`).join(' | ')}`)
 }
 

@@ -143,6 +143,7 @@ def validate(cfg, stage, work):
     suites = [[repo / 'tests/bridge-integration.test.mjs', stage],
               [repo / 'tests/runtime.test.mjs'], [repo / 'tests/personal-journal.test.mjs'],
               [repo / 'tests/language-v3.test.mjs'], [repo / 'tests/browse-learning.test.mjs'],
+              [repo / 'tests/experience-workbench.test.mjs'], [repo / 'tests/bili-operations.test.mjs'],
               [repo / 'tests/journal-ranking.test.mjs'], [repo / 'tests/legacy-reader-payload.test.mjs'],
               [repo / 'tests/model-image.test.mjs'], [repo / 'tests/image-delivery.test.mjs', stage], [repo / 'tests/prompt-preferences.test.mjs'],
               [repo / 'tests/bili-style.test.mjs', stage]]

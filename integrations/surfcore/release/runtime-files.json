@@ -19,6 +19,7 @@
   "plugins/surfcore/tools/commands/debrief.mjs",
   "plugins/surfcore/tools/commands/feed.mjs",
   "plugins/surfcore/tools/verify/thread.mjs",
+  "plugins/surfcore/tools/verify/comment-exists.mjs",
   "plugins/surfcore/tools/commands/daily.mjs",
   "plugins/surfcore/tools/lib/forward.mjs",
   "plugins/surfcore/tools/lib/my-dynamics.mjs",

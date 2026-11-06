@@ -34,6 +34,8 @@ import {
 import { resolvePersonaFile } from './persona.js'
 import {confirmedExpressionBlock,readConfiguredStyle} from '../../../whale-compat/expression-style.mjs'
 import {styleBlock} from '../../../whale-compat/language-style.mjs'
+import {compactBrowseInstructions} from '../../../whale-compat/bili-wake-economy.mjs'
+import {continuationHint,workbenchFile} from '../../../whale-compat/experience-workbench.mjs'
 import {configuredBiliRelationships} from '../../../whale-compat/relationships.mjs'
 import {qqPersona} from '../../../whale-compat/conversation-logic.mjs'
 import { readUnified } from './store.js'
@@ -296,129 +298,16 @@ function diaryPushLines() {
 }
 
 function wakePrompt(st, tools = '') {
-  const L = limitsNow()
-  const B = config()
-  const K = kindsNow(B)
-  const SILENT = !interactEnabled(B)
-  const bestSlot = `${String(K.best.slot).padStart(2, '0')}:00`
-  const capText = (n) => (Number(n) > 0 ? n : '不限')
-  const identity = [...identityContextLines(),styleBlock({scene:'楼中楼'})]
-  const biliDir = platformDir()
+  const B=config(),biliDir=platformDir(),silent=!interactEnabled(B)
   return [
-    `【生物钟】你醒了 —— ${st.atText ?? ''}${st.window ? `（窗口 ${st.window}${st.withinWindow ? ' · ' + st.withinWindow : ''}）` : ''}。`,
-    '',
-    ...(identity.length ? [...identity, ''] : []),
-    // 2026-10-20：她的会话 cwd 是**用户主目录**，那里没有 bili.mjs ✗
-    //   → 每条提示都带上工具链的绝对路径，别让她满盘找（她真的找过，还超时了 ✗）
-    ...(tools ? [`［工具］所有命令都用这一条：\`${tools}\`（下面写 "bili.mjs" 的都指它）—— 别去别处找 ✗`, ''] : []),
-    // 2026-10-20：先告诉她"冷了几天"，再给流程 —— 心情在前，任务在后 ✓
-    // 2026-10-20：还没跑过启动测试 → 第一句就提醒主人（很多人卡在"找不到会话/没给权限"）
-    ...(() => {
-      try {
-        if (fs.existsSync(path.join(platformDir(), "selftest-passed.json"))) return []
-      } catch {}
-      return [
-        "",
-        "【还没跑启动测试】先提醒主人跑一次：`node ~/.dsh/plugins/surfcore/tools/bili.mjs selftest`",
-        "  并告诉他两件事：① 你的会话在 工作区 → 未分组 里（不点开看不见）② 要给那个会话「完全访问」权限",
-        "",
-      ]
-    })(),
-    ...(B.owner?.contactMode === 'comment-mention'
-      ? ['【当前联系偏好】B站不私信主人；真想分享这条视频时，在它的评论区自然@主人，用comment --share。每天最多一次，不需要用满；普通评论不用条条@，不为联系他凑话或打卡。']
-      : silenceLines()),
-    '按 AGENTS.md 的「看的那晚」流程走一遍（不要等我说话，直接做）：',
-    ...(SILENT ? ['本轮只看不说，沿用沉默开关；不发评论、动态、分享或私信。'] : [
-    '评论区就按群聊相处：先看看楼里的人在聊什么，按自己的性格接话、开玩笑或起话头，聊到视频以外也很正常；有想接的话再发，可爱、吐槽、emoji、颜文字和小括号沿用共享习惯。',
-    ]),
-    '1) `node bili.mjs deps` —— 体检红着就报备我、只做读、别对外发',
-    `2) 读两本日记（\`${path.join(biliDir, 'whale-diary.md')}\` + \`${path.join(biliDir, 'whale-diary-private.md')}\`）`,
-    // 2026-10-20：feed 已默认多源（搜索+热门+排行+关注）+ 去播放量偏向 + 偏好命中权重 ✓
-    // 2026-10-23：feed 改成按「口味权重」分名额 + 排除观看历史/最近推过的 + 搜索页轮换。
-    '3) `feed` 选题（≤5 条）→ 对这 5 条跑 `debrief --no-frames`',
-    '   热门/排行占主要名额，穿插自己的动漫、游戏、日常等兴趣；不只盯DeepSeek。看过的/最近推过的自动排除，别把播放量当质量证明。',
-    '   看这些视频已有的评论和楼中楼时，本地会顺手筛选表达样本：每天最多5视频、300候选、100新增；不为学习另开抓取或模型回合。',
-    '   3.5) ⭐ 如果 `feed` 没有新内容（全是看过的/候选不够）→ **不要硬重复深读、不要为了凑数**；',
-    '        写一段日记或扫一眼消息就按“轻醒”收工，保住这一趟的质量 ✓',
-    '4) 挑 2–3 条深读（完整 `debrief`，含抽帧）',
-    '   看已有热评和楼中楼时，顺便观察普通用户怎样接话和用梗；结合稳定账号、角色自称和重复套话识别疑似机器人，拿不准的先不学。只观察本轮已有材料，不为学习额外批量抓取或唤醒模型。',
-    '   真学懂一个新梗时，用 `journal --learn "含义" --usage "适用语境" --bvid <BV> --root <rpid> --author-mid <mid> [--author-name "昵称"]` 写入共用日记；记的是公共用法，别人经历仍归别人。QQ聊天按话题检索，不为了展示学会了就硬塞。',
-    // 2026-10-20：收藏 ≠ 低配的分享 ✓ 它是「我想留着」（内向），和分享（外向）并列
-    '4.5) 深读的那几条里，如果某条「我想留着」→ `fav <BV> --reason "…" --dry` → `--go`',
-    '     判据（缺一条就别收 ✗）：① 三个月后还会想点开 ② 说得出为什么留（≥6 字）③ 同类已 ≥2 条要 --better',
-    '     ⚠️ 一天最多 3 条 · 同一视频 30 天一次 · **收藏不占分享额度** ✓ 但它会成为你下次选题的口味信号 ✓',
-    '     ⚠️ 「好看但看完就完」的不收 ✗ —— 收藏夹要密度不要数量 ✓',
-    '4.6) 先看懂评论里的梗和反话，再决定接哪句。疑似机器人可以略过，挑自己真想接的话；别人没继续聊时就自然停住。',
-    '4.7) 想和评论区的人聊时，可以接视频，也可以聊楼里的新话题、玩笑或自己的感受：',
-    '     普通顶层评论是你自己在说话，需要分享给主人时再用 --share：',
-    '     `recon <BV>` 拿 aid → `comment --oid <aid> --bvid <BV> --message "…" --auto --dry` → 改成 `--go` → `thread` 复核 ✓',
-    '     疑似机器人多时可以离开这一楼；发言仍遵守现有防刷屏、额度和冷却。',
-    '     ⚠️ **不带 --share 才是普通评论**；带 --share 才是"分享给我"（那条才要评分 + rank 1 + @ 我 ✓）',
-    '     ⚠️ 分寸：**代码硬上限** 一天 ' + capText(L.daily) + ' 条 · 任意两条隔 ' + L.globalMin + ' 分钟 · 同一 UP ' + L.perUpMin + ' 分钟 1 条 · 同一视频 ' + L.perVideoMin + ' 分钟 1 条',
-    '        （额度/冷却满了就停，别硬刷；这不是“强制”能绕过的 ✓）',
-    // 2026-10-20（用户定）：**热评也能搭话** —— 挂在别人评论下面的楼中楼，不是顶层 ✓
-    '4.8) ⭐ **搭话**：`debrief` 的热评里，有人说到你心坎里 / 有明显错漏 / 想接个梗 → 回他一句：',
-    '     `comment --oid <aid> --bvid <BV> --root <rpid> --parent <rpid> --message "…" --auto --ta --dry` → `--go`',
-    '     ⚠️ **必须带 `--ta`** —— 那是"我去搭别人"的账（' + capText(L.taDaily) + ' 条/天）；不带 `--ta` 的楼中楼算"回找我的人"（另一本账）✗',
-    '     ⚠️ 这是**楼中楼**（挂在对方那条评论下面），rpid 就是 debrief 里那个 rpid（root 和 parent 填同一个）',
-    '     ⚠️ 硬上限：一天 ' + capText(L.taDaily) + ' 条 · 任意两条隔 ' + L.globalMin + ' 分钟 · 同一条评论 ' + Math.round(L.perThreadMin / 60) + ' 小时只回一次（撞上就被拒 ✗）',
-    '     想聊就搭一句，没有话头可以略过；对方接话后沿实际楼层继续聊，接完可以自然收住。',
-    '     回复顶层时 root 和 parent 都填该顶层 rpid；回复楼中楼时 root 保留顶层，parent 填这次实际回应的那条。昵称相同也按 mid 区分。',
-    // 2026-10-21（用户定）：**每天一条动态** —— 写当天评分最高的那条
-    '4.9) ⭐ **记分**：深读过的每条都记一下 `score <BV> --score N --reason "…"`（0~20 分，没到 13 也记 ✓）',
-    '     —— 今天的动态要从这里面挑"最高分那条"，不记分就发不出去 ✗',
-    `4.95) ⭐ **今天的一类动态（best）**：四类各一条，best 在 ${bestSlot} 起；其余三类等 dynTick 提醒（设置页关掉的类会跳过）`,
-    '     `daily --kind best --text "…" --dry` → `--go`',
-    '     ⚠️ 必须写**今天评分最高**的那条视频（工具会核对，给错直接拒 ✗）',
-    `     ⚠️ 正文 **${K.best.minLen}~${K.best.maxLen} 字**，用你（当前人格卡）的口吻说这条视频 —— 吐槽、安利、讲自己想起什么都行，随意发挥 ✓`,
-    '     ⚠️⚠️ **这是公开发给所有人的动态**（推给关注你的人），不是私信、不是只给主人看的便条：',
-    '        用"给大家推一条…""安利一下…"这种口吻；**不要 @ 主人、正文里也别 @ 任何人** ✗（工具会拒）',
-    '     ⚠️ 配图自动挑：`~/.dsh/surfcore/bili/memes/` 里的表情包（随机）→ 没有就用这条视频的封面 ✓',
-    '     ⚠️ 今天发过就再也发不了（跨天才重置）✗ 别反复试',
-    // 2026-10-21（用户定）：第二条动态 —— 六款游戏的 AI 二创，按顺序轮换
-    '4.97) ⭐ **第二条动态：游戏 AI 二创**（每天一条，和上面那条互不占；设置页关掉就跳过）：',
-    '     `gamefeed` 看今天轮到哪款游戏 + 候选（原神→鸣潮→绝区零→星铁→终末地→异环，脚本自动轮换）',
-    '     → 挑 2~3 条 `debrief` 认真看质量（**别只看播放**）→ 挑一条真的做得好的',
-    `     → \`daily --kind game --bvid <BV> --text "…" --dry\` → \`--go\`（正文 **${K.game.minLen}~${K.game.maxLen} 字**，要仔细评价）`,
-    '     ⚠️ 工具会核对：必须是轮到的那个游戏 · 近 21 天 · 播放 ≥2000 · 赞/播 ≥2% · 标题/简介有 AI 二创信号',
-    '     ⚠️ 也是**公开发给所有人**的，别 @ 人；挑不出来就在日记里写"今天没有值得推的"，别硬凑 ✗',
-    // 2026-10-21（用户定）：**全局回复规则** —— 疑似被攻击/阴阳怪气一律不接，记账等审
-    '4.99) ⭐⭐ **遇到攻击 / 阴阳怪气 → 一个字都别回，记待审**：',
-    '     怀疑对面在骂你、嘲讽你、阴阳你（"就这?""AI 也来凑热闹""你懂什么""呵呵"…）→ **不回** ✗',
-    '     `attack add --oid … --root … --parent … --who "对方昵称" --text "他的原话" [--suggest "你想回的"]`',
-    '     —— 自动编号（今天第 1 条 = #1），并立刻私信报备给我；他晚上 11 点集中审，**批了才能回** ✓',
-    '     ⚠️ 待审的不回，所以**不占任何回复额度**；我说"拒"就彻底不理 ✗',
-    ...(B.owner?.contactMode === 'comment-mention' ? [
-      '5) 真有想分享的视频才用comment --share在对应评论区@主人；不走私信，不为凑分享而发。',
-    ] : [
-    '5) 按「标尺」打分排序，只对第一名考虑分享；**先看 share.via**：',
-    `   · 当前 share.via=${B.share?.via ?? 'dynamic'}；**默认 via=dynamic：发到自己的 B站 动态，不在评论区 @ 我** ✓`,
-    '   · via=dynamic：`share-dynamic --bvid <BV> --text "<分享内容>" --score <N> --reason "<为什么值得分享>" --dry` → `--go`',
-    '     - 会找这条视频已有的 AV 动态并**转发**：新动态 = 你的话 + **可点视频卡片**（找不到卡片会拒绝；`--allow-text` 才退“文字+链接”）',
-    `     - 和四类动态**共用间隔**：任意两条 ≥${B.dynamics?.gapMin ?? 30} 分钟（命令会查 daily-dynamic.json，不够就拒 ✓）`,
-    '     - 占用分享额度（≤shareDaily/天 · 同一视频 7 天一次），发完写 daily-dynamic.json 并报备 ✓',
-    '   · via=dm：**不发公开评论** ✗ → dm --msg "<分享内容> 视频：https://www.bilibili.com/video/<BV>/ " **--share --target BV…** --go ✓',
-    `     ⚠️ 必须带 --share：与评论区 @ 共用同一本额度账（≤${B.quota?.shareDaily ?? 3}/天 · 同一视频 7 天一次）；不带就只是推送 ✗`,
-    '     ⚠️ 必须带视频链接：链接里的 BV 就是「同一视频」的判重依据 ✓',
-    '   · via=comment：comment --share --auto --reason … --score … --rank 1（旧功能，仍可用 ✓）',
-    ]),
-    '6) 写两本日记，记真实看过的、和谁聊过以及自己的感受；有值得记的新梗时再用 journal --learn 留下公共用法。',
-    // ⭐ 2026-10-18 主人定：每轮流程**最后**扫一遍"有没有没回的评论" → 有就**一起**推给我 ✓
-    '7) ⭐ `comment-digest --hours 24` —— **每轮最后都要扫**：有没回的评论就**一起**推给我（不是一条条报 ✗）',
-    '   回不回、怎么回：主人 / 其他人 → 见「倾听」的分两侧规则 ✓',
-    '7.5) ⭐ `quota react --auto --hours 48` —— 扫一遍主人有没有表态（**点赞也算** ✓ 能看到是哪条评论 ✓）',
-    '     → 有就记一次反馈，并**写进私人日记「偏好校准」**（哪条视频 / 他什么反应 / 我下次往哪偏）',
-    // 2026-10-20：沉默 ≥7 天 → 提前告诉她"今天不分享"（闸门也会拒，但少浪费一轮 ✓）
-    ...(() => {
-      let fb = {}
-      try { fb = JSON.parse(fs.readFileSync(path.join(platformDir(), "feedback.json"), "utf8")) } catch {}
-      const days = fb.last ? Math.floor((Date.now() - new Date(fb.last).getTime()) / 86400000) : 0
-      return days >= 7 ? ["5.5) ⛔ 已经 " + days + " 天没有主人的表态 → **今天不分享**（只看 + 写两本日记 + 推荐给我 ✓ 日记照写 ✓）"] : []
-    })(),
-    ...diaryPushLines(),
-    ...(SILENT ? ['⛔ **再次强调：沉默逛已开启，以上 4.5–7.5 的所有对外发言步骤全部跳过；只读、评分、写日记。**'] : []),
-    '9) 收工：记 `diary log` ✓（今天想说的都说了吗？没说完留到下一趟，别憋着 ✗）',
-  ].join('\n')
+    `【生物钟】${st.atText??''}${st.window?' · '+st.window:''}；在原有浏览回合自然活动。`,
+    ...identityContextLines(),styleBlock({scene:'楼中楼'}),
+    tools?`［工具］所有命令沿用这个绝对入口：${tools}`:'',
+    compactBrowseInstructions({b:B,limits:limitsNow(),kinds:kindsNow(B),biliDir,silent}),
+    continuationHint(workbenchFile(biliDir)),
+    ...(B.owner?.contactMode==='comment-mention'?[]:silenceLines()),
+    ...(silent?[]:diaryPushLines()),
+  ].filter(Boolean).join('\n')
 }
 
 /**
@@ -1242,7 +1131,7 @@ export function startScheduler(ctx, opts) {
   const timer2 = setInterval(() => { listenTick().catch(() => {}) }, 30_000)
   const timerDm = setInterval(() => { dmTick().catch(() => {}) }, 20_000)   // 2026-10-19: 60s -> 20s, 私信要像聊天; 每次只是一个 get_sessions 请求 很轻
   const timer3 = setInterval(() => { liveTick().catch(() => {}) }, 60_000)     // 直播间：挂了就一直跑，断了自动重挂 ✓
-  log(`[bili-whale] 自主生物钟已启动（每 ${TICK_MS / 1000}s tick · 会话 ${sessionId}）；监听 + 直播间监看都挂上了 ✓`)
+  log(`[bili-whale] 自主生物钟已启动（适配209 · 每 ${TICK_MS / 1000}s tick · 会话 ${sessionId}）；监听 + 直播间监看都挂上了 ✓`)
 
   return {
     /** 设置页一保存就调它：清掉旧计划，下一次 tick 按新配置重算 ✓ */

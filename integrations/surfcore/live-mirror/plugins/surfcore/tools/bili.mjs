@@ -9,6 +9,7 @@ import {parseArgs} from 'node:util'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const map = {
+  life: ['../../../whale-compat/experience-cli.mjs', '真实来源/兴趣/小作品与项目接续：help/status/recall/source/next；可选地在已有浏览回合整理，无独立模型任务'],
   journal: ['commands/personal-journal.mjs', 'QQ/B站共用日记：--query 话题 / --day 日期 / --cursor 分页；--learn 含义 --usage 适用语境 --bvid BV --root 评论号 --author-mid 作者mid 可记录公共梗用法'],
   'fund-study': ['../../../whale-compat/finance-learning-cli.mjs', '金融学习：next/search/read/record/notes；仅读视频和本地笔记'],
   // —— 读（不需要写操作，安全） ——

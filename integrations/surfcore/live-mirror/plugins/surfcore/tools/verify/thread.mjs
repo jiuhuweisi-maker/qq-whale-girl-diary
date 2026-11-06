@@ -1,6 +1,8 @@
 // Dump the whole thread under our root comment: who said what, and how it nests.
 import {learnFromBrowse} from '../../../../whale-compat/language-learning.mjs'
 import {config} from '../lib/config.mjs'
+import {accountBili} from '../lib/state-paths.mjs'
+import {observeCommentRows} from '../../../../whale-compat/bili-operations.mjs'
 const AID = process.argv[2]
 const BVID = process.argv[3]
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
@@ -24,6 +26,8 @@ async function fetchAll() {
 const d = await fetchAll()
 if (d.code !== 0) { console.log(`code=${d.code} message=${d.message}`); process.exit(0) }
 const root = d.data?.root
+try{observeCommentRows(accountBili('comment-operations.json'),{oid:AID,rows:[root,...(d.data?.replies||[])].filter(Boolean),anonymous:true})}catch{console.error('[评论账本] 回读记录未完成，不影响展示；不要据此重发')}
+if(!root){console.log('接口未返回线程根，无法完整还原；查不到不代表未发布，不重发。');process.exit(0)}
 try{learnFromBrowse({bvid:BVID,data:{replies:root?[{...root,replies:d.data?.replies||[]}]:[]},excludeAuthorIds:[config().self?.mid].filter(Boolean)})}catch{console.error('[文风学习] 本地记录未完成，线程阅读继续')}
 console.log('=== 线程根（顶层评论） ===')
 console.log(`  ${root.member.uname} (mid ${root.member.mid})  rpid=${root.rpid}  rcount=${root.rcount}`)

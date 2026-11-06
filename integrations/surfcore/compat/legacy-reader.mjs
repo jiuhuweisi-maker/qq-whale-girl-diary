@@ -3,13 +3,14 @@ import path from 'node:path';
 import {readJournal} from './personal-journal.mjs';
 import { conversation } from './memory-scope.mjs';
 import {relationshipBlock} from './relationships.mjs';
+import {recallWorkbench} from './experience-workbench.mjs';
 // Only bridge-owned state supplies this identity; tool arguments and nicknames
 // cannot select a different person or grant access to another conversation.
 export function journalFocus(state,now=Date.now()) {
  const last=[...(state?.recentMessages||[])].reverse().find(m=>!m.isSelf);
  return last&&/^[1-9]\d{0,119}$/.test(String(last.userId))&&now-Number(last.time)>=0&&now-Number(last.time)<=600000?{senderId:String(last.userId)}:{};
 }
-export function createLegacyReader({ config, cookie = () => '', journalDir = () => '', focus = () => null }) {
+export function createLegacyReader({ config, cookie = () => '', journalDir = () => '', focus = () => null, workbench = () => '' }) {
   function authorized(key) {
     const c = conversation(key);
     return c && (c.kind === 'private' ? c.id === String(config.ownerQQ) : config.allow?.groups?.map(String).includes(c.id));
@@ -32,16 +33,17 @@ export function createLegacyReader({ config, cookie = () => '', journalDir = () 
     const needle = String(query || '').trim().toLowerCase();
     if ((!day && !cursor && needle.length < 2) || needle.length > 120) return { ok: false, error: '用2至120字说明要找哪件事，或提供日期/分页' };
     const relationships=needle?relationshipBlock(config.whaleCompat?.relationshipFile,{key,ownerQQ:config.ownerQQ,allowedGroups:config.allow?.groups,query:needle}):'';
+    let experience=null;if(needle&&workbench()){try{experience=recallWorkbench(workbench(),needle);}catch{/* Optional notes cannot disable original recall. */}}
     if(journalDir()) {
       const journal=readJournal(journalDir(),{key,ownerQQ:config.ownerQQ,query:needle,day,cursor,focus:focus(key),internal:true});
       if(journal.entries.length||journal.nextCursor||day||cursor){
         // One copy for the model. The previous response duplicated every body
         // in both entries and results, including long paginated diary chunks.
         const {entries,...metadata}=journal;
-        return {...metadata,...(relationships?{relationships}:{}),found:journal.matched,results:entries.map(({speaker,...row})=>({...row,sender:speaker}))};
+        return {...metadata,...(relationships?{relationships}:{}),...(experience?{experience}:{}),found:journal.matched,results:entries.map(({speaker,...row})=>({...row,sender:speaker}))};
       }
     }
-    if(relationships)return {ok:true,found:0,results:[],relationships};
+    if(relationships||experience)return {ok:true,found:0,results:[],...(relationships?{relationships}:{}),...(experience?{experience}:{})};
     const source = path.join(config.whaleCompat.legacyMemoryDir, 'index.jsonl');
     if (fs.statSync(source).size > 64 * 1024 * 1024) throw new Error('归档索引过大，需先整理');
     const results = [];

@@ -23,6 +23,7 @@ import { config } from '../lib/config.mjs'
 import {ownerMentionMap} from '../../../../whale-compat/bili-context.mjs'
 import {inspectOutbound,rememberOutbound} from '../../../../whale-compat/language-style.mjs'
 import {reserveOwnerMention,finishOwnerMention,legacyOwnerMentionUsed} from '../../../../whale-compat/bili-owner-mention.mjs'
+import {beginComment,finishComment} from '../../../../whale-compat/bili-operations.mjs'
 import { assertInteractEnabled, checkCommentAge, printAgeBlock } from '../lib/interact.mjs'
 // 2026-10-20（管理员定）：普通评论的硬闸门 —— 想说话就说话，但别把自己说成刷屏号 ✗
 //   一天 30 条 · 同一 UP 10 分钟 ≤1 · 同一视频 60 分钟 ≤1（默认值在 lib/limits.mjs；
@@ -73,7 +74,7 @@ const saveReplied = (o) => { try { fs.mkdirSync(path.dirname(REPLIED), { recursi
 async function parentAuthor(aid, rootRpid, parentRpid, replyType = 1) {
   for (let pn = 1; pn <= 4; pn += 1) {
     const j = await (await fetch(`https://api.bilibili.com/x/v2/reply/reply?type=${replyType}&oid=${aid}&root=${rootRpid}&pn=${pn}&ps=20`, {
-      headers: { 'user-agent': 'Mozilla/5.0', referer: 'https://www.bilibili.com/' },
+      headers: { 'user-agent': 'Mozilla/5.0', referer: 'https://www.bilibili.com/' },signal:AbortSignal.timeout(15000),
     })).json()
     const list = j.data?.replies ?? []
     const hit = list.find((r) => String(r.rpid) === String(parentRpid))
@@ -230,7 +231,7 @@ const MIXIN_TAB = [46,47,18,2,53,8,23,32,15,50,10,31,58,3,45,35,27,43,5,49,33,9,
 const keyOf = (u) => u.slice(u.lastIndexOf('/') + 1, u.lastIndexOf('.'))
 async function wbiSign(params) {
   const nav = await (await fetch('https://api.bilibili.com/x/web-interface/nav', {
-    headers: { 'user-agent': UA, referer: 'https://www.bilibili.com/', cookie: cookieHeader },
+    headers: { 'user-agent': UA, referer: 'https://www.bilibili.com/', cookie: cookieHeader },signal:AbortSignal.timeout(15000),
   })).json()
   const img = nav?.data?.wbi_img?.img_url
   const sub = nav?.data?.wbi_img?.sub_url
@@ -249,7 +250,7 @@ async function wbiSign(params) {
 
 // ---- who is behind this cookie? --------------------------------------------
 const nav = await (await fetch('https://api.bilibili.com/x/web-interface/nav', {
-  headers: { 'user-agent': UA, referer: 'https://www.bilibili.com/', cookie: cookieHeader },
+  headers: { 'user-agent': UA, referer: 'https://www.bilibili.com/', cookie: cookieHeader },signal:AbortSignal.timeout(15000),
 })).json()
 console.log('=== 登录态校验（只读） ===')
 if (nav.code !== 0) {
@@ -459,6 +460,10 @@ if(ownerMentions182){
  catch(e){if(e.code==='ENOENT')mentionLease=reserveOwnerMention(mentionFile);else{console.error(e.message);process.exit(10)}}
 }
 console.log('\n[go] 发送中…')
+const operationsFile=accountBili('comment-operations.json')
+let operationLease
+try{operationLease=beginComment(operationsFile,{account:nav.data.mid,oid,type,root,parent,message})}
+catch(error){if(mentionLease)finishOwnerMention(mentionFile,mentionLease,'failed');console.error(error.message);process.exit(10)}
 let res
 try{res = await fetch(url, {
   method: 'POST',
@@ -471,15 +476,17 @@ try{res = await fetch(url, {
   },
   body,
   signal:AbortSignal.timeout(15000),
-})}catch(error){if(mentionLease)finishOwnerMention(mentionFile,mentionLease,'uncertain');throw error}
-const out = await res.json().catch(async () => ({ raw: await res.text() }))
-if(mentionLease)finishOwnerMention(mentionFile,mentionLease,out.code===0?'sent':'failed')
+})}catch(error){finishComment(operationsFile,operationLease,{error:true});if(mentionLease)finishOwnerMention(mentionFile,mentionLease,'uncertain');throw error}
+let out
+try{out=JSON.parse(await res.text())}catch(error){finishComment(operationsFile,operationLease,{http:res.status,error:true});if(mentionLease)finishOwnerMention(mentionFile,mentionLease,'uncertain');throw Error('评论响应无法解析，结果未确认；不重发')}
+finishComment(operationsFile,operationLease,{code:out.code,http:res.status,rpid:out.data?.rpid_str??out.data?.rpid})
+if(mentionLease)finishOwnerMention(mentionFile,mentionLease,out.code===0&&res.ok?'sent':'failed')
 console.log(`  HTTP ${res.status}`)
 console.log(`  code=${out.code} message=${out.message ?? ''}`)
-if (out.code === 0) {
+if (out.code === 0 && res.ok) {
   rememberOutbound(message,{scope:expressionScope})
   const rpid = out.data?.rpid_str ?? out.data?.rpid
-  console.log(`  ✅ 已发布，评论 rpid=${rpid}`)
+  console.log(`  ✅ 接口已接受，评论 rpid=${rpid}；公开可见性待 check-comment 或 thread 回读确认`)
   // 鱼群保护：这条如果是“聚拢”到某条鱼楼的回复，记一笔，避免下次又回同一条。
   if (fishPlan?.ok && fishPlan.gatherTarget && parent
       && String(parent) === String(fishPlan.gatherTarget.rpid)) {

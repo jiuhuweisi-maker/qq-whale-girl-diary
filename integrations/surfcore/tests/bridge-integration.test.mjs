@@ -21,6 +21,7 @@ import {interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan}
 import {extractMentions} from '../compat/message-mentions.mjs';
 import {bootstrapToolContext,backgroundPromptRefresh} from '../compat/context-economy.mjs';
 import {appendJournal} from '../compat/personal-journal.mjs';
+import {collectWorkbench,WORKBENCH_HTML} from '../compat/workbench-panel.mjs';
 import {claimBiliSceneOffer,sceneSwitchPrompt} from '../compat/scene-switch.mjs';
 const root = path.resolve(process.argv[2]);
 const stickerSemantics = await import(pathToFileURL(path.join(root,'src/sticker-semantics.js')));
@@ -51,7 +52,7 @@ const disk = { ...fs, openSync(file, mode, ...args) { if (mode === 'r' && fs.sta
 const legacyDir=fs.mkdtempSync(path.join(os.tmpdir(),'whale-stickers-'));fs.writeFileSync(path.join(legacyDir,'happy.png'),Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64'));fs.writeFileSync(path.join(legacyDir,'INDEX.tsv'),'happy.png\t开心测试图\n');
 let ownerDispatchFixture;
 const h = await bridgeHarness({ onebotResponse: (action, body) => ownerDispatchFixture?.(action, body), config: { whaleCompat: { cutover: Math.floor(Date.now()/1000)-1,stickerDir:legacyDir }, purpose: { enabled: false }, social: { enabled: false }, voice: { enabled: false }, biliBridge: { enabled: false }, socialV2: { enabled: true, tokenGuard: { enabled: false }, send: { maxPerMinute: 100, maxPerHour: 500 } } }, globals: {
-  detectImageInput:async()=>true,...stickerSemantics,...contextSnapshot,extractMentions,bootstrapToolContext,backgroundPromptRefresh,Date:SimDate,safeFetchBuffer:async url=>{assert.equal(url,'https://public.invalid/sticker');return{buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64')};},createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, log:(...a)=>{options.log?.(...a);if(String(a[0]).startsWith('持久消息账本'))console.error('[fixture-ledger]',...a);}, control: async () => structuredClone(control) }),
+  collectWorkbench,WORKBENCH_HTML,detectImageInput:async()=>true,...stickerSemantics,...contextSnapshot,extractMentions,bootstrapToolContext,backgroundPromptRefresh,Date:SimDate,safeFetchBuffer:async url=>{assert.equal(url,'https://public.invalid/sticker');return{buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64')};},createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, log:(...a)=>{options.log?.(...a);if(String(a[0]).startsWith('持久消息账本'))console.error('[fixture-ledger]',...a);}, control: async () => structuredClone(control) }),
   createFundPilot:options=>createFundPilot({...options,disk,research:{read:async fund=>({code:fund.code,name:fund.name,unitNav:1.2,asOf:'2026-10-30',measurement:'published_unit_nav',isRealtimePrice:false})},request:async(route,data)=>({mode:'paper',liveTrading:false,cashFen:100000,...(data?{order:data}:{})})}),recordSessionResult,
   renderConversationMemory, createLegacyReader, journalFocus, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,groupActivityView,relationshipBlock,composeConfirmedPersona,contextualFollowUp,readConfirmedStyle,styleBlock,refreshReplyAllowance,pendingReplyCandidate,modelImage,proactiveDelay,legacyMedia,interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan,discoverDshSessionCookie: () => ''
 } });
@@ -72,6 +73,15 @@ async function send(messages, { key = 'group:456', requestId, callId, quote, at 
 try {
   h.setMode('reserved2'); h.setSelfIdentity('鲸戒',999);
   await test('actual bridge initializes with the compatibility runtime healthy', async()=> assert(h.whale.status().healthy && h.whale.status().ready));
+  await test('workbench routes require the console and remain read-only for actual agent tokens',async()=>{
+    assert.equal((await fetch(base+'/api/whale-workbench')).status,401);
+    const st=h.getSocialV2State('private:123');await h.ensureSession('private:123');
+    for(const endpoint of ['/api/whale-workbench','/whale-workbench']){
+      const denied=await fetch(base+endpoint,{headers:{'x-console-token':'fixture-console-token','x-agent-call':'1','x-agent-token':st.agentToken}});assert.equal(denied.status,403);
+      const allowed=await fetch(base+endpoint,{headers:{'x-console-token':'fixture-console-token'}});assert.equal(allowed.status,200);
+      if(endpoint.startsWith('/api'))assert.equal((await allowed.json()).modelCalls,0);else assert((await allowed.text()).includes('textContent'));
+    }
+  });
   await test('actual bridge permits owner DM after 40 wakes but keeps background and group caps',async()=>{
     h.cfg.socialV2.tokenGuard.enabled=true;
     await h.handleIncoming('private',123,event(71,123,'早呀，醒了吗'),h.cfg);

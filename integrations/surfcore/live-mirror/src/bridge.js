@@ -98,6 +98,7 @@ import {
 import { createBiliMemory } from './bili-memory.js';
 import { exactDeliveryProof } from '../whale-compat/delivery-proof.mjs';
 import {bootstrapToolContext,backgroundPromptRefresh} from '../whale-compat/context-economy.mjs';
+import {collectWorkbench,WORKBENCH_HTML} from '../whale-compat/workbench-panel.mjs';
 import {
   appendMemoryInboxEvent, looksNoteworthyMessage, resolveMemoryCardPaths, loadMemoryCard, renderMemoryCard,
 } from './memory-card.js';
@@ -1934,7 +1935,7 @@ async function main() {
   hardenStateDirAcl();
   acquireLock();
   loadState();
-  const legacyReader = createLegacyReader({ config: cfg, cookie: discoverDshSessionCookie, journalDir:()=>MEMORY_CARD_PATHS.dir, focus:key=>journalFocus(getSocialV2State(key)) });
+  const legacyReader = createLegacyReader({ config: cfg, cookie: discoverDshSessionCookie, journalDir:()=>MEMORY_CARD_PATHS.dir, focus:key=>journalFocus(getSocialV2State(key)),workbench:()=>path.join(activePlatformStateDir(path.join(SURFCORE_DIR,'bili')),'experience-workbench.json') });
   const oldMedia = cfg.whaleCompat.stickerDir ? legacyMedia(cfg) : null;
   const whale = createWhaleRuntime({ root: ROOT, config: cfg, log,
     expressionContext: key => getSocialV2State(key).recentMessages.filter(m=>!m.isSelf).slice(-3).map(m=>m.plain||'').join('\n'),
@@ -4931,7 +4932,9 @@ async function main() {
         if (req.method === 'GET' && url.pathname === '/') {
           res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', ...SECURITY_HEADERS });
           try {
-            res.end(fs.readFileSync(path.join(ROOT, 'public', 'console.html'), 'utf8'));
+            const page=fs.readFileSync(path.join(ROOT, 'public', 'console.html'), 'utf8');
+            const entry='<a style="position:fixed;bottom:12px;right:16px;padding:9px 14px;background:#eef6fb;border-radius:9px;z-index:10000" href="/whale-workbench?token='+encodeURIComponent(suppliedToken)+'">真实活动与学习记录</a>';
+            res.end(page.replace('</body>',entry+'</body>'));
           } catch {
             res.end('控制台页面缺失：qq-bridge/public/console.html');
           }
@@ -4957,6 +4960,12 @@ async function main() {
           sendJson({ok:true,sent:1,messageId:receipt?.message_id}); return;
         }
         if (req.method === 'GET' && url.pathname === '/api/whale-status' && !req.headers['x-agent-token'] && req.headers['x-agent-call'] === undefined) { sendJson(whale.status()); return; }
+        if (req.method==='GET'&&url.pathname==='/whale-workbench') {
+          res.writeHead(200,{'content-type':'text/html; charset=utf-8','cache-control':'no-store',...SECURITY_HEADERS});res.end(WORKBENCH_HTML);return;
+        }
+        if(req.method==='GET'&&url.pathname==='/api/whale-workbench') {
+          sendJson(collectWorkbench({biliDir:activePlatformStateDir(path.join(SURFCORE_DIR,'bili')),accountDir:path.join(SURFCORE_DIR,'bili'),languageDir:path.join(ROOT,'state/whale-language'),health:whale.status()}));return;
+        }
         if (req.method === 'GET' && url.pathname === '/api/whale-insights' && !req.headers['x-agent-token'] && req.headers['x-agent-call'] === undefined) {
           sendJson(await collectOperationalInsightsAsync({root:ROOT,sessionRoot:path.join(process.env.DSH_HOME||path.join(os.homedir(),'.dsh'),'sessions'),pricing:cfg.pricing}));return;
         }
