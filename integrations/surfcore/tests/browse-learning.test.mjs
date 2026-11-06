@@ -34,16 +34,17 @@ test('popular mix reserves the majority for trending videos while preserving int
  const r=popularMix([...interest,...trending],[],{n:5,select:(rows,entries,{n})=>({picked:rows.slice(0,n),quotas:new Map(),counts:new Map(),shortfall:[]})});
  assert.equal(r.picked.length,5);assert.equal(r.picked.filter(x=>x._via==='热门/排行').length,3);assert.equal(new Set(r.picked.map(x=>x.bv)).size,5);
 });
-test('owner mention is reserved before sending, remains spent on uncertainty and resets at Shanghai midnight',t=>{
+test('owner mention is reserved before sending, stays a 5-minute anti-double-click window and never caps a day',t=>{
  const h=home(t),file=path.join(h,'mention.json'),at=Date.parse('2026-11-06T15:59:59Z');
  const lease=reserveOwnerMention(file,{now:at});assert.equal(readJson(file).status,'reserved');
- assert.throws(()=>reserveOwnerMention(file,{now:at}),/OWNER_MENTION_LIMIT/);finishOwnerMention(file,lease,'uncertain');assert.throws(()=>reserveOwnerMention(file,{now:at}),/OWNER_MENTION_LIMIT/);
- const next=reserveOwnerMention(file,{now:at+2000});finishOwnerMention(file,next,'sent');assert.equal(readJson(file).day,'2026-11-07');assert.equal(readJson(file).status,'sent');
+ assert.throws(()=>reserveOwnerMention(file,{now:at}),/OWNER_MENTION_COOLDOWN/);finishOwnerMention(file,lease,'uncertain');assert.throws(()=>reserveOwnerMention(file,{now:at+60000}),/OWNER_MENTION_COOLDOWN/);
+ const next=reserveOwnerMention(file,{now:at+5*60000+1});finishOwnerMention(file,next,'sent');assert.equal(readJson(file).day,'2026-11-07');assert.equal(readJson(file).status,'sent');
+ const third=reserveOwnerMention(file,{now:at+11*60000});finishOwnerMention(file,third,'sent');assert.equal(readJson(file).status,'sent');
 });
-test('existing share receipts, corrupt ledgers and concurrent checks cannot grant another owner mention',t=>{
+test('212 receipts are audit-only, and corrupt ledgers or concurrent checks still fail closed',t=>{
  const h=home(t),file=path.join(h,'mention.json'),at=Date.parse('2026-11-06T12:00:00Z');
  assert(legacyOwnerMentionUsed([{share:true,at:new Date(at).toISOString()}],at));assert(!legacyOwnerMentionUsed([{share:true,at:new Date(at-86400000).toISOString()}],at));
- assert.throws(()=>reserveOwnerMention(file,{now:at,legacyUsed:true}),/OWNER_MENTION_LIMIT/);
+ const lease=reserveOwnerMention(file,{now:at,legacyUsed:true});assert.equal(readJson(file).status,'reserved');finishOwnerMention(file,lease,'sent');
  fs.writeFileSync(file,'corrupt');assert.throws(()=>reserveOwnerMention(file,{now:at}));fs.unlinkSync(file);
  fs.writeFileSync(file+'.lock','');assert.throws(()=>reserveOwnerMention(file,{now:at}),/正在进行/);
 });

@@ -3,17 +3,27 @@ import {readLocal,transact,sha} from './local-store.mjs';
 const empty = {schema:1, operations:{}, cooldownUntil:0, lastFailure:null};
 const idOf = r => String(r?.rpid_str ?? r?.rpid ?? '');
 const textHash = s => sha(String(s).replaceAll('\r\n','\n').trim());
+// 2026-11-06（213）：@ 映射要能回查 —— 主人验收时就看这条记录有没有 at_name_to_mid。
+//   只留「昵称 → 数字 mid」，别的一概不收；没有映射就不写字段（旧记录形状不变 ✓）。
+const cleanMentions = m => {
+  if (!m || typeof m !== 'object' || Array.isArray(m)) return null;
+  const rows = Object.entries(m)
+    .filter(([name, mid]) => String(name).trim() && /^[1-9]\d{0,19}$/.test(String(mid ?? '').trim()))
+    .map(([name, mid]) => [String(name).trim().slice(0, 40), String(mid).trim()]);
+  return rows.length ? Object.fromEntries(rows) : null;
+};
 export function classifyBiliFailure({code,http,error}={}) {
   if (http === 412 || [-352,-509,12015].includes(Number(code))) return 'risk';
   if ([-101,-102,-111].includes(Number(code))) return 'login';
   if (error || http >= 500 || http === 429) return 'transport';
   return 'rejected';
 }
-export function beginComment(file, {account,oid,type='1',root='',parent='',message,now=Date.now()}={}) {
+export function beginComment(file, {account,oid,type='1',root='',parent='',message,atMentions=null,now=Date.now()}={}) {
   if (!/^\d{1,22}$/.test(String(account)) || !/^\d{1,22}$/.test(String(oid)) || !['1','11','17'].includes(String(type)) || !String(message||'').trim()) throw Error('BILI_OPERATION_INVALID');
   const target = {account:String(account),oid:String(oid),type:String(type),root:String(root||''),parent:String(parent||'')};
   if ([target.root,target.parent].some(s=>s&&!/^\d{1,22}$/.test(s))) throw Error('BILI_OPERATION_INVALID');
   const contentHash = textHash(message), id = sha(JSON.stringify([target,contentHash]));
+  const mentions = cleanMentions(atMentions);
   return transact(file,empty,state=>{
     if(state.schema!==1||!state.operations)throw Error('BILI_OPERATION_CORRUPT');
     if(state.cooldownUntil>now)throw Error('BILI_OPERATION_COOLDOWN：上次遇到风控或网络异常，先等待，不重复发送');
@@ -22,7 +32,7 @@ export function beginComment(file, {account,oid,type='1',root='',parent='',messa
     const previous=state.operations[id];
     if(previous)throw Error('BILI_OPERATION_DUPLICATE：相同目标和正文已有记录（'+previous.status+'），不会再次POST');
     if(Object.keys(state.operations).length>=4000)throw Error('BILI_OPERATION_CAPACITY：请先核对旧记录');
-    const lease={id,...target,contentHash,at:now,status:'sending',receipt:null,visibility:'unknown'};
+    const lease={id,...target,contentHash,at:now,status:'sending',receipt:null,visibility:'unknown',...(mentions?{atMentions:mentions}:{})};
     state.operations[id]=lease;return structuredClone(lease);
   });
 }
@@ -68,6 +78,6 @@ export function operationSnapshot(file) {
   const state=readLocal(file,empty);if(state.schema!==1||!state.operations)throw Error('BILI_OPERATION_CORRUPT');
   const rows=Object.values(state.operations),counts={};for(const r of rows)counts[r.status]=(counts[r.status]||0)+1;
   return {counts,cooldownUntil:state.cooldownUntil,lastFailure:state.lastFailure,
-    recent:rows.sort((a,b)=>b.at-a.at).slice(0,12).map(r=>({id:r.id,at:r.at,type:r.type,status:r.status,receipt:r.receipt,visibility:r.visibility,failure:r.failure})),
+    recent:rows.sort((a,b)=>b.at-a.at).slice(0,12).map(r=>({id:r.id,at:r.at,type:r.type,status:r.status,receipt:r.receipt,visibility:r.visibility,failure:r.failure,atMentions:r.atMentions??null})),
     scope:'comment/reply',repostOnUncertainty:false};
 }

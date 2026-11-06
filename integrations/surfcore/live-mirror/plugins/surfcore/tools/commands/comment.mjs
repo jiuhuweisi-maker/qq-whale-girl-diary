@@ -23,6 +23,7 @@ import { config } from '../lib/config.mjs'
 import {ownerMentionMap} from '../../../../whale-compat/bili-context.mjs'
 import {inspectOutbound,rememberOutbound} from '../../../../whale-compat/language-style.mjs'
 import {reserveOwnerMention,finishOwnerMention,legacyOwnerMentionUsed} from '../../../../whale-compat/bili-owner-mention.mjs'
+import {isOwnWork,withOwnerMention} from '../../../../whale-compat/bili-own-work.mjs'
 import {beginComment,finishComment} from '../../../../whale-compat/bili-operations.mjs'
 import { assertInteractEnabled, checkCommentAge, printAgeBlock } from '../lib/interact.mjs'
 // 2026-10-20（管理员定）：普通评论的硬闸门 —— 想说话就说话，但别把自己说成刷屏号 ✗
@@ -273,6 +274,54 @@ const forceGather = args.get('no-force-gather') === true
   ? false
   : (args.get('force-gather') === true || fishCfg.forceGather !== false)
 const hadThread = Boolean(root || parent)
+// ── 自己的作品（2026-11-06 主人定）：自己的投稿/动态下开新楼，必须让主人看见 ───────────
+// 12:49 她在自己的视频底下写了段做视频的感受，正文没 @ —— 那条视频没几个人看，
+//   主人根本没看见，等于"没人看的独白" ✗。主人定下两条触发条件：
+//   ① 自己的作品（自己的投稿 / 自己发的动态）下开新楼 → 自动 @ 主人（正文以 @昵称 开头，没写就补）
+//   ② 刷到觉得主人会喜欢的 → 必须走 --share（那套标尺和额度照旧，见上面的 --share 段）
+// ①在这里落到代码里：只在"她自己决定说的"（--auto）、不是回复（没有 root/parent）时生效 ——
+//   回复别人时 @ 的是对方，硬塞主人会变成另一种刷屏 ✗。
+// 认定它算"自己的作品"要真去查：视频看 UP 的 mid，动态看 comment_id_str 是不是她发过的。
+let OWN_WORK = ''
+if (AUTO && !SHARE && !hadThread) {
+  try {
+    const selfMid = String(nav.data?.mid ?? '')
+    if (String(type) === '1') {
+      const key = bvid ? `bvid=${encodeURIComponent(bvid)}`
+        : (/^\d{1,22}$/.test(String(oid)) ? `aid=${encodeURIComponent(oid)}` : '')
+      if (key) {
+        // 必须带 cookie：不带登录态的 view 接口现在回 412，认不出 UP 就会静默漏掉这条规则。
+        const r = await fetch(`https://api.bilibili.com/x/web-interface/view?${key}`, {
+          headers: { 'user-agent': UA, referer, cookie: cookieHeader }, signal: AbortSignal.timeout(15000),
+        })
+        const j = r.ok ? await r.json().catch(() => null) : null
+        const upMid = String(j?.data?.owner?.mid ?? '')
+        if (j?.code === 0 && isOwnWork({ type, selfMid, viewOwnerMid: upMid })) OWN_WORK = 'video'
+        else if (!upMid) console.log('  [自己的作品] 认不出这条视频的 UP（接口没给资料）→ 按普通评论处理')
+      }
+    } else {
+      const { map } = await myDynamicKinds(cred)
+      if (isOwnWork({ type, oid, selfMid, dynamicIds: map?.keys ? [...map.keys()] : [] })) OWN_WORK = 'dynamic'
+    }
+  } catch (error) {
+    console.log(`  [自己的作品] 判断失败（${String(error?.message ?? error).slice(0, 80)}）→ 按普通评论处理`)
+  }
+}
+if (OWN_WORK) {
+  const ow = config().owner ?? {}
+  if (config().share?.enabled === false) {
+    console.error('自己的作品下开新楼要 @ 主人，但「分享」在设置里关着 → 这条不发（会成没人看见的独白 ✗）')
+    process.exit(3)
+  }
+  const called = withOwnerMention(message, ow.name)
+  if (!called.ok || !/^[1-9]\d{0,19}$/.test(String(ow.mid ?? '').trim())) {
+    console.error('自己的作品下开新楼要 @ 主人，但 owner.name / owner.mid 没配全 → 这条不发 ✗')
+    process.exit(2)
+  }
+  message = called.message
+  console.log(`[自己的作品] 这是你自己的${OWN_WORK === 'video' ? '投稿视频' : '动态'}：开新楼不 @ 主人就是没人看见的独白 → ${called.added ? '正文没写 @，已自动补' : '正文开头已经 @ 了'} @${ow.name}`)
+}
+
 // 评论年龄闸：明确太旧的评论不回复，避免挖 2023 年坟、骚扰早已离开的人。
 if (hadThread) {
   try {
@@ -283,8 +332,9 @@ if (hadThread) {
     console.error(`⚠️ 评论年龄检查失败（按未知处理，不拦）：${String(error?.message ?? error).slice(0, 120)}`)
   }
 }
+// 自己的作品下开新楼不是"去别人地盘搭话"，别让鱼群保护把她改成回复某条鱼。
 let fishPlan = null
-if (AUTO && !SHARE && fishCfg.enabled && !hadThread) {
+if (AUTO && !SHARE && fishCfg.enabled && !hadThread && !OWN_WORK) {
   fishPlan = await planFishGuard({
     oid,
     type,
@@ -462,7 +512,7 @@ if(ownerMentions182){
 console.log('\n[go] 发送中…')
 const operationsFile=accountBili('comment-operations.json')
 let operationLease
-try{operationLease=beginComment(operationsFile,{account:nav.data.mid,oid,type,root,parent,message})}
+try{operationLease=beginComment(operationsFile,{account:nav.data.mid,oid,type,root,parent,message,atMentions:ownerMentions182})}
 catch(error){if(mentionLease)finishOwnerMention(mentionFile,mentionLease,'failed');console.error(error.message);process.exit(10)}
 let res
 try{res = await fetch(url, {
@@ -558,12 +608,13 @@ if (out.code === 0 && res.ok) {
     try {
       // 2026-10-21（管理员定）：**主动搭话必须单独报备**，带【主动搭话】tag + 视频链接
       const isTa = !!TA
-      const link = ((SHARE || isTa) && bvid) ? `\nhttps://www.bilibili.com/video/${bvid}/` : ''
+      const label = isTa ? '主动搭话' : OWN_WORK ? '自己的作品·@主人' : SHARE ? '分享型·@主人' : '自主发言'
+      const link = ((SHARE || isTa || OWN_WORK) && bvid) ? `\nhttps://www.bilibili.com/video/${bvid}/` : ''
       const msg = isTa
         ? `【主动搭话】wo 在评论区搭了一句：\n${message.slice(0, 120)}${link}`
-        : `[${SHARE ? '分享型·@主人' : '自主发言'}] 评论已发出 rpid=${rpid}\n目标：${bvid ? 'BV:' + bvid : 'oid:' + oid}${link}\n内容：${message.slice(0, 80)}`
+        : `[${label}] 评论已发出 rpid=${rpid}\n目标：${bvid ? 'BV:' + bvid : 'oid:' + oid}${link}\n内容：${message.slice(0, 80)}`
       execFileSync(process.execPath,
-        [path.join(path.dirname(fileURLToPath(import.meta.url)), 'notify.mjs'), msg, '--title', isTa ? '主动搭话报备' : (SHARE ? '分享评论报备' : '自主发言报备')],
+        [path.join(path.dirname(fileURLToPath(import.meta.url)), 'notify.mjs'), msg, '--title', isTa ? '主动搭话报备' : (OWN_WORK ? '自己的作品报备' : SHARE ? '分享评论报备' : '自主发言报备')],
         { stdio: 'inherit' })
     } catch (e) {
       console.log(`  [通知] 发出去了但报备失败：${String(e.message).slice(0, 120)}——请手动告诉使用者`)

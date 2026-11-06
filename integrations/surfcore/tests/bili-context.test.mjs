@@ -76,7 +76,7 @@ test('offline refresh never replaces another character or private notes',async t
 test('the actual comment form carries owner mapping without inserting a bare UID into public text',()=>{
   const src=fs.readFileSync(new URL('../live-mirror/plugins/surfcore/tools/commands/comment.mjs',import.meta.url),'utf8');
   const a=src.indexOf('const params = { type, oid:'),b=src.indexOf('if (root)',a);assert(a>=0&&b>a);
-  const form=new Function('type','oid','message','cred','config','ownerMentionMap',src.slice(a,b)+'return params;')('1','123','@测试主人 看这个🐟',{bili_jct:'fixture'},()=>({owner:{name:'测试主人',mid:'1234567'}}),ownerMentionMap);
+  const form=new Function('type','oid','message','cred','config','ownerMentionMap','inspectOutbound',src.slice(a,b)+'return params;')('1','123','@测试主人 看这个🐟',{bili_jct:'fixture'},()=>({owner:{name:'测试主人',mid:'1234567'}}),ownerMentionMap,()=>({ok:true}));
   assert.equal(form.message,'@测试主人 看这个🐟');assert.deepEqual(JSON.parse(form.at_name_to_mid),{'测试主人':'1234567'});
   assert(!form.message.includes('1234567'));
 });

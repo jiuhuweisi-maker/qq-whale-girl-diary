@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createWhaleRuntime } from '../compat/runtime.mjs';
+import { OVERLAY_PATCH } from '../version.mjs';
+import path from 'node:path';
 let passed = 0;
 const check = async (name, fn) => { await fn(); console.log('PASS ' + name); passed++; };
 function diskFixture(files = new Map()) {
@@ -18,6 +20,9 @@ function fixture({ disk = diskFixture() } = {}) {
   const clock = { now: 1800000000000 }, control = { ok: true, epoch: 0, quietUntil: 0, privateQuietUntil: 0, privateQuietForever: false };
   const cfg = { ownerQQ: '1001', allow: { groups: ['7001', '7002'] }, deny: { users: ['1003'] }, whaleCompat: { cutover: clock.now / 1000 - 1, pictureCooldownMs: 120000 } };
   const options = { root: '/fake', config: cfg, now: () => clock.now, disk, control: async () => structuredClone(control), clean: x => x.replace('INTERNAL ERROR', '') };
+  // 213：运行时版本取自「装好的覆盖层清单」，不再写死在代码里；fixture 也照这个来。
+  const manifestPath = path.join('/fake', 'whale-overlay-manifest.json');
+  if (!disk.files.has(manifestPath)) disk.files.set(manifestPath, Buffer.from(JSON.stringify({patch: OVERLAY_PATCH, upstream: 'fixture'})));
   const w = createWhaleRuntime(options);
   const event = { time: clock.now / 1000, message_id: 51, user_id: 1002, message: [{ type: 'text', data: { text: '你好' } }] };
   return { w, clock, control, cfg, disk, options, event };

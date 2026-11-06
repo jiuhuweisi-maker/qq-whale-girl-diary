@@ -23,8 +23,14 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
   const dir = path.join(root, 'state'); disk.mkdirSync(dir, { recursive: true });
   const ledger = createDeliveryState({ fs: disk, hash: digest, basePath: path.join(dir, 'whale-delivery').replaceAll('\\', '/'), namespace: 'whale-surfcore-114', now, diag: log });
   // Capture once in the running process. Disk hashes alone cannot prove a reload.
-  const loadedBuild185 = { revision: 209, pid: process.pid, startedAt: now(), sources: {} };
-  try { loadedBuild185.upstream = JSON.parse(disk.readFileSync(path.join(root,'whale-overlay-manifest.json'),'utf8')).upstream; } catch {}
+  // 2026-11-06（213）：revision 不再写死（209 时代写死过一次，210–212 忘了改，
+  //   运行时一直自报 209）。唯一真相 = 装好的覆盖层清单，和磁盘哈希一起证明"加载的是哪一版"。
+  const loadedBuild185 = { revision: 0, pid: process.pid, startedAt: now(), sources: {} };
+  try {
+    const installed = JSON.parse(disk.readFileSync(path.join(root, 'whale-overlay-manifest.json'), 'utf8'));
+    loadedBuild185.upstream = installed.upstream;
+    loadedBuild185.revision = Number(installed.patch) || 0;
+  } catch {}
   for (const name of ['src/bridge.js', 'whale-compat/runtime.mjs', 'whale-compat/legacy-reader.mjs', 'whale-compat/personal-journal.mjs', 'whale-compat/model-image.mjs','whale-compat/experience-workbench.mjs','whale-compat/workbench-panel.mjs','whale-compat/bili-operations.mjs']) {
     try { loadedBuild185.sources[name] = crypto.createHash('sha256').update(disk.readFileSync(path.join(root, name))).digest('hex'); }
     catch { loadedBuild185.sources[name] = null; }

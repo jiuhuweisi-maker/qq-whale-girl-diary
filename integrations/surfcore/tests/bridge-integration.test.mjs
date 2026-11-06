@@ -437,7 +437,11 @@ try {
       assert(!h.buildWakePromptV2('group:456','question').includes('【已开放群近况 · 仅背景】'));
       assert(!(await (await snapshot('group:456', group.agentToken)).json()).groupActivity);
       assert(!(await (await snapshot('private:123')).json()).groupActivity);
-      assert.equal((await snapshot('private:123', group.agentToken)).status, 403);
+      // 2026-11-06（201/210 主人定）：任一会话的活令牌可以读写**已允许**的场景 —— 群令牌读主人私聊不再 403。
+      assert.equal((await snapshot('private:123', group.agentToken)).status, 200);
+      // 边界没放宽：不在允许清单里的场景、或不是真实智能体会话的令牌，照旧 403。
+      assert.equal((await snapshot('group:999', group.agentToken)).status, 403);
+      assert.equal((await snapshot('private:123', 'not-a-live-agent-token')).status, 403);
       for (const message of group.recentMessages) message.time -= 601000;
       assert.equal((await view()).groups[0].status,'quiet');
       h.setSnowlumaHealth({connected:false});
