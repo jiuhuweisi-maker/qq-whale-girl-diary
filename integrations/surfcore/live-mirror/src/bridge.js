@@ -16,6 +16,7 @@ import {refreshReplyAllowance,pendingReplyCandidate} from '../whale-compat/reply
 import {scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,groupActivityView} from '../whale-compat/conversation-logic.mjs';
 import {relationshipBlock} from '../whale-compat/relationships.mjs';
 import {composeConfirmedPersona,contextualFollowUp,readConfirmedStyle} from '../whale-compat/expression-style.mjs';
+import {styleBlock} from '../whale-compat/language-style.mjs';
 import {proactiveDelay} from '../whale-compat/proactive-clock.mjs';
 import {interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan} from '../whale-compat/private-availability.mjs';
 import { renderConversationMemory } from '../whale-compat/memory-scope.mjs';
@@ -1936,6 +1937,7 @@ async function main() {
   const legacyReader = createLegacyReader({ config: cfg, cookie: discoverDshSessionCookie, journalDir:()=>MEMORY_CARD_PATHS.dir, focus:key=>journalFocus(getSocialV2State(key)) });
   const oldMedia = cfg.whaleCompat.stickerDir ? legacyMedia(cfg) : null;
   const whale = createWhaleRuntime({ root: ROOT, config: cfg, log,
+    expressionContext: key => getSocialV2State(key).recentMessages.filter(m=>!m.isSelf).slice(-3).map(m=>m.plain||'').join('\n'),
     clean: (text, key) => { const 清果144 = cleanOutput(text, requestedLiterals([{ type: 'text', text: getSocialV2State(key).recentMessages.filter(m => !m.isSelf).slice(-6).map(m => m.plain || '').join('\n') }])); if (清果144.removed) log(`[出站清洁] 摘除系统腔${清果144.removed}处（不记录原文）(${key})`); return 清果144.text; },
     control: async (message) => {
       const base = String(cfg.whaleCompat.controlBase || cfg.dsh.baseUrl).replace(/\/$/, '');
@@ -13920,7 +13922,8 @@ async function main() {
     const composed = composePersonaLayers({
       core, scene, daily, tone, identity, personaMode, mode, maxChars: roleInjectMaxChars, sceneId,
     });
-    const base = [sharedBlock,composed.text || ''].filter(Boolean).join('\n\n');
+    const languageReference=cfg.whaleCompat?.language?.enabled===false?'':styleBlock({home:process.env.WHALE_LANGUAGE_HOME||path.join(ROOT,'state/whale-language'),text:getSocialV2State(key).recentMessages.filter(m=>!m.isSelf).slice(-3).map(m=>m.plain||'').join('\n')});
+    const base = [sharedBlock,composed.text || '',languageReference].filter(Boolean).join('\n\n');
     // personaOnly：只要人格卡正文（唤醒提示词用）。管理员规则 / B站简报 / 记忆卡
     // 唤醒侧自己已经各拼过一遍，这里再拼会让同一段内容在一张纸条上出现两次。
     if (opts.personaOnly) return base;

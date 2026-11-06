@@ -29,6 +29,7 @@ import { composePersonaLayers } from '../../../src/persona-layers.js';
 import { adminFromSources } from '../../../src/admin-identity.js';
 import { appendMemoryInboxEvent } from '../../../src/memory-card.js?rev=20261101-correction157';
 import { synthesizeToFile, wavDurationMs } from '../../../src/voice-tts.js';
+import {styleBlock,inspectOutbound,rememberOutbound} from '../../../whale-compat/language-style.mjs';
 
 const ONE_SECOND = 1000;
 const MAX_INPUT_CHARS = 1200;
@@ -751,7 +752,7 @@ export function createPetChatService({ ctx, stateDir, pluginLog = () => {}, toke
     const history = readHistory();
     const role = roleInfo();
     const owner = ownerInfo();
-    const system = buildChatSystemPrompt({ role, owner, memory: memoryBlock(), purpose: purposeBackground(), modality: mode });
+    const system = [buildChatSystemPrompt({ role, owner, memory: memoryBlock(), purpose: purposeBackground(), modality: mode }),styleBlock({text:say})].filter(Boolean).join('\n\n');
     const user = [
       history.messages.length ? '【最近聊天】' : '',
       history.messages.length ? formatHistory(history, s.chat.historyTurns, say, owner.name) : say,
@@ -770,6 +771,7 @@ export function createPetChatService({ ctx, stateDir, pluginLog = () => {}, toke
       if (!reply) return { ok: false, error: '她这次没说话（模型返回空）' };
       if (mode === 'voice') reply = clipForVoice(stripStageDirections(reply), s.chat.voiceMaxChars);
       else reply = clip(reply, s.chat.maxReplyChars);
+      if(!inspectOutbound(reply,{scope:'pet',context:say}).ok)return {ok:true,silent:true,reply:null};
 
       const now = Date.now();
       const userMessage = { id: `u-${now}-${tokenHash(say).slice(0, 6)}`, role: 'user', text: say, modality: mode, at: now };
@@ -786,6 +788,7 @@ export function createPetChatService({ ctx, stateDir, pluginLog = () => {}, toke
       history.lastUserAt = now;
       history.lastAssistantAt = now;
       saveHistory(history);
+      rememberOutbound(reply,{scope:'pet'});
       const remembered = rememberEvents(buildPetMemoryEvents({
         userText: say,
         replyText: reply,
@@ -819,6 +822,7 @@ export function createPetChatService({ ctx, stateDir, pluginLog = () => {}, toke
     const body = mode === 'voice'
       ? clipForVoice(stripStageDirections(raw), s.chat.voiceMaxChars)
       : clip(cleanReply(raw), s.chat.maxReplyChars);
+    if(!inspectOutbound(body,{scope:'pet'}).ok)return {ok:false,reason:'language-quality',silent:true};
     const now = Date.now();
     const history = readHistory();
     const message = { id: `p-${now}-${tokenHash(body).slice(0, 6)}`, role: 'assistant', text: body, modality: mode, at: now, proactive: true };
@@ -833,6 +837,7 @@ export function createPetChatService({ ctx, stateDir, pluginLog = () => {}, toke
     history.lastProactiveAt = now;
     history.lastAssistantAt = now;
     saveHistory(history);
+    rememberOutbound(body,{scope:'pet'});
     const remembered = rememberEvents(buildPetMemoryEvents({
       replyText: body,
       at: now,

@@ -1,8 +1,10 @@
-# 鲸戒的 SurfCore 适配层（199）
+# 鲸戒的 SurfCore 适配层（208）
+
+语言 V3 / 208 已获授权上线。随浏览学习、热门混合、每天一次主动提及与回退见[208说明](../../docs/PATCH208-BROWSE-LEARNING-2026-11-06.md)；首次采集统计见[语言 V3 记录](../../docs/LANGUAGE-V3-2026-11-06.md)，复用范围见[fishtalk 说明](FISHTALK-NOTICE.md)。
 
 固定官方 SurfCore 0.8.8，提交由 `version.mjs` 统一指定。这里包含可复现的完整适配覆盖层，不包含私人角色、聊天、记忆、凭据或收藏。新装从[部署说明](../../docs/DEPLOY-SURFCORE.md)开始。
 
-`build.mjs`在写入前校验504个固定上游文件，应用现行覆盖层，生成536文件哈希清单。目标须为全新固定源码目录，不能覆盖已有配置、运行目录或账本。先构建适配的package/lock，再按该lock安装依赖；见部署脚本。不安装桌宠或语音包。
+`build.mjs`在写入前校验504个固定上游文件，应用现行覆盖层，生成554文件哈希清单。目标须为全新固定源码目录，不能覆盖已有配置、运行目录或账本。先构建适配的package/lock，再按该lock安装依赖；见部署脚本。不安装桌宠或语音包。
 
 ```powershell
 node integrations/surfcore/build.mjs <全新固定源码目录>

@@ -33,6 +33,7 @@ import {
 } from './paths.js'
 import { resolvePersonaFile } from './persona.js'
 import {confirmedExpressionBlock,readConfiguredStyle} from '../../../whale-compat/expression-style.mjs'
+import {styleBlock} from '../../../whale-compat/language-style.mjs'
 import {configuredBiliRelationships} from '../../../whale-compat/relationships.mjs'
 import {qqPersona} from '../../../whale-compat/conversation-logic.mjs'
 import { readUnified } from './store.js'
@@ -301,7 +302,7 @@ function wakePrompt(st, tools = '') {
   const SILENT = !interactEnabled(B)
   const bestSlot = `${String(K.best.slot).padStart(2, '0')}:00`
   const capText = (n) => (Number(n) > 0 ? n : '不限')
-  const identity = identityContextLines()
+  const identity = [...identityContextLines(),styleBlock({scene:'楼中楼'})]
   const biliDir = platformDir()
   return [
     `【生物钟】你醒了 —— ${st.atText ?? ''}${st.window ? `（窗口 ${st.window}${st.withinWindow ? ' · ' + st.withinWindow : ''}）` : ''}。`,
@@ -324,7 +325,7 @@ function wakePrompt(st, tools = '') {
       ]
     })(),
     ...(B.owner?.contactMode === 'comment-mention'
-      ? ['【当前联系偏好】B站不私信主人；真想分享这条视频时，在它的评论区自然@主人，用comment --share。普通评论不用条条@，不为联系他凑话或打卡。']
+      ? ['【当前联系偏好】B站不私信主人；真想分享这条视频时，在它的评论区自然@主人，用comment --share。每天最多一次，不需要用满；普通评论不用条条@，不为联系他凑话或打卡。']
       : silenceLines()),
     '按 AGENTS.md 的「看的那晚」流程走一遍（不要等我说话，直接做）：',
     ...(SILENT ? ['本轮只看不说，沿用沉默开关；不发评论、动态、分享或私信。'] : [
@@ -335,8 +336,8 @@ function wakePrompt(st, tools = '') {
     // 2026-10-20：feed 已默认多源（搜索+热门+排行+关注）+ 去播放量偏向 + 偏好命中权重 ✓
     // 2026-10-23：feed 改成按「口味权重」分名额 + 排除观看历史/最近推过的 + 搜索页轮换。
     '3) `feed` 选题（≤5 条）→ 对这 5 条跑 `debrief --no-frames`',
-    '   （按设置页的「口味权重」分配条数、偏好之间轮转；看过的/最近推过的自动排除，**不看播放量** ✓）',
-    '   3.2) 如果你发现自己总在看同一类：不要自己改配置文件 —— 让主人去设置页「B站 → 口味权重 / 一键抓取」调低那个词、调高别的。',
+    '   热门/排行占主要名额，穿插自己的动漫、游戏、日常等兴趣；不只盯DeepSeek。看过的/最近推过的自动排除，别把播放量当质量证明。',
+    '   看这些视频已有的评论和楼中楼时，本地会顺手筛选表达样本：每天最多5视频、300候选、100新增；不为学习另开抓取或模型回合。',
     '   3.5) ⭐ 如果 `feed` 没有新内容（全是看过的/候选不够）→ **不要硬重复深读、不要为了凑数**；',
     '        写一段日记或扫一眼消息就按“轻醒”收工，保住这一趟的质量 ✓',
     '4) 挑 2–3 条深读（完整 `debrief`，含抽帧）',

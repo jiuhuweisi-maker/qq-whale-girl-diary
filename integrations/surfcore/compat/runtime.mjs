@@ -7,6 +7,7 @@ import { conversation } from './memory-scope.mjs';
 import {includesParticipantAccount} from './relationships.mjs';
 import {availabilityNotice} from './private-availability.mjs';
 import {memoryHealth} from './memory-health.mjs';
+import {inspectOutbound,rememberOutbound} from './language-style.mjs';
 
 const digest = value => crypto.createHash('sha256').update(typeof value === 'string' ? value : JSON.stringify(value)).digest('hex');
 const parseArgs = value => {
@@ -18,11 +19,11 @@ const sendTool = name => /(?:^|__)qq_(?:send|reply|poke|fundpilot|switch_scene$|
 const sendRoute = route => /^\/api\/(?:send\/|socialV2\/(?:send-|reply|fundpilot$|scene-switch$|owner-group-send$))/.test(route);
 
 // One process owns this ledger. Two fsynced slots are shared with the proven legacy engine.
-export function createWhaleRuntime({ root, config, control, now = Date.now, disk = fs, log = () => {}, clean = x => x }) {
+export function createWhaleRuntime({ root, config, control, now = Date.now, disk = fs, log = () => {}, clean = x => x, expressionContext = () => '' }) {
   const dir = path.join(root, 'state'); disk.mkdirSync(dir, { recursive: true });
   const ledger = createDeliveryState({ fs: disk, hash: digest, basePath: path.join(dir, 'whale-delivery').replaceAll('\\', '/'), namespace: 'whale-surfcore-114', now, diag: log });
   // Capture once in the running process. Disk hashes alone cannot prove a reload.
-  const loadedBuild185 = { revision: 207, pid: process.pid, startedAt: now(), sources: {} };
+  const loadedBuild185 = { revision: 208, pid: process.pid, startedAt: now(), sources: {} };
   try { loadedBuild185.upstream = JSON.parse(disk.readFileSync(path.join(root,'whale-overlay-manifest.json'),'utf8')).upstream; } catch {}
   for (const name of ['src/bridge.js', 'whale-compat/runtime.mjs', 'whale-compat/legacy-reader.mjs', 'whale-compat/personal-journal.mjs', 'whale-compat/model-image.mjs']) {
     try { loadedBuild185.sources[name] = crypto.createHash('sha256').update(disk.readFileSync(path.join(root, name))).digest('hex'); }
@@ -195,6 +196,12 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
       // 145：failed=传输层明确拒发（certainFail），放行同调用重试
     }
     if (Object.values(ledger.data.outbox).some(r => r.hash === hash && ['sending', 'uncertain'].includes(r.status))) throw new Error('相同消息仍待核对，不重试');
+    const expressionText=message.filter(s=>s.type==='text').map(s=>s.data.text).join('\n');
+    const expressionOptions={scope:key,home:process.env.WHALE_LANGUAGE_HOME||path.join(root,'state/whale-language'),enabled:config.whaleCompat?.language?.enabled};
+    if(!ownerCommand){
+      const quality=inspectOutbound(expressionText,{...expressionOptions,context:expressionContext(key)});
+      if(!quality.ok)throw Object.assign(new Error('本条与近期表达或语料过于相似，尚未发送；这次可以沉默，不要反复改写重试'),{code:'LANGUAGE_QUALITY',certainFail:true});
+    }
     const picture = message.some(s => ['image', 'mface', 'custom_face'].includes(s.type));
     const pictureHash = picture ? digest([key, message.filter(s => ['image', 'mface', 'custom_face'].includes(s.type))]) : '';
     const pictureCooldown = Math.max(0, Number(config.whaleCompat?.pictureCooldownMs ?? 0) || 0);
@@ -216,6 +223,7 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
       const deliveryId = digest([key, id]);
       const receipt = await transport(message, {deliveryId});
       change(d => { d.outbox[id].status = 'sent'; d.outbox[id].receipt = receipt; });
+      if(!ownerCommand)rememberOutbound(expressionText,expressionOptions);
       try { log('[鲸戒发送] ' + JSON.stringify({scope:key.split(':')[0], conversation:digest(key).slice(0,16), deliveryId, messageId:receipt?.message_id ?? null, status:'sent'})); }
       catch { /* The confirmed durable receipt remains authoritative if diagnostics fail. */ }
       return receipt;

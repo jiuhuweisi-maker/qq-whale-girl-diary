@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import assert from 'node:assert/strict';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL,fileURLToPath } from 'node:url';
 import { createWhaleRuntime } from '../compat/runtime.mjs';
 import { renderConversationMemory } from '../compat/memory-scope.mjs';
 import { createLegacyReader,journalFocus } from '../compat/legacy-reader.mjs';
@@ -12,6 +12,7 @@ import { recordSessionResult,reserveGenerationRetry } from '../compat/session-re
 import {scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,groupActivityView} from '../compat/conversation-logic.mjs';
 import {relationshipBlock} from '../compat/relationships.mjs';
 import {composeConfirmedPersona,contextualFollowUp,readConfirmedStyle} from '../compat/expression-style.mjs';
+import {styleBlock,atomicJson,readJson,invalidateLanguageCache} from '../compat/language-style.mjs';
 import {refreshReplyAllowance,pendingReplyCandidate} from '../compat/reply-continuity.mjs';
 import {modelImage} from '../compat/model-image.mjs';
 import {proactiveDelay} from '../compat/proactive-clock.mjs';
@@ -52,7 +53,7 @@ let ownerDispatchFixture;
 const h = await bridgeHarness({ onebotResponse: (action, body) => ownerDispatchFixture?.(action, body), config: { whaleCompat: { cutover: Math.floor(Date.now()/1000)-1,stickerDir:legacyDir }, purpose: { enabled: false }, social: { enabled: false }, voice: { enabled: false }, biliBridge: { enabled: false }, socialV2: { enabled: true, tokenGuard: { enabled: false }, send: { maxPerMinute: 100, maxPerHour: 500 } } }, globals: {
   detectImageInput:async()=>true,...stickerSemantics,...contextSnapshot,extractMentions,bootstrapToolContext,backgroundPromptRefresh,Date:SimDate,safeFetchBuffer:async url=>{assert.equal(url,'https://public.invalid/sticker');return{buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+k3ioAAAAASUVORK5CYII=','base64')};},createWhaleRuntime: options => createWhaleRuntime({ ...options, now:()=>SimDate.now(), disk, log:(...a)=>{options.log?.(...a);if(String(a[0]).startsWith('持久消息账本'))console.error('[fixture-ledger]',...a);}, control: async () => structuredClone(control) }),
   createFundPilot:options=>createFundPilot({...options,disk,research:{read:async fund=>({code:fund.code,name:fund.name,unitNav:1.2,asOf:'2026-10-30',measurement:'published_unit_nav',isRealtimePrice:false})},request:async(route,data)=>({mode:'paper',liveTrading:false,cashFen:100000,...(data?{order:data}:{})})}),recordSessionResult,
-  renderConversationMemory, createLegacyReader, journalFocus, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,groupActivityView,relationshipBlock,composeConfirmedPersona,contextualFollowUp,readConfirmedStyle,refreshReplyAllowance,pendingReplyCandidate,modelImage,proactiveDelay,legacyMedia,interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan,discoverDshSessionCookie: () => ''
+  renderConversationMemory, createLegacyReader, journalFocus, cleanOutput, requestedLiterals, reserveGenerationRetry, scopedToolGuide,qqPersona,conversationFocus,withConversationFocus,groupActivityView,relationshipBlock,composeConfirmedPersona,contextualFollowUp,readConfirmedStyle,styleBlock,refreshReplyAllowance,pendingReplyCandidate,modelImage,proactiveDelay,legacyMedia,interactiveOwnerMessage,ownerMessageGuard,privateRestHint,nightRestPlan,discoverDshSessionCookie: () => ''
 } });
 const server = h.startConsoleServer();
 if (!server.listening) await new Promise(r => server.once('listening', r));
@@ -495,6 +496,27 @@ try {
     const stored=JSON.parse(fs.readFileSync(path.join(h.temp,'state/social-v2.json')));assert.equal(stored.conversations[key].pendingReply207.messageId,'99004');
     await new Promise(resolve=>setTimeout(resolve,1700));assert.equal(st.pendingReply207.attempts,1);assert(st.pendingWakeTimer);
     await h.ensureSession(key);h.retireSession(key);assert.equal(st.pendingReply207,null);assert.equal(st.replyResumeTimer207,null);
+  });
+  await test('enabled language reference reaches both actual QQ prompt paths without changing the persona file',async()=>{
+    const home=path.join(h.temp,'state/whale-language'),pack=readJson(path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../compat/language-pack.json'));
+    atomicJson(path.join(home,'active-pack.json'),pack);atomicJson(path.join(home,'settings.json'),{enabled:true});invalidateLanguageCache();
+    const personaFile=path.join(h.temp,'fixture-persona.md'),persona='身份与性格：原有测试人格，喜欢自己的兴趣。';fs.writeFileSync(personaFile,persona);h.cfg.whaleCompat.personaFile=personaFile;
+    for(const key of ['group:456','private:123'])assert(h.currentRoleHintV2(key,'full').includes(pack.version));
+    assert.equal(fs.readFileSync(personaFile,'utf8'),persona);
+    assert.equal(h.whale.status().healthy,true);
+  });
+  await test('enabled language guard records a confirmed send and blocks a new near-copy before transport',async()=>{
+    const first=await send(['刚准备收拾桌子结果外卖已经到了'],{key:'private:123'});assert.equal(first.ok,true,JSON.stringify(first));
+    const before=h.calls.http.filter(r=>r.url.endsWith('/send_private_msg')).length,uncertain=h.whale.status().uncertain;
+    const second=await send(['刚准备收拾桌子，结果外卖已经到了！'],{key:'private:123'});assert.equal(second.ok,false,JSON.stringify(second));
+    assert(JSON.stringify(second).includes('近期表达'),JSON.stringify(second));
+    assert.equal(h.calls.http.filter(r=>r.url.endsWith('/send_private_msg')).length,before);
+    assert.equal(h.whale.status().uncertain,uncertain);
+  });
+  await test('disabling language enhancement restores literal sending without touching durable delivery guards',async()=>{
+    atomicJson(path.join(h.temp,'state/whale-language/settings.json'),{enabled:false});invalidateLanguageCache();
+    const r=await send(['刚准备收拾桌子，结果外卖已经到了！'],{key:'private:123'});assert.equal(r.ok,true,JSON.stringify(r));
+    assert(h.whale.status().healthy);
   });
   console.log('PASS_ALL ' + passed);
 } finally {await new Promise(r=>server.close(r)); await h.close();assert.equal(path.dirname(legacyDir),path.resolve(os.tmpdir()));fs.rmSync(legacyDir,{recursive:true});}

@@ -1,5 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import path from 'node:path';
 import {confirmedExpressionBlock} from '../compat/expression-style.mjs';import {qqPersona} from '../compat/conversation-logic.mjs';
+import {styleBlock} from '../compat/language-style.mjs';
 import {pathToFileURL} from 'node:url';
 const root=path.resolve(process.argv[2]),src=fs.readFileSync(path.join(root,'plugins/surfcore/lib/scheduler.js'),'utf8'),a=src.indexOf('export function sanitizePersonaForBili'),b=src.indexOf('/** 人设卡：',a),c=src.indexOf('function personaCardBlock()'),d=src.indexOf('/** 身份对齐',c);assert(a>=0&&b>a&&c>b&&d>c);
 const {composePersonaLayers}=await import(pathToFileURL(path.join(root,'src/persona-layers.js')));
@@ -14,7 +15,7 @@ test('the shared preference block and persona keep public identity masking',()=>
 test('the real Bili wake prompt permits social conversation and learns public usage without comment quotas as targets',()=>{
  const start=src.indexOf('function wakePrompt('),end=src.indexOf('\n/**',start);
  assert(start>=0&&end>start);
- const bindings={limitsNow:()=>({daily:0,globalMin:2,perUpMin:5,perVideoMin:5,taDaily:0,perThreadMin:60}),
+ const bindings={styleBlock,limitsNow:()=>({daily:0,globalMin:2,perUpMin:5,perVideoMin:5,taDaily:0,perThreadMin:60}),
   config:()=>({owner:{contactMode:'comment-mention'}}),kindsNow:()=>Object.fromEntries(['best','game','anime','gaming'].map(k=>[k,{slot:8,minLen:1,maxLen:80}])),interactEnabled:()=>true,
   identityContextLines:()=>['共享人设'],platformDir:()=>'/fixture/bili',path,fs:{existsSync:()=>true,readFileSync:()=>'{"last":null}'},
   silenceLines:()=>[],diaryPushLines:()=>[]};

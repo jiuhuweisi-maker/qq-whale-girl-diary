@@ -21,6 +21,8 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import { config } from '../lib/config.mjs'
 import {ownerMentionMap} from '../../../../whale-compat/bili-context.mjs'
+import {inspectOutbound,rememberOutbound} from '../../../../whale-compat/language-style.mjs'
+import {reserveOwnerMention,finishOwnerMention,legacyOwnerMentionUsed} from '../../../../whale-compat/bili-owner-mention.mjs'
 import { assertInteractEnabled, checkCommentAge, printAgeBlock } from '../lib/interact.mjs'
 // 2026-10-20（管理员定）：普通评论的硬闸门 —— 想说话就说话，但别把自己说成刷屏号 ✗
 //   一天 30 条 · 同一 UP 10 分钟 ≤1 · 同一视频 60 分钟 ≤1（默认值在 lib/limits.mjs；
@@ -338,6 +340,12 @@ if (FISH_GATHER) {
 }
 
 const params = { type, oid: String(oid), message, plat: '1', csrf: String(cred.bili_jct) }
+const expressionScope=`bili:${type}:${oid}`
+// Check locally without rewriting the caller's words or making another model call.
+{
+  const quality=inspectOutbound(message,{scope:expressionScope})
+  if(!quality.ok){console.error('LANGUAGE_QUALITY：本条未发送；可以沉默，不要反复改写重试');process.exit(10)}
+}
 const ownerMentions182=ownerMentionMap(message,config().owner);
 if(ownerMentions182)params.at_name_to_mid=JSON.stringify(ownerMentions182);
 if (root) params.root = String(root)
@@ -444,8 +452,15 @@ try {
   process.exit(9);
 }
 // 判重（--once-per-person）已在入口处检查，这里直接发
+const mentionFile=accountBili('owner-mention.json')
+let mentionLease=null
+if(ownerMentions182){
+ try{const prior=JSON.parse(fs.readFileSync(biliState('quota.json'),'utf8'));mentionLease=reserveOwnerMention(mentionFile,{legacyUsed:legacyOwnerMentionUsed(prior.log)})}
+ catch(e){if(e.code==='ENOENT')mentionLease=reserveOwnerMention(mentionFile);else{console.error(e.message);process.exit(10)}}
+}
 console.log('\n[go] 发送中…')
-const res = await fetch(url, {
+let res
+try{res = await fetch(url, {
   method: 'POST',
   headers: {
     'user-agent': UA,
@@ -455,11 +470,14 @@ const res = await fetch(url, {
     cookie: cookieHeader,
   },
   body,
-})
+  signal:AbortSignal.timeout(15000),
+})}catch(error){if(mentionLease)finishOwnerMention(mentionFile,mentionLease,'uncertain');throw error}
 const out = await res.json().catch(async () => ({ raw: await res.text() }))
+if(mentionLease)finishOwnerMention(mentionFile,mentionLease,out.code===0?'sent':'failed')
 console.log(`  HTTP ${res.status}`)
 console.log(`  code=${out.code} message=${out.message ?? ''}`)
 if (out.code === 0) {
+  rememberOutbound(message,{scope:expressionScope})
   const rpid = out.data?.rpid_str ?? out.data?.rpid
   console.log(`  ✅ 已发布，评论 rpid=${rpid}`)
   // 鱼群保护：这条如果是“聚拢”到某条鱼楼的回复，记一笔，避免下次又回同一条。

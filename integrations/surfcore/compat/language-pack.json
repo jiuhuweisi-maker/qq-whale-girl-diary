@@ -1,0 +1,1363 @@
+{
+  "schema": 1,
+  "name": "whale_bilibili_style_v1",
+  "createdAt": "2026-11-06T01:37:22.394Z",
+  "method": "local-statistics; expression evidence only, no human identity certification",
+  "stats": {
+    "retained": 393,
+    "videoCount": 8,
+    "high": 241,
+    "medium": 152,
+    "topics": {
+      "鬼畜区": 98,
+      "动画区": 106,
+      "游戏区": 114,
+      "生活区": 75
+    },
+    "sourceCounts": {
+      "BV1RxXqYNEyH": 49,
+      "BV13HQmYREU2": 50,
+      "BV1HTZpYSExJ": 56,
+      "BV1JhZcY9EFN": 56,
+      "BV1ckQmY3Erc": 49,
+      "BV1jboeY3Euo": 56,
+      "BV1dmZtYoEWd": 58,
+      "BV1xsZqYeEE1": 19
+    },
+    "largestUpShare": 0.1475826972010178
+  },
+  "rhythm": {
+    "count": 393,
+    "medianChars": 16,
+    "replyRatio": 0.641,
+    "questionRatio": 0.076,
+    "noEndPunctRatio": 0.88
+  },
+  "scenes": [
+    {
+      "name": "日常闲聊",
+      "count": 115,
+      "medianChars": 23,
+      "replyRatio": 0,
+      "questionRatio": 0.113,
+      "noEndPunctRatio": 0.878
+    },
+    {
+      "name": "动漫二次元",
+      "count": 106,
+      "medianChars": 13,
+      "replyRatio": 0.651,
+      "questionRatio": 0.075,
+      "noEndPunctRatio": 0.896
+    },
+    {
+      "name": "游戏",
+      "count": 115,
+      "medianChars": 20,
+      "replyRatio": 0.643,
+      "questionRatio": 0.087,
+      "noEndPunctRatio": 0.852
+    },
+    {
+      "name": "搞笑",
+      "count": 99,
+      "medianChars": 12,
+      "replyRatio": 0.606,
+      "questionRatio": 0.051,
+      "noEndPunctRatio": 0.939
+    },
+    {
+      "name": "生活分享",
+      "count": 79,
+      "medianChars": 20,
+      "replyRatio": 0.62,
+      "questionRatio": 0.089,
+      "noEndPunctRatio": 0.823
+    },
+    {
+      "name": "楼中楼",
+      "count": 252,
+      "medianChars": 11,
+      "replyRatio": 1,
+      "questionRatio": 0.048,
+      "noEndPunctRatio": 0.905
+    },
+    {
+      "name": "安慰别人",
+      "count": 2,
+      "medianChars": 305,
+      "replyRatio": 0,
+      "questionRatio": 0,
+      "noEndPunctRatio": 0
+    }
+  ],
+  "filterStats": {
+    "startedAt": "2026-11-06T01:23:13.683Z",
+    "videosDiscovered": 12,
+    "videosAttempted": 12,
+    "videosCollected": 12,
+    "candidates": 701,
+    "filtered": 308,
+    "retained": 393,
+    "trust": {
+      "high": 410,
+      "medium": 244,
+      "low": 22,
+      "unknown": 25
+    },
+    "reasons": {
+      "empty": 17,
+      "unsafe-or-instruction": 3,
+      "privacy-or-promotion": 3,
+      "duplicate": 5,
+      "uncertain-style": 1,
+      "spam": 3,
+      "accepted-cap": 269,
+      "post-review": 7
+    },
+    "requests": 28,
+    "errors": [],
+    "durationMs": 67981,
+    "publication": {
+      "ok": true,
+      "version": "vdf2e8ffce8e5b16b"
+    }
+  },
+  "copyFingerprints": [
+    {
+      "chars": 16,
+      "prefix": "MeW512BS6Rg6bfhHySln17cEa-V4zzJgWt0X1Pw9qUU",
+      "hash": "2qBOabF3c9E7VKhputhgOQFngxyGKlEIeJgLx_AOnw0"
+    },
+    {
+      "chars": 16,
+      "prefix": "ATsa4cqNQutlnDkQMQ5hvKrvCkIakoU9DpGtiVdI-G0",
+      "hash": "Qhh5gQftdCZc1XdygCsvOoUKLKfrcOKTHa88_JIhMPY"
+    },
+    {
+      "chars": 33,
+      "prefix": "L3EoGcX09V5lHNxShIqreMieZFcCkrZg_jWdEWOP3Ic",
+      "hash": "UH47KonDdsEiDI-BsSFDG0XAqCxxxGkNDoujetAn1Jo"
+    },
+    {
+      "chars": 14,
+      "prefix": "RfA1P8SK86tmlVIqsnLryZaVrde_29fMrAD1t1Qkgwk",
+      "hash": "IuJ-rGuOIIvRwK2T18sd2SB-SPVZXRa5d8obphjJEV4"
+    },
+    {
+      "chars": 26,
+      "prefix": "_twQJSDhEV0fVa3KMSxt7xIIbbHgFzreOHsuFtFfxLY",
+      "hash": "FgpjB37DCd35z40dpkQhhbTHYkoU-7Jt_mrVHEp7kQg"
+    },
+    {
+      "chars": 38,
+      "prefix": "-IOcpzMUn2MgBLgLNZ3lql17J51yQLZgFAbUDop-c6U",
+      "hash": "C2gi6hgNAL9W4xFdwr0VDhM1inmPax-tuUMN-vV0z-Q"
+    },
+    {
+      "chars": 18,
+      "prefix": "xXAQkvzzbZ40s_hvVNnfw_28H7NFMZG-wNgoD9aaOJk",
+      "hash": "jwm7fVeyrOJ2JEJU2A_cBtQEWV3YcDYPJ5doK0QBMgg"
+    },
+    {
+      "chars": 15,
+      "prefix": "8ADTJa5z_KeHPae5oZfh4wqRnHOUXU7mxCNeXm-GPlo",
+      "hash": "pqzcYG6SZGGogxsydqln1Exg6J_0W1BA7nmeASoFut4"
+    },
+    {
+      "chars": 16,
+      "prefix": "yKdMrWQhmU7hnSWdKlOehdGnxxkzs4-dsQRJZA4fUH4",
+      "hash": "r-5NTlRaO9tUAGKk7Pi5gUBiM-THGm0R4AVeJdKKQiw"
+    },
+    {
+      "chars": 16,
+      "prefix": "CyeTwPqn7HcNWY93nbcux5ANyr9gFl7ruKHp86wvsrI",
+      "hash": "rf7-VtVgXnlw7AX2HVI615aL4DzGuj56N2Q9CrZZljA"
+    },
+    {
+      "chars": 33,
+      "prefix": "JSusvUPp02elAvKlbieO-_U75t7mivu3dV39Ls254aQ",
+      "hash": "0dVTHLek4neFulCMCCpNWZcxBhcUcISJiZyGtexLZ9w"
+    },
+    {
+      "chars": 36,
+      "prefix": "FZhAr3mA9UE6NPE69EyJyC8teDn7lSoUvMkHTp5uSRA",
+      "hash": "GSw67R4HEoVxwRTZvfAGejRB_PSxEEkqO4JamTe4v2Y"
+    },
+    {
+      "chars": 14,
+      "prefix": "Sc1TEnnovlUHJdRloy1Te4JagXlqBk36krOEJYMsUfk",
+      "hash": "W05-_9TfIhXnfW22Rjjk3-d5Dq3QalU74czWZpqT4nY"
+    },
+    {
+      "chars": 14,
+      "prefix": "ZhVrDCSlbxpjC4D_tyhcMmJ669XdzMid1wBxFOKS21w",
+      "hash": "MKQZZzxdLINo_M27G8z4rUnLglZbOxTzJJU44iN9jYM"
+    },
+    {
+      "chars": 13,
+      "prefix": "BRwaB7JORIsd2jd_c8Ijafk7uqo5Y3I4rJbUyW6Y7pQ",
+      "hash": "MFJ-Kf9lJ-1p8jcnGnUHebyh7EAqL-MKG_tSDjnj21E"
+    },
+    {
+      "chars": 20,
+      "prefix": "f2-hC2ZcF7J846lCuuMIoC1lvJhTKczXf_kOZfqWsDo",
+      "hash": "DbJ2tDFOk61MyDHEY9t_YiTdBvm-k0Cfuc1-5zpUA7w"
+    },
+    {
+      "chars": 26,
+      "prefix": "O_SfFHetHvLyDOc-3_uibEen16FyHdMOa-JpSsBraMM",
+      "hash": "hOBhtPNJVLPF7FzhApMcYjFRGrGvUp6uETgNCNiFAqI"
+    },
+    {
+      "chars": 19,
+      "prefix": "qpqAnxW2g4owOHdAFTgmoaWUdSp8__L1xW0HXq2B6fw",
+      "hash": "WTys8JjEuqLB_jK9mb-gNM17yDAkevX6CE44qZhQ4c0"
+    },
+    {
+      "chars": 13,
+      "prefix": "G-7rslywp1sLT3VWVIFMfm_ysVnr6j8YzAILVq-pklc",
+      "hash": "j6RFZOLBSu1nC3MRYmha_nlUn-XFN02x2EsklQN5P0Q"
+    },
+    {
+      "chars": 12,
+      "prefix": "WZLkYzx8kD4C7LDKYXV7k-UzHTsGgNgB0fgB-zOg4Gk",
+      "hash": "WZLkYzx8kD4C7LDKYXV7k-UzHTsGgNgB0fgB-zOg4Gk"
+    },
+    {
+      "chars": 15,
+      "prefix": "nLBAWvpwaGr9CCozXhXSjM708NXkC_whju6OfChoRmk",
+      "hash": "TjGZCkr5dXaxPoYSO61ogigj8fbMu7qSz3HSrxf9gyI"
+    },
+    {
+      "chars": 38,
+      "prefix": "TcM0axUA49za280WCe7zj4x8T2z-M3n_BVkFq2Oh_m0",
+      "hash": "Wc_lbzT2k6tOO3kvkETzqzyBV6yGDxl3HEedr_eRS6A"
+    },
+    {
+      "chars": 51,
+      "prefix": "ZTtXqB-tV1JAu1DLqdHp0RMBQGePrGBsjWwX-5P-zxE",
+      "hash": "x7T53_tJRmBaTZEK3RIF0TgjJAqHs8dnssTSMz-ocJk"
+    },
+    {
+      "chars": 23,
+      "prefix": "Exm-AWGS9MUBEavjuBSIEZQJ6R1bHH06ZCMpOSKEwA4",
+      "hash": "d-8HAvpbGYxIfRICXOpGlMCphcPdteQoGCOyaUtYZzA"
+    },
+    {
+      "chars": 16,
+      "prefix": "Me8oywUAq_61lXpg5BigLuwWgEPGTvdXKyIVaznvlQU",
+      "hash": "vFLWt1P34NzIk-R8pApyxjCtYQITILo9pxf0fW6RvtY"
+    },
+    {
+      "chars": 21,
+      "prefix": "NIjf-E03X16FPkalAP0M4oYq3r1uCwjRuX75fr6dLI0",
+      "hash": "GwZAkq4Qr3sY2kQV7wMFt2PjIOAHqbFOhFLYGJhoa8E"
+    },
+    {
+      "chars": 36,
+      "prefix": "rCzCKzQ2u9YlsZFQPiqrLdhPxus_v6eurArmWXQvIOc",
+      "hash": "vh6W8BAWIuH6IZp1g_w7D5cS3hV3kC6nGa8Bcnn-vMM"
+    },
+    {
+      "chars": 28,
+      "prefix": "Gf8mjKY1ppgM_x3cSi1bWPWXNsUY0LkMS1tThj_fSOU",
+      "hash": "4maAhQ_FxHd1oG-fGOywLrjQLHpOT8YbfPoZkf0AGBc"
+    },
+    {
+      "chars": 23,
+      "prefix": "UwuluaSxlRbaBWfYuwIiNK0ypCGi6mOdzfDCXwfTBQI",
+      "hash": "Ti2p_aY_SWEpK3BJfc56S9hbUIE29v1mQyuDpelSzEw"
+    },
+    {
+      "chars": 13,
+      "prefix": "ENvgvJTkqhLq_4RQjaa8-AqLWIAa7s_wXaRq8oSa_IU",
+      "hash": "J2JgU2oh8lTlbkRmVBH94LI5SkRNzrI3w2iHw3GATeM"
+    },
+    {
+      "chars": 35,
+      "prefix": "4kYz4tHNeYCS97iygHM4zoQ61aizp5rxjhbblm8mJbc",
+      "hash": "TH1TcljkDOUgFDjGLXoT41nfSj1Ixsr455hLC5qsOe0"
+    },
+    {
+      "chars": 17,
+      "prefix": "gCkLdbCj8cLc1tPqWC7b05jAb6NxZE8nqZzbmoR87H8",
+      "hash": "iPirLbTRBNA9G2bO1PEjiLFfZuXcj4rJnO20KN-x4ng"
+    },
+    {
+      "chars": 13,
+      "prefix": "6J3KnS3kDHGjmWMmIBZSl56fiCH5MCweSMRvlLuyaY8",
+      "hash": "Gl6RgI3ezvbUzW_CwDZ2dz1pe8VE30pcfLR8Tl2IK8c"
+    },
+    {
+      "chars": 13,
+      "prefix": "pDLkOkYC8BCwCafZ1E_RPW3qL6ibt8PfMJSq2SLevMY",
+      "hash": "CMGOtN4jpFJDGsqAr8wCLIKByf84r2JmCN_uxiO9iBM"
+    },
+    {
+      "chars": 46,
+      "prefix": "tnCZXkhpqvAEg5O6t6-Ppx-uLWWTigfbjsmgoEQSw-0",
+      "hash": "MkOQo4qLm8I21H7CBe-nJUh3NbLLFfzFnm_rjQGuDgI"
+    },
+    {
+      "chars": 16,
+      "prefix": "9oIEnHfWQEukLS6nj2CzWWzDGDVjOyimq4EwWSIdJDk",
+      "hash": "dAQtaIKQCjLuysbhZmd3oTHDUQsY-Hd7q-claalzvA4"
+    },
+    {
+      "chars": 119,
+      "prefix": "jUQ9MH_hZ8zebBVx48r6keCvRw4dM-qvpUDCnovpHm0",
+      "hash": "Z0qy5ZVtAxi630Nw5fC-eMNx35fRpDJeypIgJwJVaTU"
+    },
+    {
+      "chars": 24,
+      "prefix": "uVW13ZEh17g4ss1hutwjbQmlxQsYvCDwllIcTbgUYH0",
+      "hash": "cYqjNc3NNY9hbXTsEHXRwGNi8SRL1S8zzdmkSfFzpyI"
+    },
+    {
+      "chars": 12,
+      "prefix": "71rkSVo-W55HThqohqmXuLa6U1HOzGqcjMc35Fkqie4",
+      "hash": "71rkSVo-W55HThqohqmXuLa6U1HOzGqcjMc35Fkqie4"
+    },
+    {
+      "chars": 66,
+      "prefix": "MEfE8nU_65_Y3HFUxLCibecYhybdhZU_UAdYcqmCndM",
+      "hash": "cmejK_r_kSS5WR5JZvb8XBc8xbx2EH8iQyTOXFAjkwA"
+    },
+    {
+      "chars": 59,
+      "prefix": "xcPOn_-arhNFix6bN1F1XYsIM10ZlLV1rHtUExSfi2c",
+      "hash": "vTu8mfLX-gT3s6L1crizstar-qs9XpjXYgRmll9iW2s"
+    },
+    {
+      "chars": 25,
+      "prefix": "8IeK4JKk8Gl8TY0FoxMkZnZMMziWIVoEw-L8fCTLgfo",
+      "hash": "L7u0MZTKeAH-Px1kUP6kv-scjfDCtLczEbov7FzR0Io"
+    },
+    {
+      "chars": 46,
+      "prefix": "02qKu4TmARxEedjLik6cMvR7nNsc5JIre2soWsQFOL4",
+      "hash": "WtX33iKmcT7DBnuO3Eg8nXrRvDe8iM-AGzZ4Q-N9hFE"
+    },
+    {
+      "chars": 37,
+      "prefix": "sFIQdhn0i5iOkf-gs-zGN-vAeRmbEYHGIOd_w7sGPgg",
+      "hash": "bKNqkXirgpaTNmv1ngED97_sQhEah--SSnne4Nc0Mhs"
+    },
+    {
+      "chars": 12,
+      "prefix": "id78iT2zJ4k-t-tdjCsUSWUekZk6lJcnc8Z6X7gOtfg",
+      "hash": "id78iT2zJ4k-t-tdjCsUSWUekZk6lJcnc8Z6X7gOtfg"
+    },
+    {
+      "chars": 13,
+      "prefix": "4nZeg-IGGfPIAOLYKjCiuGkCK_l5kSmYshqrmVtvas0",
+      "hash": "qkzepjXzBb9JMYLdK8kQWDeTsFIsVzrl_CYnaqFBQoE"
+    },
+    {
+      "chars": 17,
+      "prefix": "jHFt3vVHH0x0ibPKKEyEl7sAWofOKaR7drpT5y_FmvU",
+      "hash": "4A-RYk1mkCAqHE8ouobg-flm40jyM-d5-OaLVEd06dQ"
+    },
+    {
+      "chars": 29,
+      "prefix": "qjJcMfBTgjwyoXJkOtV8QsGQyxUp5BVbmNgUICfrrDQ",
+      "hash": "D01-F7TO5m5y832C_p43kwRYAdpVGqFbeB2rPdwwido"
+    },
+    {
+      "chars": 22,
+      "prefix": "BWhvNnB9pJq-68qr4KWrjcIrUOxdKR2PgWRzxh1GEqo",
+      "hash": "fbG4BC1ryj3k8tasXFoMY93tO-x8AphXecx-fNX82go"
+    },
+    {
+      "chars": 38,
+      "prefix": "SApVg3jtuK4t94WFNkTmy5xbt3RoLyR8_hUT_OH87jo",
+      "hash": "ZM-IP6K_QjIg6UrA0Be-xZt7HIx0Hllr_U_RqULEpLo"
+    },
+    {
+      "chars": 36,
+      "prefix": "HQylMEpiu5T9S3rxh1Fd3ymhZvUZXioY-bMzFzj70ZI",
+      "hash": "i7mt4CXH_EwocFVJ9_JAjbz2k0Tdo6v82DwGIIkfvow"
+    },
+    {
+      "chars": 37,
+      "prefix": "n6am47MvRRObelXFQfR2ERCGsFRmgdCUgdZLLYGRq1I",
+      "hash": "hKlHoSH_eyXENTfLFMqvg9AGAjghBjdoi3wsvYnW5BY"
+    },
+    {
+      "chars": 20,
+      "prefix": "OaNk6KfT0tQeEovrvl9Cj1De-NfEjcFRi7TS3mzG37A",
+      "hash": "6YPSt2HRuwUjBcxvWayEeSE_wlEQSoTHFVFEg_cqbnQ"
+    },
+    {
+      "chars": 22,
+      "prefix": "Xvycbcv5wU5HOFm_wyyMStQ2h8cBDUv8JnLyvtmP3ZI",
+      "hash": "MD8l92NsZmhMQDeruRgymPofkjO8J0N2GbACz6UTkdU"
+    },
+    {
+      "chars": 16,
+      "prefix": "vpIiYIqrZ4Pi1VM6xseHHsGi2ReGUc7-9zNwgukpqec",
+      "hash": "2r58lAC-x-76r6u5wNU6AxA3BgirwpQNsexPWFTtuKA"
+    },
+    {
+      "chars": 16,
+      "prefix": "EUiskSvjK8YxFWdbY7OxbzgHJ3EsnmDi-gko_iFgj1k",
+      "hash": "xSayaVgPVfKhiQhVYxGdrJM_ECcKcMUHRuPAVgo38No"
+    },
+    {
+      "chars": 59,
+      "prefix": "jMjWWjM-HUUJiLoCBu-64yMe7DriTD7HfQnGMoD4Sh4",
+      "hash": "OpUgIkPfwxS0xcioQCUxns3MUI4UfOoYLSmvnMFn5XY"
+    },
+    {
+      "chars": 26,
+      "prefix": "mX8B3G6_fnphpoMC8RbPIW3LqsJZICgTfgk28kTypUs",
+      "hash": "hytO-UJwcxt3hbxGkf9QjBMGNFRwx1EWnRyXFL508FM"
+    },
+    {
+      "chars": 16,
+      "prefix": "RtJ4O50EUOwqBTfPwDpw0EXReQ2MeX-A5JSsJYxbnZY",
+      "hash": "QE-Et1UGOLPGw0j932aOTxQ1e9N1KGxaiF9RYD5uPAU"
+    },
+    {
+      "chars": 90,
+      "prefix": "Tqm-mpx6IUeR1c42eLZhErXocXdMl04e_AA0nfsn8Ng",
+      "hash": "15o13PsUalk9FkPv63ysnMyFLaIYS2XDMu1LJVPWJWA"
+    },
+    {
+      "chars": 77,
+      "prefix": "j49mCZwp7f03UVGeRbUoG1My5j9RDcnJKYiqmh8TRaM",
+      "hash": "BO3CmtcE68OdSMqM72paYz6QtKtoecOLkMdLNBDV6fc"
+    },
+    {
+      "chars": 70,
+      "prefix": "8y8uxn49icmrCjTo7sdpl-V1OpVjCU6XzK5qRB7lvmo",
+      "hash": "YYhnVlkoYSjv0ICST5GLNZHVoYNt_iCMEkvj-s7Ahzg"
+    },
+    {
+      "chars": 58,
+      "prefix": "6ffXKmLKF_g8lDDAbEUPCkqRDA7VzwUD2AAIGxofyR8",
+      "hash": "lFiDfHuWBfmpLXoOiNnV2NbyNV3mDgIGjJ77r_D0inE"
+    },
+    {
+      "chars": 25,
+      "prefix": "_P8hmG4ae-o3wl5u1GxDflHnVBaAlIysMZpZ66i7Up0",
+      "hash": "HRwg2NNQMcOWf95RW0MgG47GWzvWY6Rdi7psss3PzCE"
+    },
+    {
+      "chars": 20,
+      "prefix": "GbiDr9nkjgfiF_9qMsxnJ9e56zrMvTBRm0wSJoYvBLE",
+      "hash": "COfYVHoOcD4f1ifBTUx210uGrnvl3KtH87KwGFNTaq4"
+    },
+    {
+      "chars": 30,
+      "prefix": "SLIvQU29oHMrDvbYAyZ7G46ibuHnyVnZaaKkI4orWQs",
+      "hash": "IXzly2Tuyh80x4-xWA8vY_tnP_SW2K9EmpaWuwzyoYI"
+    },
+    {
+      "chars": 17,
+      "prefix": "yFKyC5wfnNmQk6qia8rNkBvMw1MYicr6Cvfi0nufNuQ",
+      "hash": "HfSW0HfsR-b_z-38I4gNCmWvzsQNouGf1BJB1nsvA4E"
+    },
+    {
+      "chars": 12,
+      "prefix": "sLl-B9q8HuBPSvyUh6yzKaxrBaemAcPY20RocGD6eQo",
+      "hash": "sLl-B9q8HuBPSvyUh6yzKaxrBaemAcPY20RocGD6eQo"
+    },
+    {
+      "chars": 12,
+      "prefix": "hATIhutnguhk4dfWoMLQjA_w_-oHQdLpYWeUsWpunJA",
+      "hash": "hATIhutnguhk4dfWoMLQjA_w_-oHQdLpYWeUsWpunJA"
+    },
+    {
+      "chars": 13,
+      "prefix": "PRZWTs4Vb4tIMjkk_zfwqLoa97_6uGyGdCISpin6DEk",
+      "hash": "6ATh1D0XNqk121lNgqLH8yoUkYTnZZj6-oU25qbO3-8"
+    },
+    {
+      "chars": 30,
+      "prefix": "TMnjxOut9g6builA8f5I6pzdANF0N4lW2TkRgfoxcpk",
+      "hash": "FZ5RNnHTg_3MKiT07gTu65Fm_ERbGJqvj5Axn4Tbe-c"
+    },
+    {
+      "chars": 17,
+      "prefix": "2v1MR7U_8SJSMZDXJGVrFIPlQ2LA10LUaMTJdFrZsz0",
+      "hash": "sSBvUb-bsvBt6aibkYDUGMgggsBqUAJgmbUjQNkWneg"
+    },
+    {
+      "chars": 17,
+      "prefix": "jOPeVseDqyA5m6fWGc93UgYpTY532cn3PXl43zXcqg4",
+      "hash": "oWz_KASUpQuyZ1bbqcF5h2zpT3ZdyQaCVOe4GfjR6UE"
+    },
+    {
+      "chars": 12,
+      "prefix": "35_fKEWcaD373Kdq0vO19hMIHkmyf02HlITRg9psZT8",
+      "hash": "35_fKEWcaD373Kdq0vO19hMIHkmyf02HlITRg9psZT8"
+    },
+    {
+      "chars": 21,
+      "prefix": "zs4j_HgmG2fbo4sqx32kKLRNm5ZwP0aPKRSQVk1DwPE",
+      "hash": "oP8fmNopt1_d3suRQmZHpqKwlfsshoLf7XxUSgMeVbQ"
+    },
+    {
+      "chars": 29,
+      "prefix": "hyrZtgVOfZGf1ZNroQMkZnykwz_jMJGMMcuZ7xyov0Y",
+      "hash": "cmn7NC2-wI70ch3s2v1NnE57YT4mKpapCz565c4xQsw"
+    },
+    {
+      "chars": 24,
+      "prefix": "wM6pfj1E6IHFrcKuDnbkBdpZAuGwAbyNxc9d4RL81pQ",
+      "hash": "oZwQ-NzdD5bsqaQKB-6G_GAJgq0MftcJt78fObHOhl8"
+    },
+    {
+      "chars": 30,
+      "prefix": "GFy6Y8hXRwIAbj8pnk7sBvSrGMB57yAnOf85-vBIJBM",
+      "hash": "9KrQPWvttHnrhf3wkBzvrEK324c1wyJjvIBNXJ2chaM"
+    },
+    {
+      "chars": 16,
+      "prefix": "PJ39a-BGGeWlWSmELNaLiAQclH8UR_IH87OJ3or1I_A",
+      "hash": "qaMgZghlUtgUyJBIkThYx4yEnbuPmfDH0W5lJQMo1_U"
+    },
+    {
+      "chars": 53,
+      "prefix": "uXAMXJVldLE-CCov3_oGMeuaS0kHIP_yKX3tlCbkgTg",
+      "hash": "FrKc4H4jmXSnTPQ7cpbX0BZDTQMPeVG7xjCi04fkyPs"
+    },
+    {
+      "chars": 32,
+      "prefix": "42Mwjtpa6DMqPz91Yj6Hs-gEUxxQ35itrYevmfWpONQ",
+      "hash": "eQu8AuEt8wMxmJHaaC7OOR-PWV3UrYVFdGNKuT-VgxE"
+    },
+    {
+      "chars": 34,
+      "prefix": "qOgx9Mozgr5EGtpFHFdgTmDMhM-gs9lM2N4tdOGwvuY",
+      "hash": "33OaPS5MXvbiTma1RLpcdLGG-geKhRuWHQaFKgwLMuo"
+    },
+    {
+      "chars": 14,
+      "prefix": "2FfOBSpJgObdhuTq0Skh3bStnGbINDH0Q3aZppeK7Ag",
+      "hash": "wnTwwQySRtUOWJTC4KlIbfi6jE71wcFvHwfu8dETdKc"
+    },
+    {
+      "chars": 34,
+      "prefix": "y-zinXbTQQwXK_-8nPqcNAuGTcBdJRm5vF_4SzjkbFA",
+      "hash": "MfrGBwKnedUOzXjuS4mAUQmg3Pvna5Iq0db1mt0-mgk"
+    },
+    {
+      "chars": 21,
+      "prefix": "vm1TD89vnXPrLQx8AViPoSHQ8KKt0r5O-9jsascCzUo",
+      "hash": "y636aMEC4yTjxiBfc5C-nyBUoCLDd5uLIB4PNIalTU0"
+    },
+    {
+      "chars": 14,
+      "prefix": "T3wgL0LhSHJWOkM6b_HKTdo-W-bWDyWYFG3u0NXCIZk",
+      "hash": "_zCdoMBKMY3UIoCc-pzk8z5Gsxuhe0W4mbpgU7GrkRE"
+    },
+    {
+      "chars": 14,
+      "prefix": "mHrQ_ofrgxfN3jGj_hAkYdUSXZV3sBeRyDjEIkeUz6Q",
+      "hash": "1Sz0d2S_cb3rWex7CMGj2mWwR_4Fvi6iZp38A5AMGjA"
+    },
+    {
+      "chars": 16,
+      "prefix": "g-AumdqsvUp9FydqJoaYqanxRn1ztY-UDEBcV04sL84",
+      "hash": "HT7_xPhzybgjOPA89vSd5ik6g5TDs6I67BoPnp6stSE"
+    },
+    {
+      "chars": 69,
+      "prefix": "ntfmg3gyuH7D9UW2CIPkaSu3j6ZrtdXKlAyi5GKHKKU",
+      "hash": "Cy6RA3-rCg8uqwAhYPFIL2UhpzgElchnYA5RYdG4wYI"
+    },
+    {
+      "chars": 19,
+      "prefix": "qCUHSJCP6yV_5H7fJPjdqUzpT3xszI5_AJL6ko289vA",
+      "hash": "n3pue7dIqAarjbIy_FmSXZRdTITDJ0KVq4nnqlVnmNE"
+    },
+    {
+      "chars": 32,
+      "prefix": "S87ZNEnlxJoi1ZHXlqd8OrNdY3Hb2xBIAp9rCqpZ104",
+      "hash": "fo5d9gTDd9QJM4yBT2wP6-9HzKdKA2kY_teja6dvQqE"
+    },
+    {
+      "chars": 19,
+      "prefix": "DiZiQ5CPRU8bdh43FxHxewiBW8P-NlQ--83ehQFGJt0",
+      "hash": "bEnKIhlOg9CRRopz0gI38HRHQsgdM0X__w9HlHG2fyk"
+    },
+    {
+      "chars": 104,
+      "prefix": "-3cOgs-WoPijLB_EnWNT-gmHWZKE1bvUHxqdfgPPV7U",
+      "hash": "lV5ticUxZzN8S4mdZz-6i1Eep8XU-P28hjJzaismPpo"
+    },
+    {
+      "chars": 27,
+      "prefix": "-GIUzNzZrRrqirh7Btn-4KwthQpRWiaIlhq2VhbCHUM",
+      "hash": "e_c6poKNTCHv0q4N6I88KRTIDia8sS69-LQCPCKY1Zg"
+    },
+    {
+      "chars": 67,
+      "prefix": "cAd1pat9PQ_iwK8dxitBpKmT2v5Sz4df7Q91UsQXm2g",
+      "hash": "xy-IBPiuhpjGX9REyHlmSVAJCYuwLk6FFn7lXflbFEQ"
+    },
+    {
+      "chars": 273,
+      "prefix": "UPfwmu7Vzuk5zMVXqBFkeNfb2kx-WhmiZIk1I1aX3tE",
+      "hash": "UtCW4z9ehXqmkDlAT3uBmzUMDqw1USn2fv7gJo-LKUg"
+    },
+    {
+      "chars": 12,
+      "prefix": "SeFoeye1ygiTLlue42CEvHZnihSW0nqSVAitytAv9HM",
+      "hash": "SeFoeye1ygiTLlue42CEvHZnihSW0nqSVAitytAv9HM"
+    },
+    {
+      "chars": 25,
+      "prefix": "euS2mQW_CY8mZ49nGqQO_0W25Hv7e4VUAl4R1viHlgE",
+      "hash": "PaHp9u4XfMo4qvEDNdJE88NIS9oRk98qDLGjnciqu7Q"
+    },
+    {
+      "chars": 151,
+      "prefix": "hbmLGhwtekLpnWNH3Sk-N_RDEUKGwjYaF6GCRiIDxP4",
+      "hash": "2h0MbvOh81Cwz3zJSWnjSRlPaSIR74O0bflFLOXbDUs"
+    },
+    {
+      "chars": 26,
+      "prefix": "mAjQwndtypopkFtcKlBZnav0cIIFB93ULwf3S6syVoE",
+      "hash": "eswdg2sfhwd1-6uJGMkSHtBHeKMKWehMRP-sSuLCjiQ"
+    },
+    {
+      "chars": 197,
+      "prefix": "XJHqR-Cko-gAv79OXJbtiP6IelyhO4FUnNx27JqSJco",
+      "hash": "VuD7330TJd_83WzlqPHG3vth9Ut9y1umBBk_UJr8n4E"
+    },
+    {
+      "chars": 56,
+      "prefix": "tywGgoGJeeY_Kx95prhPu41dWwwZ5I9AdiWusvLBJNs",
+      "hash": "yw4AqB571KRbZ6LKIXshIz_fPOjvcHFZIsH3ENwmD-0"
+    },
+    {
+      "chars": 29,
+      "prefix": "ggTvlxP3Ym1QKom4YQEpzuVZw_rOy2MtAzty1YSmlOY",
+      "hash": "pknZqZEVKH-lDBO5b-izjdhootoiNziIYTkicMWbELc"
+    },
+    {
+      "chars": 15,
+      "prefix": "EBN0iLCp7irMdMKOJdQMTgwX7SytH6_VrPORL1Cuw_k",
+      "hash": "pssoyF49FQcOheUVghYPJW3BNgcsPH0LPu9au9dmTzY"
+    },
+    {
+      "chars": 15,
+      "prefix": "WekJ-M4wX2vIV7WZQ8SS5bupjz_-oacMg4mStuEAZj8",
+      "hash": "j8qc_2Wd4Ug-KiXwzJTeYf9Yig3gn4YudwBzI8eXFGA"
+    },
+    {
+      "chars": 13,
+      "prefix": "eV1gJgIZPk5ngb_hkv_ZF-gEHuMlxChdxzucI_DH4W0",
+      "hash": "UA0xwTLp4xjmeFBChoTRp7w-HCYraHvyOrCFlpkkDeM"
+    },
+    {
+      "chars": 22,
+      "prefix": "y4C6RLTwnpO94tKQvxtgB5C2gbA3riQ6Zh7I3pCh_4A",
+      "hash": "I6Wp0gfJgwScRV4u8OgkfpY7EW9qGDRzD6pbzPRoCjY"
+    },
+    {
+      "chars": 38,
+      "prefix": "SgcQqqLrUXgt3AdfIW7im9lV3468kb-EgMC3w6_hAQs",
+      "hash": "5XnE8v4FzO7AnaVHdF56_IqiGlF1v71qtSAll8fkoqE"
+    },
+    {
+      "chars": 46,
+      "prefix": "rhmszb4Mw4VIK7WGhNsQbWYvDw8ThY6FxiD76KeCObk",
+      "hash": "Kxur6CGxXfMuQIarN_Udl6hcc7u4IlEv72ec0SlFb4U"
+    },
+    {
+      "chars": 36,
+      "prefix": "J7f_gWxv31DOUd38J5qf-w5dvISk3NdAzYlOlZYET94",
+      "hash": "1Qcoc_Z9NdaTy0N3gw_BvKQnfuAUBWGNE2BDlQ1IZ30"
+    },
+    {
+      "chars": 23,
+      "prefix": "gYlOfblTw-gdEmrFGtsai2qqO_0sBvjvyoajOIeQCMU",
+      "hash": "fBhJFwzkQari2ljaB76295WdeLNVL_HuORBWqCoaNeQ"
+    },
+    {
+      "chars": 28,
+      "prefix": "jaNU-L_v0tzElkO1yJeXsCTLw82ZX1xj3dJ0kvRo3Uk",
+      "hash": "M7BGZOyVNkEY8at72FPuyZO4ULQXR8WOqUGkjjfeMag"
+    },
+    {
+      "chars": 95,
+      "prefix": "II5O-HSrykCtOxJart9C-9kXqz_bRmj28JP1lFCCjJE",
+      "hash": "QI6t2y9ekofxGE_nffwKUNYxtFoea5htoJPGkhu1L_A"
+    },
+    {
+      "chars": 21,
+      "prefix": "tSNiHQ3wSY4g6aAN0vU7OFPgy4SDDGoNrcodd15pmDQ",
+      "hash": "DV8FyFIJRp4aRCWFRJ4YhfSGuwOwz7E3KX645D8CSy8"
+    },
+    {
+      "chars": 43,
+      "prefix": "ZoYIAgU0h9J80d510MpzLUdQmPOhDEzD5TiBqquqAnQ",
+      "hash": "PHLkF9faYPc5QTgb5CEB_jlR42SwiU89to6pu3HeORM"
+    },
+    {
+      "chars": 15,
+      "prefix": "0oVSwNVIsncmc4qBaFkfM8mH2fr3cRnKORdBx8amZVE",
+      "hash": "B-MmJuVZAXiBCM0ctNl4fUuNGTFQUjLta8kA0ZoNU_4"
+    },
+    {
+      "chars": 68,
+      "prefix": "Q_sFCpBkMDbCqkT1x-WA6KyTeEjfMn9Z8o-_cNKbRzc",
+      "hash": "UYalomRvWYKGFrpoi1HJGUOrtkKcLaIkPCq05y_6feM"
+    },
+    {
+      "chars": 38,
+      "prefix": "qhyPw6YNKdj7cNMH1HsdKiptUXjZHNX7YGtFKyjgs6k",
+      "hash": "UyLNzm1gq5_U7GkuLRRUmHL1_TuJjfbr41MWsNjoufo"
+    },
+    {
+      "chars": 49,
+      "prefix": "FfKeqyFcaOKxXhsdh4k3FPoxPQr7lMurYw_oEawbq54",
+      "hash": "VxnmAXQBokKbS80qB9dDzufPHxjsORXdd2sfpkPcwwY"
+    },
+    {
+      "chars": 31,
+      "prefix": "DXs7bWWHGI8E794NEOv0o2E7tONVTBE4tBIL9__4OhE",
+      "hash": "dvGojD3z2h9QI4oUx7vXBBFoi6HFWAGV6VwtJm73Kiw"
+    },
+    {
+      "chars": 16,
+      "prefix": "SScIESUYKryTxfMhYvXU___zzeqW-yWvr5dLjYLg8G8",
+      "hash": "BmfIN15LCKljogl7EqrJJg7hTLr5wy4QxGmKRAc97OA"
+    },
+    {
+      "chars": 54,
+      "prefix": "iL5_CbAbpB4rP-UIsymJo_WAs_OZya0YqffF1Mg7d9Y",
+      "hash": "YSOudkDZ-ar1kl2b642MRJkZ45FNGnlmopZeLZFmYN4"
+    },
+    {
+      "chars": 37,
+      "prefix": "lfWvCgH3ccsr9dGsQ4c_prGITl0u_hrGUCn0B76WSew",
+      "hash": "DbPzjK6rftio2pTgRJCtkAcmMFneFHFUmK7_eV1Gwa0"
+    },
+    {
+      "chars": 30,
+      "prefix": "rdv2pQ7pRGPsl1OnnQdr-aA9l9IJDURna3FDa0DH4r8",
+      "hash": "HENPxbYRfEUAkY-3VjbjZdUlkfBjOFzEp14TMhI3dFA"
+    },
+    {
+      "chars": 13,
+      "prefix": "fOcGubBmVNGNcfbOm_m5CRQgk2AxCTmRCAQ1j48E2T4",
+      "hash": "N08fGADXdHI29GrwohIZ-qCAJny86iTYmtPvu9cbff8"
+    },
+    {
+      "chars": 41,
+      "prefix": "cu9760w1LFpgjfPffeZ6dGSPlWmvoD3I7A-6KdIkhWs",
+      "hash": "glNKBWe18jO8Dk2d1MIjeb8q2EsrzTN6du_WdZpAk-k"
+    },
+    {
+      "chars": 83,
+      "prefix": "DINH1Nqn9Yr-BTzt3v7UWMCbNAxh4ZR_PeKtA3NLWuQ",
+      "hash": "fx_Y-82bA9x8ox4FH9smuBCHYABpA7U-VA8OSyOqv-g"
+    },
+    {
+      "chars": 27,
+      "prefix": "-qZTGe3kreYV6-ni5pEpqwu-ZIh6D-PMJMjszOQF650",
+      "hash": "34pA_wTsX8C8c5DzTJCMS27V1tWsAgSOwfhklFKLY78"
+    },
+    {
+      "chars": 14,
+      "prefix": "8R2hAYV2m_YRjSw2tUYWo_QHncbOvvRc6TOeRSZMZ9M",
+      "hash": "mlFHGsLNmu0c3UbPLRofRXknzhkSppEHu0NLVqPQ6hA"
+    },
+    {
+      "chars": 17,
+      "prefix": "r1GXNMaD2XBgnFB-T5u3dc9pMvlzz1L6aUF0n6VGNxQ",
+      "hash": "SZOgvNKoh6HQtDBGSyj882cpCCr50NTEKTANZEAjgxo"
+    },
+    {
+      "chars": 45,
+      "prefix": "3rTLZfLkRyhAVsHiEm39uBQG4Yu3UCRQcp2yeMzWwzI",
+      "hash": "kzyMb5P80WpM2xhIoML6U-dG9mHNRmN9FIRIoUUlfX8"
+    },
+    {
+      "chars": 35,
+      "prefix": "3JxeaF3LipmEEiExLBC0saW2shYtZyiKJwJO2kGZIwA",
+      "hash": "b3PC0f1nWDlN1LoXwxFKZuVNHluEGcaZV3OSlfZ1sHg"
+    },
+    {
+      "chars": 21,
+      "prefix": "FIq9FjVJ3oIVQXbKMYWTvziR_JQqr5NH5NWuH-SJHNg",
+      "hash": "HIpYSHMbuTN1VsjiZJJTaEiwll43yrGnldMmrUO8_GM"
+    },
+    {
+      "chars": 12,
+      "prefix": "GjhU3OEdp7It1yIkloSfxR35LzXcgrZBJ8o5kwm0KSo",
+      "hash": "GjhU3OEdp7It1yIkloSfxR35LzXcgrZBJ8o5kwm0KSo"
+    },
+    {
+      "chars": 40,
+      "prefix": "jlhdcv4rWVC9b5mjyjEYpSl8fOOdKXvyLxItdr26h_w",
+      "hash": "yLghq1lu83OWzXgk6OyC6F6mXHHbI8dRTswfpLItNwk"
+    },
+    {
+      "chars": 22,
+      "prefix": "luag02I7Oh4xQpW8WSH5LrJnGJ8ma0PZwlGpozQU0Fo",
+      "hash": "lvE56r7Idxd7oiVZFhmkyYiVL7jEJCnkFCBnLld1gjc"
+    },
+    {
+      "chars": 15,
+      "prefix": "NUadhwjbehogGdWZosTYUj5hbYmFq3hLsubR9wUeWR4",
+      "hash": "y_niSl3TxHIItET-DnBIJCsbJTmdJI729Sn2VHkBk9Y"
+    },
+    {
+      "chars": 24,
+      "prefix": "zICWuOChiZ47Z71Ok2ZZZ9_8oBJQPP7FdlHLLlh19ps",
+      "hash": "7GBAiUt2kr4pPg-gA1v8fT3ACEwrdsH2JuhywaFzg0o"
+    },
+    {
+      "chars": 50,
+      "prefix": "nedGfU3G-3QhzqZlYmgssmJHkGQCWh491WAaeYOk1FM",
+      "hash": "oV6eHOHs3OJ4q3_lVA2a6R71FGaq67WuCPbv77aV2cM"
+    },
+    {
+      "chars": 39,
+      "prefix": "y8Dk1VKqCkqgxRkqf_mekrNtA-l5vVHYNEWNlhgjP_o",
+      "hash": "fV48RXQLObbkRqurD_BbN9JruLVpJh6aEhvWPWGwT8U"
+    },
+    {
+      "chars": 43,
+      "prefix": "-7cPfehOt5A10j26AksVVS2XxJQ6lA1Ty966BYgHALQ",
+      "hash": "46DGvdt-ocUB7Hmf0Fq81XRymuC-0zzzP3wisvglOSs"
+    },
+    {
+      "chars": 17,
+      "prefix": "3z8W_Db5raCSVwfgP_zZ_3tsGXPqUEllc7WcZML1OL0",
+      "hash": "9Uu--was4Csjd0QeqtSTLKBnjNswQZ577F_shCCVizM"
+    },
+    {
+      "chars": 12,
+      "prefix": "bnfwhpIMvyBYQdA632zTsO0D49LWpMpcSc6hRyNnz6c",
+      "hash": "bnfwhpIMvyBYQdA632zTsO0D49LWpMpcSc6hRyNnz6c"
+    },
+    {
+      "chars": 15,
+      "prefix": "wHEHeYZDWAfKMaztp-LXyrjf-sLr-ffyrrgu570N9PI",
+      "hash": "dKVF-hKL5mmGxXPf8lR0zbXRLDctBA157OWPZSQpTtk"
+    },
+    {
+      "chars": 16,
+      "prefix": "y8jrzOsmGoaJYS81ZextdCioooAM5uMDCAb8rPn9sFA",
+      "hash": "n0tSCt7MlM0Fx9Pw7wm9wwrf6Qhb7Za5IL6fxJND-bw"
+    },
+    {
+      "chars": 12,
+      "prefix": "EusENiuQG-UFoqfEwoeu76mP43rYKieUhC2mNEvZ35M",
+      "hash": "EusENiuQG-UFoqfEwoeu76mP43rYKieUhC2mNEvZ35M"
+    },
+    {
+      "chars": 32,
+      "prefix": "LdeCin5fqL3veriiufxXRXo0ILPOQLWV-E_f7NWbj40",
+      "hash": "Sf1ejbLSkdYhmQqN7hk6XDD7oCz4tf4G8nHYvFA0cEI"
+    },
+    {
+      "chars": 36,
+      "prefix": "7uP-WfrtyY6STSBMthbyZ2o0ksypwxWDtSEbi3qADNI",
+      "hash": "uZIZKmAlBJj1KUKBTM5M_vOyMGZQw9KPXUbUM_ZNncI"
+    },
+    {
+      "chars": 15,
+      "prefix": "ALnUICJvEJV_rOnRmmIy6H4_mMdgP2zxpxs5tqcRG08",
+      "hash": "VbdHh4yp1Wwju9iLm66QfXCMAe_GLF4S8HMoiiNVRMc"
+    },
+    {
+      "chars": 14,
+      "prefix": "iXSg8f1wU8o0ha0EpaV-9hvITDQUSsQEaCzf12m0m6A",
+      "hash": "2QEu3mZlWchi502ZlSDvFmD36c-jrX0EHIsFYtypszU"
+    },
+    {
+      "chars": 22,
+      "prefix": "2GbE1SmZ9ye2A3Nf566_UBJDjBCCt3LkZzG1HO88nz8",
+      "hash": "OtC1nk0_7GBejrRTn7fj-ayMfLP58Bet4pCafz0hhKE"
+    },
+    {
+      "chars": 17,
+      "prefix": "mnejRLxvfMEGAAekNX2BwsqA0eoOc10iv-K6c7y5oI8",
+      "hash": "3waoJxArEKpHHq_ezoyjAwaRldT6_AO_JQktyOZDa_w"
+    },
+    {
+      "chars": 15,
+      "prefix": "C4D4ufmZ_lC7GHV5F1pNT9RigeakdXCl4GnfjetJk9Y",
+      "hash": "2XZ8J_lSuAHxKqNydCrSZ-O3TLgEeoLlKitIZd6vvec"
+    },
+    {
+      "chars": 12,
+      "prefix": "1qlzQqbiO7jYLQDPL3p4HhUKi49mEfEeeSafASk45iY",
+      "hash": "1qlzQqbiO7jYLQDPL3p4HhUKi49mEfEeeSafASk45iY"
+    },
+    {
+      "chars": 30,
+      "prefix": "gqxi-z6tY_Qoq-i1jH6JGqQkj88q7piCNxRVHq37RpM",
+      "hash": "SCoUY0HASgyauNKtM6AEhK6mfZlXTtNC44-GHvjdWzE"
+    },
+    {
+      "chars": 49,
+      "prefix": "pizPSKBX5cmWWIhya-L2OjlBr0uGCHjclrv5pk09oAs",
+      "hash": "GmOCFgAoNOhP5I050gOADQx4iUPQZVLp2lGSnLPe82Q"
+    },
+    {
+      "chars": 23,
+      "prefix": "8W1LoNCrRB3hzp_o6Dc2ZNr11LCeMpj28r_EERP-HU8",
+      "hash": "CB_fxhdXtvkogCtsoqLUTPYH22AULni8TgurpFfGlBg"
+    },
+    {
+      "chars": 12,
+      "prefix": "2gn6NMWe55Ij_jAu726A7QuZg1YAXuBhmE8YozSZIVs",
+      "hash": "2gn6NMWe55Ij_jAu726A7QuZg1YAXuBhmE8YozSZIVs"
+    },
+    {
+      "chars": 46,
+      "prefix": "_fg4syj7QbPXnxNWkKgZbHmlOr2IGWC8L-wRd_Olt5g",
+      "hash": "xs7Y9jOOplD0En0iG3-DukES4E4huKPbtd4q8YcnHMg"
+    },
+    {
+      "chars": 21,
+      "prefix": "Yyj4NLHkIE1pzVGNVn8cLrvylEQsliBDE1Odsqb8dIA",
+      "hash": "tvdO0NGFNpJ3S-ktlkWjp-xjQVQaSv24oMLoGaJH70Y"
+    },
+    {
+      "chars": 12,
+      "prefix": "A0gx0ge7vmiicBu0uEvD6WH5eDi61cpDF-tcmzb0z3A",
+      "hash": "A0gx0ge7vmiicBu0uEvD6WH5eDi61cpDF-tcmzb0z3A"
+    },
+    {
+      "chars": 24,
+      "prefix": "qzI8S6ml3wLJitz_toKHwnVYLfqyHs07z7ZK3RoRXas",
+      "hash": "c0JWRTfPZMhSiz0_TeDvviIy4jh9qUyH7iysK_1ggJE"
+    },
+    {
+      "chars": 50,
+      "prefix": "_bzptOYPBxUJJVd7kDU-I-AhBw-tAPwwn6edh0gWDFg",
+      "hash": "deqCfNqk98iLIQgbvmHb7Ei1nkW7pG4hEBSWTm41GOY"
+    },
+    {
+      "chars": 17,
+      "prefix": "u5zcvsWAbAOG3CmpZZsUek4k4y1yL1IYxr2gxrNfcGA",
+      "hash": "ToppV4k3xhFioT6Fw3mla_ClUH202GIZnrmF8M66JoU"
+    },
+    {
+      "chars": 12,
+      "prefix": "AHL71WA86FURbex-2wrwIpD3v9skfxmdHQvigxYlgIo",
+      "hash": "AHL71WA86FURbex-2wrwIpD3v9skfxmdHQvigxYlgIo"
+    },
+    {
+      "chars": 46,
+      "prefix": "g5_lqSijsZYovcayDmHKQBrW2zyubJKbvaE27Ot10oY",
+      "hash": "mD23fuOG9r_1O5Y7XnobPLPgJZ9wSlBnyqhWaerYqCg"
+    },
+    {
+      "chars": 16,
+      "prefix": "eXLyOWOAJnFw-mvMoAdw4s9rMxIAHD45xWydTM5TXS4",
+      "hash": "A4_6z8YKnDxvQRdORfOKB6us8Lp_AvP6VpahVVsIm0s"
+    },
+    {
+      "chars": 12,
+      "prefix": "vLQtWR5iBTFNbGcGUSFw5ENqidxAY7cip_PNbGj7vJ0",
+      "hash": "vLQtWR5iBTFNbGcGUSFw5ENqidxAY7cip_PNbGj7vJ0"
+    },
+    {
+      "chars": 27,
+      "prefix": "TDawdkPBhSw0_CqXwNEkQJK4x7uOfZc7ZAjdb0OUsMo",
+      "hash": "8gUCAhmih5a81gIreEBjfEK1Osit7ozrGXCj6LtbO7Q"
+    },
+    {
+      "chars": 27,
+      "prefix": "-Uz2bB2LrhDqSSApWfrKa8x-5ZAelOUzNaZwOJ1CWhM",
+      "hash": "lCXRZ9Wv6Dz9MYnwag4G3YhdRSMR7gJDvKzKNtKR4BY"
+    },
+    {
+      "chars": 93,
+      "prefix": "Nx_VuEiOtqmOAx9c4LgR6zNCsLvIkdJDZGZdTqinDWo",
+      "hash": "UWpAoJdIYUjbCAlk6_j4z-bXXEVk36U33jfqi06UqtI"
+    },
+    {
+      "chars": 12,
+      "prefix": "taQO435LZP7RHxOhkqPE9V_5IS-6vEFMjD3t4EWxlTM",
+      "hash": "taQO435LZP7RHxOhkqPE9V_5IS-6vEFMjD3t4EWxlTM"
+    },
+    {
+      "chars": 21,
+      "prefix": "o3kYOakEP5N6gAWT-2Kp1dLgD7hyv7xH8ivsR9EFSPw",
+      "hash": "EePFJdwHuOZSkmCvHFiYB100Fd-yCMKnh5l9QuWuHHU"
+    },
+    {
+      "chars": 32,
+      "prefix": "W2zPBW3tkhSR9JF6lAgBijshT32XhLbIwvkJkmuwsGI",
+      "hash": "5Kffgxw40R-j5iujR0cJZ5Z0p_hvHDHsKthW8M-jawU"
+    },
+    {
+      "chars": 16,
+      "prefix": "z7bIXRkxQOJ_dxVxsV9PATFWEX2UAtGcsdlsOZ8-XPs",
+      "hash": "uG_0xLXb-DCVURbiVMmri21Fyv3C2H3VVsQM-8uh3k0"
+    },
+    {
+      "chars": 18,
+      "prefix": "yUemQ5Wbk6oLhX--wS9EGEuAIcbbchskJ3iT2vBRrLw",
+      "hash": "HI4t6huo-5b8d-pdiUvLN2airRzT-rvdu-DmOLymQ7Q"
+    },
+    {
+      "chars": 17,
+      "prefix": "hyDOKPpsSMANt707HSh8BvbIQMZZ0pJvDxVxcMowQFk",
+      "hash": "sZJqXr6FYdSw-GlVEWkOQwXbaMRj8pUOjATq_RZ6UPc"
+    },
+    {
+      "chars": 73,
+      "prefix": "J1Vbs7R4bQGy0JO0BP_YsObJMzSiYd6W4CE9w-d9tB8",
+      "hash": "SiugY5a5vzQr5Feq6jUywljK7jkksFqG7TmeGpEy2-M"
+    },
+    {
+      "chars": 12,
+      "prefix": "z8vd7T8prq_1F195yZHHTanpuXMMXcfLDOg3sLHpdDU",
+      "hash": "z8vd7T8prq_1F195yZHHTanpuXMMXcfLDOg3sLHpdDU"
+    },
+    {
+      "chars": 30,
+      "prefix": "ZT3WQJPo6VyE9L3NWvUaD_cXfFIqNIkKK5wiG8LYr-I",
+      "hash": "-fru1LGYg1TEuZLk_I35KbqsOUieCfvfriCw2SSZ0io"
+    },
+    {
+      "chars": 12,
+      "prefix": "2A_6a7NdHfdmmTOrKxhS-e0tYysgEa9uGhqwqt4x6lw",
+      "hash": "2A_6a7NdHfdmmTOrKxhS-e0tYysgEa9uGhqwqt4x6lw"
+    },
+    {
+      "chars": 23,
+      "prefix": "-aaU7DVxyfXtNKZ2O6ZUnnCKkclHuM1S8yDkm-tmvlE",
+      "hash": "8W5RY2ZUZ9dpnFrW74OiMilLJ44fow7hC9z3OXjbGEI"
+    },
+    {
+      "chars": 12,
+      "prefix": "xnIxwfqEQJhQdI45ncmL-YPkf98dY0tf-AHfZaYd7_M",
+      "hash": "xnIxwfqEQJhQdI45ncmL-YPkf98dY0tf-AHfZaYd7_M"
+    },
+    {
+      "chars": 24,
+      "prefix": "deaFS4w5DTwcX2_4Ma7ovI4B7nj-aymj6hGvTT3_CIY",
+      "hash": "MecfCEFC_rD3Y93FTUmbU0AGZy5uP4yyoEJ_1XsDScs"
+    },
+    {
+      "chars": 19,
+      "prefix": "4PtHPWuOoTtFn_dBMl2THaS7Xz7DQaBMigrR4iXY4tA",
+      "hash": "lHixyVcsKTYqGKqA2Gf0LAdzMYuoJkVDl29UXZN5Lmg"
+    },
+    {
+      "chars": 59,
+      "prefix": "xrXd2-haU_M1ENI1viopvnW8d_FEm_ErH5qYLjIeP48",
+      "hash": "UZDgac5yxls6y7ZYV1Npyijy9rE8_34hPbPlDeFb8MM"
+    },
+    {
+      "chars": 17,
+      "prefix": "Mr2lO8xrXf4PNZeXh8P5DitfmmpI1tTdxZRo-9NyJ_k",
+      "hash": "ScIJMO1fZiJAATA2dQwATKZNmYo-3s-99HeTSFhMQd4"
+    },
+    {
+      "chars": 14,
+      "prefix": "ylG3fDMHT5NyLH7N4tH2wtOxcVEct6sLqqtdMtGdgUM",
+      "hash": "TJJfhS-_xeRzF7msCJC98fAxxWLT4iXIfoxxlisQ-vA"
+    },
+    {
+      "chars": 32,
+      "prefix": "eI59BlNft2RwUXjgz32buJfUWa7FkTkBM4Y3bw1a0oc",
+      "hash": "TQ-Da0agIWDwziseYVHNteotHoyqoMjb6RFXPWesSlM"
+    },
+    {
+      "chars": 17,
+      "prefix": "99MXtnY2Ogqr8JUicuEVixROpLeZ_XVk1On7t36eL3E",
+      "hash": "_Hn4EQXdR7-Z7qzoPxPpe0cxJ8r7nrIHJ7G0wooxbLA"
+    },
+    {
+      "chars": 47,
+      "prefix": "_epNxai0qCznH7WRM6Mjlc_s-NVnBJnKzsceAcHPPEo",
+      "hash": "gufEf6lfs5y30vI3x8G0rBJ0rS7rTjYwt0CBu2mAVZ0"
+    },
+    {
+      "chars": 26,
+      "prefix": "lx4mn-vJvGeSyr6xGIf2QrLmoOEH0TqcgFqxSurp6BY",
+      "hash": "NWFrEJ7c0pgOBtKmjnHnqK8p99vcbI_At3bH22WtPFg"
+    },
+    {
+      "chars": 54,
+      "prefix": "H6KICTDdk-O905IPmj5E-DbI_GWR1uxNI4hS6raKaj0",
+      "hash": "kKylecIeTamnJlSw-VsfU528W0Rxveh4B8cRi_2Go6I"
+    },
+    {
+      "chars": 41,
+      "prefix": "LGuQ3b7eRoEExRi3KugBh75-fqhOCvTyyY8oAxZiEy0",
+      "hash": "__KQmTm7dq-1mamp3TItX7Xh-mNn-TnzZQ_HcCjLRIQ"
+    },
+    {
+      "chars": 13,
+      "prefix": "phWoSEa2QplIRcXZYySG7blFN_af9aDP7dvI6d6NJ-I",
+      "hash": "y_U9Gl77j05WfeT_-N6hMM6s48OO2SPwSGWroe5_2J8"
+    },
+    {
+      "chars": 34,
+      "prefix": "IWyEm9v8l2xtHr5vd2h_8OhFT4QzanV_XhbRxDzAUgc",
+      "hash": "OlA8ZfqrG3vJxN0OT3L_Y0_EghWtTOXfh-y9ZaKYe5Q"
+    },
+    {
+      "chars": 17,
+      "prefix": "-tTLSm9pRHtAyrELScYKjwr5bhm9TubSmHC2H6SLExk",
+      "hash": "VgOY2D9GUGGojveNh0Wgf1p7K41xU3x3Pchbk82kFQE"
+    },
+    {
+      "chars": 43,
+      "prefix": "Vu1q4uJmuJuuk_k0iR5hibHOlKiraocAr0Kft-F2u8A",
+      "hash": "3MCa3EPPv2j16e3qyUJNI_SfTqQ2zzoEzVyjUJF5H0Q"
+    },
+    {
+      "chars": 33,
+      "prefix": "B-UgcF4TwNQuKe0-8IZ89pRNRh-ZDrP0DLA4o_3f79Y",
+      "hash": "TdjyEvqvX42BphlJCTpYnmNiSUGJj4dONIcuSS4yuhU"
+    },
+    {
+      "chars": 31,
+      "prefix": "m6M-PpkK5yyQGu-Rhihrw8cO_Ixf7vMpRygCbuX7ajQ",
+      "hash": "ycaLqVNVaT6U_OOZuRzPT22btj6I7Ew8fhA8kdf1LBI"
+    },
+    {
+      "chars": 22,
+      "prefix": "06qqDerFbHunqmTetJwqgfLRTSkpgIRthDEInVYkrD4",
+      "hash": "8RGvJrfSKGNkoyMPyzqBKkv5ClPaRL2jvxmeBztvwzw"
+    },
+    {
+      "chars": 201,
+      "prefix": "pjA2gidn9srR9J5VXH2GUuAJKs_LiP-iZAqatPnbFp0",
+      "hash": "zTNtUWgdP0NUJw14b3_l9EJoUfDHhn45LjbyoPgyyRI"
+    },
+    {
+      "chars": 24,
+      "prefix": "JriyDuAZuG9i-5fCymHyxxelD6Tzj0se8Ww10eqiy5I",
+      "hash": "tZ7-FUJCz4d95bLz_RuANur8WBexV5HtGE5tDPpBAos"
+    },
+    {
+      "chars": 36,
+      "prefix": "wAzqQKEaVwV9Kph0rnUKtrbOGzUXzhAeuj6WD4pHfRU",
+      "hash": "MI2xw-b8QP3YJEYO_1dRVArM6yCRU6Xt-UeoBpfs1cg"
+    },
+    {
+      "chars": 16,
+      "prefix": "G3PBeTIdUNBBgdRxWn1umQ-dZInRPDUWXaCy7dEhqIA",
+      "hash": "0N81Az8TODXW9yUcT-JXSlJao1Wgoc3LsUfjuJ6cgPs"
+    },
+    {
+      "chars": 34,
+      "prefix": "k0SEEDX7tr-MGadlzZastPUFwmFfjtpL-Hc1vGYbGoU",
+      "hash": "M9FR0Z1gnXBDz5p-7ZPK68BzZdOl5Qyz4may80Gk0sg"
+    },
+    {
+      "chars": 12,
+      "prefix": "YGAezrtMqz-o9aBSxbNF692cVACPQg0-7thuhmiOcyo",
+      "hash": "YGAezrtMqz-o9aBSxbNF692cVACPQg0-7thuhmiOcyo"
+    },
+    {
+      "chars": 18,
+      "prefix": "eb2sTDrxC8zUZidNpIWTYqCPoZaCW3CrEsGybAdKqJ8",
+      "hash": "yAzkYVWjbj7JXsSj0Sz_5ONaChHYlpr_mD2SpAFOpC4"
+    },
+    {
+      "chars": 18,
+      "prefix": "JidHCOuahzyMbbxMoeM8xw8xwmFjY9CToBoKCx7wfos",
+      "hash": "pGCP1OzSajuERzD1abb9D3s_Gy_fXsMAfcdeNcTAv4s"
+    },
+    {
+      "chars": 18,
+      "prefix": "JwNlERJ7-T0k-katbBHUmKr_tEr-CgD9Rdx2WXVw6NE",
+      "hash": "SNM_S4bLs8KHlP3DSGIDembP2oks7Kqs-MwjijLGOzI"
+    },
+    {
+      "chars": 31,
+      "prefix": "Fh_9GiAHedHWX__GNXe6E2qQoWfGUvLfcfZg_J8a-3o",
+      "hash": "2bulZ09o863X8h2vXje2_mkXwhSluDJgTMeGEeiWqbQ"
+    },
+    {
+      "chars": 76,
+      "prefix": "rX2vetKPTAARskfIh-9xHqCdLNVpJCB_1WNsRGUwYZ4",
+      "hash": "OSV-CRKxHJQC3t4hhc8uBeAQ8TEznwLIzub8A4Sym00"
+    },
+    {
+      "chars": 49,
+      "prefix": "p0ySe8v3MEKYbMFPIX3-WE5HRlx3Avvp0IGKix2jP_U",
+      "hash": "xbLONojR6jdMGS9isJxlE-GxpSdsC8uEctun-jooJwE"
+    },
+    {
+      "chars": 59,
+      "prefix": "Kv3zviNPpYCGNXrPbl4sxKiqb10RyIXzKpezGuFhwXQ",
+      "hash": "Kf7MYGzEydVR6_4a_dy1aGhIRfyBXm3u9MOqRSaqX4g"
+    },
+    {
+      "chars": 24,
+      "prefix": "dXCdDLvY9fOhbP3V5HhaR7dtFTobFEMIGqQR96qzt_A",
+      "hash": "_4nX_AoVhSGoBjo292ck1GdZ1RQx1DUFqle7oO4QHAk"
+    },
+    {
+      "chars": 12,
+      "prefix": "NTD607eTjRe8a7MctoCWbKhLEcxU88lBEm6weF24cqk",
+      "hash": "NTD607eTjRe8a7MctoCWbKhLEcxU88lBEm6weF24cqk"
+    },
+    {
+      "chars": 26,
+      "prefix": "TndiBF8SciqXtU_GFxsahVIFQBROzvfDNkdUMH9GAQU",
+      "hash": "nOgV8F3uSR4qsdKHAKOZ7AjYkKCTQfbXWsTct6bb2pQ"
+    },
+    {
+      "chars": 23,
+      "prefix": "Gk8eVNrmu66FwvFxdQ07kEGW51VTzDjn69Q-tyyeF_E",
+      "hash": "QwMHQ9FegRQfIJokqIMVXJCiu37xaZ1uo5aytgs3lSY"
+    },
+    {
+      "chars": 23,
+      "prefix": "wFqPlT-UmzQBmGQjirOr9OC_OFFFCcxgBz18XG9U1SY",
+      "hash": "GHskgdraH1QuGsq4SX2OUU2aqvOrV2Qq5PAZu6X1ktU"
+    },
+    {
+      "chars": 14,
+      "prefix": "qPNSbW2a3xlAa5OIB9TpQ5fjjhH1mTuceEt__ZgHcB0",
+      "hash": "2YU33jUm4sXfJWPuhY7PKGSduENSc32uyIV0LPx9bOY"
+    },
+    {
+      "chars": 29,
+      "prefix": "nVLfUtBZnMq0-XJJaQY7jKbg3RzPu-wLwgcE53JWFbk",
+      "hash": "o31J9XL7CIP5K3s4P1I_X3Ve8S94QGdHNVAZzbiXTm8"
+    },
+    {
+      "chars": 49,
+      "prefix": "cEKHpswx5tJAVh8FYCmXy7FxsAK36LwjPiYD4Bb9NXY",
+      "hash": "prEmB5rnaAIBf_v4g2MrDH2ossjGdLe7ZbMy1zO2gtI"
+    },
+    {
+      "chars": 74,
+      "prefix": "Sh6b0sY92sd1BRelEGiqMbmjIrUCt88zbKW7pBBmk3w",
+      "hash": "MClux5pgPNId9HRgrEpR6bDmDmVxBRrQpixIjOPLNe0"
+    },
+    {
+      "chars": 25,
+      "prefix": "8o72otSahxTdhT-5e5okENKjid7shq3oAG5SKOSCtdc",
+      "hash": "JLjr4UzBHyUThpBtYfl-dcwdothRvbnYRwqOn6Ccx2g"
+    },
+    {
+      "chars": 278,
+      "prefix": "da53m4CSQ7xxR5UgPDK1RQpvxMGfJgmAL7zgb77ac8g",
+      "hash": "PzIAb9aByK4OYGImSbEqAevjMeA6bEqQmCSbsf4Dqos"
+    },
+    {
+      "chars": 18,
+      "prefix": "gCUD1IRCDLFzc2l4Idmvw0Hhe1IsoZzqG_86QlS0VRc",
+      "hash": "0R-XyGj0tr1S0UxwaamofXCdXbTus7PadtkNUjaTlDg"
+    },
+    {
+      "chars": 69,
+      "prefix": "J30gLZSzHqYXPWWx8Q_4mOyD9WGekoHFU4xgwQBhmqs",
+      "hash": "3bJ5NQRzcZmfR2xxiSk-GHj0AaSmu7v8S9aJTiluCa0"
+    },
+    {
+      "chars": 29,
+      "prefix": "tokYBS_xUK0Azina9e_8YZSWEIyGstduuAEhZ-P2oF8",
+      "hash": "6bnBmqY84LbEjK9emD4iX0gjUuVEN65x-dJQKPZqxz4"
+    },
+    {
+      "chars": 20,
+      "prefix": "-bDRkPvSqETL_1RdeA2GHkWrREaDWz88krRF9swEmD0",
+      "hash": "HPBFfJaob5vjqRHvZaiuJfCfJ5yfmj13rAlSWOq4vLw"
+    },
+    {
+      "chars": 62,
+      "prefix": "HiWrIl5gdJG4JDYB4GSeEUW1E6VHcmX_7D9kNhMalV8",
+      "hash": "hC0nFRJfY5NpNZ3UQeaUyC1NS_UFZOxWuI6-krcDZTA"
+    },
+    {
+      "chars": 12,
+      "prefix": "7dX26uHmspRZUPlUsmZZCmi0ZHZ_5Fot0mp_WPzHRt0",
+      "hash": "7dX26uHmspRZUPlUsmZZCmi0ZHZ_5Fot0mp_WPzHRt0"
+    },
+    {
+      "chars": 30,
+      "prefix": "XNSdok8sZGrzrnHE-_g3GP02_3X0QjvszXXx5m3VZqk",
+      "hash": "UjHN8KnNG08vZqUDY6VQb-IWx2mCPWvoL42H_e-k7UY"
+    },
+    {
+      "chars": 13,
+      "prefix": "Jnc0MCY55eCFGTIFORGqJtcGq6PoqWbyBXpocj-qHxk",
+      "hash": "2Uw2kh_2eKjpV3ma505VTzBUdxu8ZFfcHWaUKDZ0ntc"
+    },
+    {
+      "chars": 12,
+      "prefix": "Rp-tYNcQ9iA3pM-HPSSehezF_dLy5k_uW6aYwjus6wg",
+      "hash": "Rp-tYNcQ9iA3pM-HPSSehezF_dLy5k_uW6aYwjus6wg"
+    },
+    {
+      "chars": 19,
+      "prefix": "AKqhvSUWgwz3e3AisnRxz0EiYLoINt1Fm4WltaLSsF0",
+      "hash": "0SmYoE9TOL2Cngud0tuchfnv4qfPzYYIOGep4LAUJjo"
+    },
+    {
+      "chars": 17,
+      "prefix": "--ramHQcAAfTXVLC3luRhnSmE8Vsl8oXCoWFAyLFrCM",
+      "hash": "rf8cauwyo17iHGCUFXoO8mhTsPI5KdzJpjocPmYY4UA"
+    },
+    {
+      "chars": 12,
+      "prefix": "oAwgN5vlwxzik_cTxlEJvXHuFHMga9TI6QSMLp0EGMg",
+      "hash": "oAwgN5vlwxzik_cTxlEJvXHuFHMga9TI6QSMLp0EGMg"
+    },
+    {
+      "chars": 94,
+      "prefix": "-wEXzI-ZP0qFs4Tkb_3jkBGjIW_JizzFXxF5uVNQuYc",
+      "hash": "-wYUhpBXQjezRCf8LgjK4RcZms1Nlp_v8b0PwTWBbuY"
+    },
+    {
+      "chars": 42,
+      "prefix": "Y7BRv-_6uy8unKtWyTWbhf5p6-hE4EbzpL0cSDqjZhg",
+      "hash": "ib0nBhkBflu3tlkZ5FUDwHif9ji2078reHr8qPCNm9k"
+    },
+    {
+      "chars": 13,
+      "prefix": "F7g3BxJFqq09uSrgV6VpXLECa7ZjfvnsXyxldNxlWEQ",
+      "hash": "k3GwsV7h7MWC6CcVc4BpuDjfNjmE8Do6gATbeFyKhJg"
+    },
+    {
+      "chars": 33,
+      "prefix": "U9vblYdnNq_pKg9-LS9nQHFAjApw8UFVcWYA7rnngz0",
+      "hash": "Sd4iWnP-IRIiY8d_pZnIgnQoXYP6863TSUQPWYQXdSc"
+    },
+    {
+      "chars": 15,
+      "prefix": "H4suW9iFkOTGqem69RIeqEaeHzzcAWdRoj63hh86iLk",
+      "hash": "ms5aHBAxE5iX-cZ2iciCClQW_8C6Ng07rM0zIkwbMP8"
+    },
+    {
+      "chars": 21,
+      "prefix": "m7JI0GTLOlGWGgNfuuBHEXTCD72mB1liXYPTEHAEwTc",
+      "hash": "NYxaQEpWp8IwyfMfwgqg26lKOPgn80rwjZGX4QMzYw0"
+    }
+  ],
+  "interactionFeatures": [
+    "承接明确的回复对象",
+    "先回应具体细节",
+    "反差与反问按语境使用",
+    "话题结束可以停"
+  ],
+  "avoid": [
+    "反复套用同一种开头与结尾",
+    "脱离上下文搬运热梗",
+    "机械附和或说教",
+    "照抄外部评论"
+  ],
+  "priority": [
+    "safety",
+    "existing-persona",
+    "current-context",
+    "scene-style",
+    "wording"
+  ],
+  "version": "vdf2e8ffce8e5b16b"
+}

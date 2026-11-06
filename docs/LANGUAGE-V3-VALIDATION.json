@@ -1,0 +1,205 @@
+{
+  "date": "2026-11-06",
+  "scope": "production-deployed",
+  "overlayPatch": 208,
+  "productionDeployment": true,
+  "productionRestart": {
+    "dsh": 1,
+    "qq": 0
+  },
+  "realChatMessagesSent": {
+    "ownerPrivateOperatorNotice": 1,
+    "qqGroup": 0,
+    "bilibili": 0
+  },
+  "paidModelCalls": 0,
+  "newNpmDependencies": 0,
+  "newResidentProcesses": 0,
+  "fishtalk": {
+    "version": "0.3.6",
+    "commit": "bb621c3da31052e7e52b6307db3e27c508e4d502",
+    "testsPassed": 59,
+    "license": "MIT"
+  },
+  "collection": {
+    "videos": 12,
+    "candidates": 701,
+    "retained": 393,
+    "notRetained": 308,
+    "qualityDuplicateAndReview": 39,
+    "capacityNotRetained": 269,
+    "requests": 28,
+    "durationMs": 67981,
+    "retainedSources": 8,
+    "highEvidence": 241,
+    "mediumEvidence": 152,
+    "threadReplies": 252,
+    "identityVerified": false
+  },
+  "pack": {
+    "name": "whale_bilibili_style_v1",
+    "version": "vdf2e8ffce8e5b16b",
+    "file": "integrations/surfcore/compat/language-pack.json",
+    "scenes": [
+      {
+        "name": "日常闲聊",
+        "count": 115
+      },
+      {
+        "name": "动漫二次元",
+        "count": 106
+      },
+      {
+        "name": "游戏",
+        "count": 115
+      },
+      {
+        "name": "搞笑",
+        "count": 99
+      },
+      {
+        "name": "生活分享",
+        "count": 79
+      },
+      {
+        "name": "楼中楼",
+        "count": 252
+      },
+      {
+        "name": "安慰别人",
+        "count": 2
+      }
+    ],
+    "bytes": 40882,
+    "referenceChars": 171,
+    "localEnabled": true,
+    "autoLearn": true,
+    "productionEnabled": true,
+    "learningMode": "browse"
+  },
+  "validation": {
+    "languageAndSharedRegressions": 53,
+    "durableRuntime": 40,
+    "compatibleUpdater": 9,
+    "actualBridgeFixture": 42,
+    "biliPromptAssembly": 4,
+    "projectTestsTotal": 148,
+    "additionalPetRegressionScript": "passed (original assertion script, no model)",
+    "syntaxFiles": 70,
+    "reviewedOverlayFiles": 79,
+    "allManifestAndOverlayBytesMatch": true,
+    "gitDiffCheck": "passed",
+    "privacyGate": {
+      "passed": true,
+      "textFilesScanned": 340,
+      "privateValueHits": 0
+    },
+    "additionalFeedRegressionScript": "passed",
+    "sourceOfRuntimeChecks": "server isolated environment",
+    "initialFreshBuildManifestFiles": 552,
+    "deployedManifestFiles": 554
+  },
+  "modifiedFiles": [
+    "AGENTS.md",
+    "integrations/surfcore/README.md",
+    "integrations/surfcore/compat/runtime.mjs",
+    "integrations/surfcore/compatible-update.py",
+    "integrations/surfcore/live-mirror/plugins/surfcore/lib/pet-chat.js",
+    "integrations/surfcore/live-mirror/plugins/surfcore/lib/scheduler.js",
+    "integrations/surfcore/live-mirror/plugins/surfcore/tools/commands/comment.mjs",
+    "integrations/surfcore/live-mirror/src/bridge.js",
+    "integrations/surfcore/release/runtime-files.json",
+    "integrations/surfcore/tests/bili-style.test.mjs",
+    "integrations/surfcore/tests/bridge-integration.test.mjs",
+    "integrations/surfcore/version.mjs"
+  ],
+  "newFiles": [
+    "docs/LANGUAGE-V3-2026-11-06.md",
+    "docs/LANGUAGE-V3-VALIDATION.json",
+    "docs/PATCH208-BROWSE-LEARNING-2026-11-06.md",
+    "integrations/surfcore/FISHTALK-NOTICE.md",
+    "integrations/surfcore/compat/FISHTALK-LICENSE",
+    "integrations/surfcore/compat/bili-browse.mjs",
+    "integrations/surfcore/compat/bili-owner-mention.mjs",
+    "integrations/surfcore/compat/fishtalk-bili.cjs",
+    "integrations/surfcore/compat/fishtalk-discovery.cjs",
+    "integrations/surfcore/compat/fishtalk-rules.cjs",
+    "integrations/surfcore/compat/fishtalk-sim.cjs",
+    "integrations/surfcore/compat/language-cli.mjs",
+    "integrations/surfcore/compat/language-learning.mjs",
+    "integrations/surfcore/compat/language-pack.json",
+    "integrations/surfcore/compat/language-style.mjs",
+    "integrations/surfcore/live-mirror/plugins/surfcore/tools/commands/debrief.mjs",
+    "integrations/surfcore/live-mirror/plugins/surfcore/tools/commands/feed.mjs",
+    "integrations/surfcore/live-mirror/plugins/surfcore/tools/verify/thread.mjs",
+    "integrations/surfcore/tests/browse-learning.test.mjs",
+    "integrations/surfcore/tests/language-v3.test.mjs"
+  ],
+  "limitations": [
+    "Heuristic expression evidence cannot authenticate human authors",
+    "Discovery samples four rankings rather than all public videos",
+    "Only public comment page and reply previews are collected",
+    "Seven observed scenes; comfort sparse, familiar teasing unavailable",
+    "No deep semantic distillation or paid evaluation",
+    "Style quality still needs normal conversation observation",
+    "One owner-only operator notice verified; model tone and normal future Bili browsing require observation"
+  ],
+  "deployment": {
+    "version": 208,
+    "changedRuntimeFiles": 19,
+    "liveAudit": {
+      "qqOnline": true,
+      "ws": true,
+      "dshReady": true,
+      "healthy": true,
+      "buildRevision": 208,
+      "manifestFiles": 554,
+      "manifestMatches": true,
+      "loadedHashesMatch": true,
+      "protectedUnchanged": true,
+      "biliOnlyAuthorizedConfigChanges": true,
+      "preferencesCountPreserved": true,
+      "shareDailyOne": true,
+      "commentContact": true,
+      "popularMix": true,
+      "languageEnabled": true,
+      "autoLearn": true,
+      "learningMode": "browse",
+      "limitsCorrect": true,
+      "packValid": true,
+      "seedCount": 393,
+      "qqGroupPromptHasPack": true,
+      "qqPrivatePromptHasPack": true,
+      "biliReferenceAvailable": true,
+      "noStandaloneLearner": true,
+      "browseHooks": true,
+      "mentionGuardPresent": true,
+      "uncertain": 2,
+      "pending": 0,
+      "dshReloadRecorded": true
+    },
+    "privateReceiptAudit": {
+      "ok": true,
+      "testSends": 1,
+      "uncertain": false,
+      "interfaceReadback": true,
+      "exactHashAndReceipt": true,
+      "noGroupSends": true,
+      "noBiliSends": true,
+      "modelCalls": 0,
+      "operatorNotice": true,
+      "relayDurableReceipt": true
+    },
+    "dshRestarts": 1,
+    "qqRestarts": 0,
+    "learningDaily": {
+      "videos": 5,
+      "candidates": 300,
+      "accepted": 100
+    },
+    "learningExtraRequests": 0,
+    "ownerMentionDailyLimit": 1,
+    "preferencesMode": "popular-mix",
+    "backup": "server /root/whale-ops/patch208/backup"
+  }
+}
