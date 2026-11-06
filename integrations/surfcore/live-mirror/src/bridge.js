@@ -15160,8 +15160,15 @@ async function main() {
     // 读不到群、也发不进群，只能靠换场，换场一超时就演成“门锁上了”。现在读写都放开了，
     // 同时明确“隔久的别人互聊与你无关就别插”——看完继续睡，不补一句。
     const crossSceneLine = `【跨场景 · 同一人】私信、群、B站是同一个你，记忆和人格共用。想看别处直接查（qq_get_context_snapshot / qq_get_recent_messages，key 用 group:<群号> 或 private:<主人QQ>）；想说话直接用同一个 key 发，不必先换场。换场只是“把注意力挪过去”，不是发言的前提。查完就收：**别人之间的互聊、隔了很久的旧话题、跟你无关的内容，看完就继续安静待着，不要补插一句**；只有叫到你、问到你这、或你真有想接的话才开口。\n\n`;
+    // 2026-11-06：旧未读必须带真实年龄告诉它，否则它会把十几小时前的话当新闻接。
+    const unreadTimes = (st.unread || []).map(m => Number(m && m.time) || 0).filter(Boolean);
+    const newestUnreadAt = unreadTimes.length ? Math.max(...unreadTimes) : 0;
+    const unreadAgeMin = newestUnreadAt ? Math.round((Date.now() - newestUnreadAt) / 60000) : 0;
+    const staleUnreadLine = (newestUnreadAt && unreadAgeMin >= 30)
+      ? `【旧未读 · 只记不答】这批未读里最新一条也是 ${unreadAgeMin >= 60 ? `${Math.floor(unreadAgeMin / 60)} 小时 ${unreadAgeMin % 60} 分钟` : `${unreadAgeMin} 分钟`}前发的，不是你醒来这一刻的对话。按它真实发生的时间理解：只当背景记着，不要接、不要追问、也不要用“刚才”指代它；更新已读位后直接收尾。只有里面明确叫到你、并且现在确实要你回，才开口。\n\n`
+      : '';
     const sleepLine = reason === 'sceneSwitch' ? '' : preSleepLine;
-    const base = privateRestHint(key,cfg.ownerQQ,Date.now()) + providedRole + '\n\n' + roleLine + identityLine + conversationLine + provenanceLine + (biliRecall ? biliRecall + '\n\n' : '') + voiceLine + tokenLine + initialPromptLine + antiAiLine + proactiveLine + closureLine + stickerLine + stickerMatchLine + timingLine + statusLine + wakeLine + memoryLine + (ownerPrivate ? '' : participationLine) + fishGuardLine + tokenGuardLine + sleepLine + crossSceneLine + groupLine;
+    const base = privateRestHint(key,cfg.ownerQQ,Date.now()) + providedRole + '\n\n' + roleLine + identityLine + conversationLine + provenanceLine + (biliRecall ? biliRecall + '\n\n' : '') + voiceLine + tokenLine + initialPromptLine + antiAiLine + proactiveLine + closureLine + stickerLine + stickerMatchLine + timingLine + statusLine + wakeLine + memoryLine + (ownerPrivate ? '' : participationLine) + fishGuardLine + tokenGuardLine + sleepLine + staleUnreadLine + crossSceneLine + groupLine;
     lastWakePromptMeta = {
       role: roleLine.length,
       identity: identityLine.length,
@@ -15271,6 +15278,27 @@ async function main() {
       return;
     }
     const st = stForGuard;
+    // 2026-11-06 主人钦定：重启补唤醒只补上下文、不发言。
+    // 昨晚 23:20 的 8 条旧未读在 12:22 重启后被当成“刚发生”重投，她接了句
+    // “骂人就没意思了”——旧话被当新闻。这里硬拦：boot 且积压最新一条超过 30 分钟，
+    // 只把已读位推过去，不投递、不烧回合，下次真实唤醒时这些消息本来就在上下文里。
+    if (reason === 'boot') {
+      try {
+        const times = (st.unread || []).map(m => Number(m && m.time) || 0).filter(Boolean);
+        const newest = times.length ? Math.max(...times) : 0;
+        if (newest && Date.now() - newest >= 30 * 60 * 1000) {
+          const mins = Math.round((Date.now() - newest) / 60000);
+          log(`[补看] 跳过 boot 唤醒 ${key}：积压最新一条 ${mins} 分钟前，只更新已读位不发言`);
+          const seqs = (st.unread || []).map(m => Number(m && m.seq) || 0);
+          if (seqs.length) st.readThroughSeq = Math.max(Number(st.readThroughSeq) || 0, ...seqs);
+          st.unread = [];
+          saveSocialV2State();
+          return;
+        }
+      } catch (error) {
+        log(`[补看] boot 判定异常，按原样继续：${error && error.message ? error.message : error}`);
+      }
+    }
     if (interactiveOwnerMessage({key,ownerQQ:cfg.ownerQQ,reason,unread:st.unread})) {
       const limit = sendRateLimitInfo(key, st, cfg.socialV2?.send);
       if (limit) {
