@@ -1510,7 +1510,7 @@ server.tool('qq_switch_scene',
     check:z.string().regex(/^[0-9]{1,3}$/).optional().describe('仅主人私信明确要求去群里发一至三位数字测试时使用，同时选 speak')},
   async args=>{
     try {
-      const result = await agentApi('/api/socialV2/scene-switch', {method:'POST',headers:{'x-agent-token':args.token},body:JSON.stringify(args),timeoutMs:25000});
+      const result = await agentApi('/api/socialV2/scene-switch', {method:'POST',headers:{'x-agent-token':args.token},body:JSON.stringify(args),timeoutMs:45000});
       return {content:[{type:'text',text:serializeModelData(result)}]};
     } catch {
       return {isError:true,content:[{type:'text',text:'暂时无法确认这次换场。不要把它当作已经发出，也不要立即重试。'}]};

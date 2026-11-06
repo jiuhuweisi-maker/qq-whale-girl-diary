@@ -1998,8 +1998,17 @@ async function main() {
       atomicWriteJson(sceneOfferFile(MEMORY_CARD_PATHS.dir),{at,video,intent});
       return {ok:true, state:'pending', intent, hint:'已登记这次去 B 站的意图，是否到达和发言还未确认。'};
     }
-    const result = await sendWakePromptV2(destination, 'sceneSwitch', {video, intent, check});
-    return result?.ok === true && !result.skipped
+    // 换场只做“把意图送到目标场景”，不替目标等一整轮。目标在忙或投递慢时，
+    // 以前会一直 await 到 MCP 侧 25s 超时，她只拿到一句“无法确认”，对外就变成
+    // “门从里面锁上了”。现在最多等 12 秒，等不到就回 pending（允许她如实说“还没落地”）。
+    const delivered = await Promise.race([
+      sendWakePromptV2(destination, 'sceneSwitch', {video, intent, check}),
+      new Promise(resolve => { const t = setTimeout(() => resolve({__slow:true}), 12000); if (t.unref) t.unref(); }),
+    ]);
+    if (delivered?.__slow) {
+      return {ok:true, state:'pending', intent, hint:'换场请求已经发出，目标还没确认接到。不要连着重复调用；过一会儿看那边有没有落地，没落地就如实说还没到。'};
+    }
+    return delivered?.ok === true && !delivered.skipped
       ? {ok:true, state:'accepted', intent, hint:'已经换场，发言尚未确认。原处可以正常接话；对人只说你知道的结果，用第一人称，别讲内部流程或让人等消息。'}
       : {ok:false, error:'目标会话没有接到这次换场请求'};
   }
@@ -4641,7 +4650,13 @@ async function main() {
     const agentTokenOk = (key, token) => {
       const canonical = canonicalV2Key(key);
       const st = socialV2.conversations.get(canonical ?? key);
-      return !!st && !!st.agentToken && tokenEq(token, st.agentToken);
+      if (!!st && !!st.agentToken && tokenEq(token, st.agentToken)) return true;
+      // 跨场景（2026-11-06）：私信、群、B站是同一个她，同一个智能体。任一会话的活令牌
+      // 都可以读写其它“当前模式已允许”的场景——否则她在私信里连群消息都读不到、
+      // 想 @全体 喊人只能先换场，换场一超时就变成“门锁上了”。
+      // 边界没放宽：令牌必须是某个真实智能体会话的（isLiveAgentToken），目标场景必须
+      // 仍在允许清单里（v2SessionAllowed），无令牌的控制台/管理通道不受影响。
+      return v2SessionAllowed(canonical ?? key) && isLiveAgentToken(token);
     };
     /**
      * 令牌是否匹配**任意**一个活跃二代会话。
@@ -15141,8 +15156,12 @@ async function main() {
     const groupActivity = ownerGroupActivityV2(key);
     const groupLine = groupActivity ? `【已开放群近况 · 仅背景】这是桥接最近看到的群消息，和当前私信分开。用 person 对照稳定身份，只有 role=owner 才是主人；同名不要合并。busy=热闹，active=有人聊，quiet=近期未观察到发言，unknown=情况未知。相关时自然聊，不必逐轮播报。\n${JSON.stringify(groupActivity)}\n\n` : '';
     const timingLine = reason === 'sceneSwitch' ? '' : replyLine;
+    // 跨场景（2026-11-06 主人钦定）：三个场合是同一个她。以前令牌按场景锁死，她在私信里
+    // 读不到群、也发不进群，只能靠换场，换场一超时就演成“门锁上了”。现在读写都放开了，
+    // 同时明确“隔久的别人互聊与你无关就别插”——看完继续睡，不补一句。
+    const crossSceneLine = `【跨场景 · 同一人】私信、群、B站是同一个你，记忆和人格共用。想看别处直接查（qq_get_context_snapshot / qq_get_recent_messages，key 用 group:<群号> 或 private:<主人QQ>）；想说话直接用同一个 key 发，不必先换场。换场只是“把注意力挪过去”，不是发言的前提。查完就收：**别人之间的互聊、隔了很久的旧话题、跟你无关的内容，看完就继续安静待着，不要补插一句**；只有叫到你、问到你这、或你真有想接的话才开口。\n\n`;
     const sleepLine = reason === 'sceneSwitch' ? '' : preSleepLine;
-    const base = privateRestHint(key,cfg.ownerQQ,Date.now()) + providedRole + '\n\n' + roleLine + identityLine + conversationLine + provenanceLine + (biliRecall ? biliRecall + '\n\n' : '') + voiceLine + tokenLine + initialPromptLine + antiAiLine + proactiveLine + closureLine + stickerLine + stickerMatchLine + timingLine + statusLine + wakeLine + memoryLine + (ownerPrivate ? '' : participationLine) + fishGuardLine + tokenGuardLine + sleepLine + groupLine;
+    const base = privateRestHint(key,cfg.ownerQQ,Date.now()) + providedRole + '\n\n' + roleLine + identityLine + conversationLine + provenanceLine + (biliRecall ? biliRecall + '\n\n' : '') + voiceLine + tokenLine + initialPromptLine + antiAiLine + proactiveLine + closureLine + stickerLine + stickerMatchLine + timingLine + statusLine + wakeLine + memoryLine + (ownerPrivate ? '' : participationLine) + fishGuardLine + tokenGuardLine + sleepLine + crossSceneLine + groupLine;
     lastWakePromptMeta = {
       role: roleLine.length,
       identity: identityLine.length,
