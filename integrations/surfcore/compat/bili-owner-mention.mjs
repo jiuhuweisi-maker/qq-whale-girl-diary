@@ -10,7 +10,10 @@ export function reserveOwnerMention(file,{now=Date.now(),legacyUsed=false}={}){
  fs.mkdirSync(path.dirname(file),{recursive:true});let lock;
  try{lock=fs.openSync(file+'.lock','wx');}catch(e){if(e.code==='EEXIST')throw Error('OWNER_MENTION_LIMIT：@主人检查正在进行，本次不发');throw e;}
  try{const prior=readJson(file,null),today=day(now);
-  if(legacyUsed||prior?.day===today)throw Error('OWNER_MENTION_LIMIT：今天已尝试@主人，本次不发；每天最多一次');
+  // 2026-11-06 主人钦定：取消「每天只能@一次主人」。
+  // 只留一道 5 分钟防连发（同一次评论被重试时不要连点两次），不再按天封口。
+  const lastAt=Number(prior?.at)||0;
+  if(lastAt&&now-lastAt<5*60*1000)throw Error('OWNER_MENTION_COOLDOWN：刚试过@主人，5 分钟后再来，避免连点');
   const lease={day:today,at:now,id:crypto.randomUUID(),status:'reserved'};atomicJson(file,lease);return lease;
  }finally{fs.closeSync(lock);fs.unlinkSync(file+'.lock');}
 }
