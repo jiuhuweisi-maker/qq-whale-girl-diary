@@ -15233,6 +15233,13 @@ async function main() {
     const st = getSocialV2State(key);
     const tokenLine = `【会话令牌】${st.agentToken}（调用二代状态工具时请在参数中带上此令牌）\n\n`;
     const preSleepMs = Math.max(0, Number(cfg.socialV2?.wake?.preSleepWaitMs) || 300000);
+    // 2026-11-06：对方刚说完话时，不要拿“沉睡前观察 5 分钟”去催她。
+    // 那时她本来就睡不着，一催就变成“发张表情→再等→又被催”的收尾死循环，
+    // 真正该回的链接/问题被挤掉。这种时候只要求“把这一轮聊完”。
+    const justSpoke = Boolean(st.lastIncomingAt) && Date.now() - Number(st.lastIncomingAt) < preSleepMs;
+    if (justSpoke) {
+      return `${roleLine}${identityLine}${conversationIdentityLineV2(key)}${tokenLine}【提醒】对方刚说过话，这一轮还在对话里：**先把该回的回完**（问题、要的东西、答应的事），不要做收尾仪式、不必等沉睡前观察。回完这一轮直接接着聊或自然收尾即可。`;
+    }
     return `${roleLine}${identityLine}${conversationIdentityLineV2(key)}${tokenLine}【提醒】你还没有完成回合收尾。请调用 qq_set_wake_config 设置下一次唤醒条件（例如继续潜水多久、@/名字/关键词/提问/概率/指定成员等），或者调用 qq_mark_read 表示你看过且决定不接。这是为了防止你忘记收尾后进入“永眠”。注意：设置潜水前先用 qq_wait_for_messages(timeoutMs=${preSleepMs}) 完成沉睡前观察；等待期间有人说话时查看 newMessages，判断不需要你参与即可收尾。`;
   }
 
