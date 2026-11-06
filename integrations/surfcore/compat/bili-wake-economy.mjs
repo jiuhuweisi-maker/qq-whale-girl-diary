@@ -16,7 +16,7 @@ export function compactBrowseInstructions({b={},limits={},kinds={},biliDir='',si
     ]:[]),
     '深读后按实际质量score记分，和播放量分开；真实看过什么、和谁聊过、自己的感受写入原两本日记，未发生不补写。',
     ...(enabled.length&&!silent?[`现有动态时段照配置执行，不补过期任务：${enabled.map(([key,v])=>key+'@'+String(v.slot).padStart(2,'0')+':00 '+v.minLen+'–'+v.maxLen+'字').join('；')}。best只用当天最高分；game用gamefeed核对轮换游戏/时效/质量。daily均先--dry再--go，公开动态不@人；其他类等原dynTick提醒。没合适内容可跳过。`]:[]),
-    b.owner?.contactMode==='comment-mention'?'B站不私信主人；刷到他会喜欢的就用comment --share --auto并带reason/score/rank=1在评论区真实@（自己的作品下不用这套标尺，工具自动@），不凑数。':`分享沿现有share.via=${b.share?.via||'dynamic'}与quota；不用其他通道绕过。`,
+    b.owner?.contactMode==='comment-mention'?'B站不私信主人；刷到你自己喜欢的就comment --share --auto并带reason/score/rank=1在评论区真实@——你喜欢看的就是我喜欢的，判据用你自己的口味，不用猜我（自己的作品下不用这套标尺，工具自动@），不凑数。':`分享沿现有share.via=${b.share?.via||'dynamic'}与quota；不用其他通道绕过。`,
     '收尾comment-digest --hours 24合并查看找你的人，按原倾听规则处理；quota react --auto --hours 48核对实际反馈，原推送开关继续生效。最后diary log记真实完成和未完成，不编成功。',
     '可选用life按需查来源、记自己的兴趣或带引文小作品、接续小项目（首次看life help）。只在本轮真有收获时整理，每天最多2次语义保存，无产量要求、不另开模型回合；观点与事实分开。',
     biliDir?'原日记目录：'+biliDir:'',
