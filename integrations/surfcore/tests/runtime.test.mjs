@@ -35,6 +35,22 @@ async function tool(f, { key = 'group:7001', callId = 'c1', sessionId = 's1', re
   return ctx;
 }
 const text = value => [{ type: 'text', data: { text: value } }];
+await check('cross-scene sends bind the real source call to its explicit allowed destination',async()=>{
+ const f=fixture();await f.w.syncControl();
+ const source='private:1001',target='group:7001',args={key:target,token:'fake',messages:['接着聊']};
+ f.w.onEvent(source,'cross',{type:'turn/start',data:{turn:1}});
+ f.w.onEvent(source,'cross',{type:'tool/call',data:{name:'mcp__snowluma__qq_send_message',callId:'cross',arguments:JSON.stringify(args)}});
+ const ctx=f.w.enterRequest({headers:{'x-whale-request-id':'11111111-1111-1111-1111-111111111111','x-whale-tool':'qq_send_message','x-whale-args':Buffer.from(JSON.stringify(args)).toString('base64')}},'/api/socialV2/send-message');
+ await f.w.authorizeRequest(ctx,{key:target});let sent=0;await f.w.send(target,text('接着聊'),async()=>({message_id:++sent}));assert.equal(sent,1);assert.equal(ctx.effect.sourceKey,source);
+ f.control.privateQuietForever=true;await f.w.syncControl();await assert.rejects(()=>f.w.send(target,text('不补发'),async()=>{sent++;}),/当前回合/);assert.equal(sent,1);
+});
+await check('cross-scene authorization rejects a destination epoch changed after the tool call',async()=>{
+ const f=fixture();await f.w.syncControl();const source='private:1001',target='group:7001',args={groupId:'7001',message:'接着聊',token:'fake'};
+ f.w.onEvent(source,'cross',{type:'turn/start',data:{turn:1}});f.w.onEvent(source,'cross',{type:'tool/call',data:{name:'mcp__snowluma__qq_send_group_message',callId:'cross',arguments:JSON.stringify(args)}});
+ f.control.epoch++;await f.w.syncControl();
+ const ctx=f.w.enterRequest({headers:{'x-whale-request-id':'11111111-1111-1111-1111-111111111111','x-whale-tool':'qq_send_group_message','x-whale-args':Buffer.from(JSON.stringify(args)).toString('base64')}},'/api/send/group');
+ await assert.rejects(()=>f.w.authorizeRequest(ctx,{groupId:'7001'}),/已叫停/);
+});
 await check('no sending before control state is verified', async () => { const f = fixture(); assert(f.w.quiet('group:7001')); });
 await check('incoming duplicate is consumed once, including after restart', async () => { const f = fixture(); await f.w.syncControl(); let n = 0; await f.w.incoming('group:7001', f.event, () => { n++; }); await f.w.incoming('group:7001', f.event, () => { n++; }); const next = createWhaleRuntime(f.options); await next.syncControl(); await next.incoming('group:7001', f.event, () => { n++; }); assert.equal(n, 1); });
 await check('same message id in group and private does not collide', async () => { const f = fixture(); await f.w.syncControl(); let n = 0; await f.w.incoming('group:7001', f.event, () => n++); await f.w.incoming('private:1001', { ...f.event, user_id: 1001 }, () => n++); assert.equal(n, 2); });

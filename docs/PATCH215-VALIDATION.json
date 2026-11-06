@@ -1,0 +1,51 @@
+{
+  "patch": 215,
+  "date": "2026-11-06",
+  "syntaxChecks": 80,
+  "isolatedTests": {
+    "language": 79,
+    "runtime": 42,
+    "bridge": 47,
+    "bili": 5,
+    "ownwork": 3,
+    "recall": 30,
+    "total": 206,
+    "originalPetScriptPassed": true
+  },
+  "loadedProof": {
+    "revision": 215,
+    "manifestFiles": 563,
+    "changedManagedFiles": 4,
+    "diskHashesMatch": true,
+    "capturedProcessHashesMatch": true,
+    "capturedFiles": 8,
+    "healthy": true,
+    "ready": true,
+    "qqOnline": true,
+    "webSocketConnected": true,
+    "dshReady": true,
+    "pendingIncoming": 0,
+    "existingUncertainUnchanged": 2
+  },
+  "nativeStatusCommand": {
+    "accountDisabled": true,
+    "globalDefaultDisabled": true,
+    "hotApplyConfirmed": true,
+    "networkConfigurationUnchanged": true,
+    "passwordChanged": false,
+    "disabledHandlerCheckedOffline": true
+  },
+  "ownerPrivateReceipt": {
+    "sends": 1,
+    "nativeMessageReadback": true,
+    "exactContentHashAndReceipt": true,
+    "relayDurableReceipt": true,
+    "confirmed": true
+  },
+  "qqRestarts": 0,
+  "dshReloads": 1,
+  "operatorModelTestCalls": 0,
+  "realGroupTestSends": 0,
+  "biliTestSends": 0,
+  "ongoingGroupConversation": "observe naturally"
+}

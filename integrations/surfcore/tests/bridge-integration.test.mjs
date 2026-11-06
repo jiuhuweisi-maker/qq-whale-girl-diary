@@ -73,6 +73,39 @@ async function send(messages, { key = 'group:456', requestId, callId, quote, at 
 try {
   h.setMode('reserved2'); h.setSelfIdentity('鲸戒',999);
   await test('actual bridge initializes with the compatibility runtime healthy', async()=> assert(h.whale.status().healthy && h.whale.status().ready));
+  await test('automatic diagnostics and status commands stay off QQ without poisoning channel health',async()=>{
+    const before=h.calls.http.length;
+    for(const key of ['group:456','private:123']) {
+      assert.equal((await h.sendToQQ(key,'SnowLuma 状态 版本 平台')).skipped,'console-only');
+      await h.handleIncoming(key.split(':')[0],Number(key.split(':')[1]),{...event(88001,123,'/status'),...(key.startsWith('private:')?{message_type:'private'}:{})},h.cfg);
+      await h.handleIncoming(key.split(':')[0],Number(key.split(':')[1]),event(88002,1002,'/status'),h.cfg);
+    }
+    assert.equal(h.calls.http.slice(before).filter(r=>/\/send_(group|private)_msg$/.test(r.url)).length,0);
+    assert.equal(h.qqSendChannelStatus().ok,true);
+  });
+  await test('local rejections never mark QQ down and a real successful send clears stale failure state',async()=>{
+    h.setSnowlumaHealth({connected:true,lastSendFailAt:0,lastSendOkAt:SimDate.now()});
+    for(const reason of ['发送缺少有效的当前回合','发送与当前回合无法唯一关联','本轮已取消，不再补发','Token 防爆破：本轮接话还可发 0 条'])h.noteSendFailure('group:456',new Error(reason));
+    assert.equal(h.qqSendChannelStatus().ok,true);
+    h.noteSendFailure('group:456',new Error('fetch failed'));assert.equal(h.qqSendChannelStatus().ok,false);
+    h.noteSendSuccess('group:456');assert.equal(h.qqSendChannelStatus().ok,true);
+  });
+  await test('fresh conversational group follow-ups reset reply and retry-loop counters once',async()=>{
+    const key='group:456',st=h.getSocialV2State(key),sid=await h.ensureSession(key),now=SimDate.now();
+    const originalUnread=st.unread;st.lastAiReplyAt=now-1000;st.tokenTurnSent=8;h.turnGuard.begin(sid,key);h.turnGuard.noteStep(sid);
+    const m={messageId:'88003',seq:88003,time:now,userId:'123',plain:'然后呢'};st.unread=[m];
+    h.noteModelMessagesV2(st,[m],key);assert.equal(st.tokenTurnSent,0);assert.equal(h.turnGuard.get(sid).steps,0);
+    st.tokenTurnSent=8;h.turnGuard.noteStep(sid);h.noteModelMessagesV2(st,[m],key);assert.equal(st.tokenTurnSent,8);assert.equal(h.turnGuard.get(sid).steps,1);
+    st.unread=originalUnread;h.turnGuard.end(sid);
+  });
+  await test('transient send channel gates retain and retry fresh addressed messages without running a model',async()=>{
+    const key='group:456',st=h.getSocialV2State(key),now=SimDate.now(),before=h.calls.prompts.length,old=st.unread;
+    st.unread=[{seq:88004,messageId:'88004',userId:'123',time:now,mentions:[{isSelf:true}]}];
+    h.setSnowlumaHealth({connected:true,lastSendOkAt:now-1000,lastSendFailAt:now});
+    await h.sendWakePromptV2(key,'atMention');assert(st.channelRetryTimer);const timer=st.channelRetryTimer;
+    await h.sendWakePromptV2(key,'atMention');assert.equal(st.channelRetryTimer,timer);assert.equal(h.calls.prompts.length,before);
+    clearTimeout(timer);st.channelRetryTimer=null;st.unread=old;h.setSnowlumaHealth({lastSendFailAt:0,lastSendOkAt:SimDate.now()});
+  });
   await test('workbench routes require the console and remain read-only for actual agent tokens',async()=>{
     assert.equal((await fetch(base+'/api/whale-workbench')).status,401);
     const st=h.getSocialV2State('private:123');await h.ensureSession('private:123');

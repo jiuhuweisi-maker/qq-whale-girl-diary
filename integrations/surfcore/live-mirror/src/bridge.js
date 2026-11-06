@@ -4435,6 +4435,7 @@ async function main() {
   }
 
   function noteSendSuccess(key) {
+    lastSendFailed.delete(key);
     snowlumaHealth.lastSendOkAt = Date.now();
     snowlumaHealth.lastSendError = '';
     try {
@@ -4450,7 +4451,7 @@ async function main() {
 
   function noteSendFailure(key, error) {
     // 发送守卫/审计拒绝不是通道故障，不能拿它们去暂停唤醒。
-    if (/白名单|不在允许|审计|会话令牌|replyToMessageId|atUserId/.test(String(error?.message ?? error))) return;
+    if (/白名单|不在允许|审计|会话令牌|replyToMessageId|atUserId|当前回合|本轮已取消|原回合已叫停|当前操作已失效|调用关联|无法唯一关联|Token 防爆破|相同消息仍待核对|上次发送结果尚未确认|语言|本条与近期表达/.test(String(error?.message ?? error))) return;
     snowlumaHealth.lastSendFailAt = Date.now();
     snowlumaHealth.lastSendError = String(error?.message ?? error ?? '发送失败').slice(0, 200);
     try {
@@ -9885,6 +9886,13 @@ async function main() {
   const fishChatWindows = new Map(); // groupId -> [{sender,userId,time,isSelf,isOwner,fish}]
 
   function sendToQQ(key, msg) {
+    // reserved2 delivers chat only through authenticated tools. Automatic status,
+    // diagnostics, approvals and cancellation notices belong in the console;
+    // attempting an unbound send here also falsely poisons channel health.
+    if (currentMode === 'reserved2' && !whale.contexts.getStore()?.effect) {
+      log(`[内部通知] ${key.split(':')[0]} 通知已留在控制台，不向 QQ 自动发送`);
+      return Promise.resolve({ skipped: 'console-only' });
+    }
     const assertSendAllowed = captureSendGuard(key);
     const safeMsg = redactKnownTokensOnly(msg);
     const [kind, id] = key.split(':');
@@ -14472,6 +14480,7 @@ async function main() {
       tail: truncateTextTail(String(plainContent ?? textContent), 200),
       mentions,
       quoteTargetIsSelf: !!quoteTargetIsSelf,
+      quoteTargetIsOther: /^\[引用(?:\s|[:：])/.test(String(textContent)) && !quoteTargetIsSelf,
       isOwner: !!isOwner,
       ownerLabel: isOwner ? ownerMessageLabel() : '',
       isSelf: false,
@@ -14823,7 +14832,10 @@ async function main() {
     },1500);st.replyResumeTimer207.unref?.();
   }
   function noteModelMessagesV2(st, messages,key) {
-    if(key)refreshReplyAllowance(st,messages,{key,ownerQQ:cfg.ownerQQ,direct:directlyAddressed207});
+    if(key&&refreshReplyAllowance(st,messages,{key,ownerQQ:cfg.ownerQQ,direct:directlyAddressed207})) {
+      // A real new conversational input ends the previous autonomous retry loop.
+      const sid=state.sessions[key];if(sid&&turnGuard.get(sid))turnGuard.begin(sid,key);
+    }
     // Bound receipts by the actual unread buffer; historical/self messages need no receipt.
     const unread = new Set(st.unread.map((m) => m.seq));
     st.modelSeenSeqs = new Set([...st.modelSeenSeqs || []].filter((seq) => unread.has(seq)));
@@ -15268,6 +15280,14 @@ async function main() {
       if (!stForGuard.channelGateLoggedAt || Date.now() - stForGuard.channelGateLoggedAt > 10 * 60 * 1000) {
         stForGuard.channelGateLoggedAt = Date.now();
         log(`[channel-gate] 跳过唤醒 ${key}（${reason}）：${channel.reason}；不创建 DSH 会话，避免空烧 token`);
+      }
+      const freshUnread=()=>stForGuard.unread.some(m=>m&&!m.isSelf&&!m.history&&Number(m.time)<=Date.now()+5000&&Date.now()-Number(m.time)<600000);
+      if(!autoWake&&freshUnread()&&!stForGuard.channelRetryTimer) {
+        stForGuard.channelRetryTimer=setTimeout(()=>{
+          stForGuard.channelRetryTimer=null;
+          if(socialV2.paused||whale.quiet(key)||!freshUnread())return;
+          void sendWakePromptV2(key,reason).catch(error=>log('[channel-gate] 保留来信重试失败：',error?.message??error));
+        },15000);stForGuard.channelRetryTimer.unref?.();
       }
       return;
     }
@@ -16055,6 +16075,7 @@ async function main() {
   function clearSocialV2Timers(key) {
     const st = socialV2.conversations.get(key);
     if (!st) return;
+    if(st.channelRetryTimer){clearTimeout(st.channelRetryTimer);st.channelRetryTimer=null;}
     if(st.replyResumeTimer207){clearTimeout(st.replyResumeTimer207);st.replyResumeTimer207=null;}
     if (st.pendingWakeTimer) {
       clearTimeout(st.pendingWakeTimer);

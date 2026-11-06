@@ -1,10 +1,10 @@
 # 鲸戒 QQ 机器人 · SurfCore 适配
 
-当前部署版为 **鲸戒适配209：DSH + SurfCore固定0.8.8 + SnowLuma/OneBot**。主入口从固定源码逐文件验指纹后构建最新完整运行源，包含精确回执、重启去重、原生收藏表情、图片预览兼容、共用日记、按人物/会话优先检索和兼容更新保护。Git 保存代码、配置模板和离线测试；私人记忆、角色、凭据、收藏与账本不在仓库中。
+当前部署版为 **鲸戒适配215：DSH + SurfCore固定0.8.8 + SnowLuma/OneBot**。主入口从固定源码逐文件验指纹后构建最新完整运行源，包含精确回执、重启去重、原生收藏表情、图片预览兼容、共用日记、按人物/会话优先检索和兼容更新保护。Git 保存代码、配置模板和离线测试；私人记忆、角色、凭据、收藏与账本不在仓库中。
 
 - **换台 Linux 服务器**：[一次部署到最新版](docs/FRESH-SERVER.md)（`deploy/bootstrap.sh` 一条命令构建，`deploy/state-transfer.sh` 搬她的人设与记忆）
 - 新部署：[完整部署说明](docs/DEPLOY-SURFCORE.md) 和 [模板入口](deploy/README.md)
-- 最新验证见 [209 低开销经历与可靠性](docs/PATCH209-LOW-COST-EXPERIENCE-2026-11-06.md) 和 [验证记录](docs/PATCH209-VALIDATION.json)；保留208随浏览学习、热门视频和一天最多一次@主人。控制台可查看真实活动，原回合按需整理兴趣、引文作品和小项目，无独立模型调度。
+- 最新修复见 [215 QQ 指令与持续接话](docs/PATCH215-QQ-COMMANDS-AND-CONTINUITY-2026-11-06.md)：原生状态卡关闭、自动诊断留控制台、持续群聊不误停及跨场景关联修复。保留 [209 低开销经历](docs/PATCH209-LOW-COST-EXPERIENCE-2026-11-06.md)、208 随浏览学习和 214 分享口味判据；没有独立模型整理调度。
 - 历史版本：已从树里移出（143 构建器、平铺镜像、旧测试草稿、人设卡镜像），需要时从提交 `3deeeb8` 取：`git show 3deeeb8:archive/2026-11-03/README.md`
 - 运维接手：[AGENTS.md](AGENTS.md) 和 [10月30日任务书](docs/CODEX-BRIEF-2026-10-30.md)
 - 可选模拟盘：[服务源码与安装说明](services/fundpilot/README.md)，支持明确订单按需补充虚拟资金；不连接真实券商

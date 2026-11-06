@@ -204,6 +204,7 @@ export async function bridgeHarness({ config = {}, savedState, files = {}, globa
     getSocialV2State, appendSocialV2Message, recordSentMessagesV2,
     fishChatWindows, evaluateConversationFishGuard, fishGuardSendBlock, recordFishWindow,
     tokenGuardWakeBlock, tokenGuardSendBlock, noteModelMessagesV2, bridgeDailyUsage, learnerBudgetBlock,
+    noteSendSuccess, noteSendFailure, qqSendChannelStatus, turnGuard, recordTurnStop,
     buildWakePromptV2, buildWakeSnapshotV2, wakeFoldedNoticeV2, sendWakePromptV2, loadSocialV2State, socialV2,
     currentRoleHint, currentRoleHintV2, adminPromptLine, ownerMessageTag,
     memoryCardPromptBlock, recordMemoryInboxEvent, recordSelfMemoryEvent,

@@ -54,6 +54,11 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
       : s.privateQuietForever === true || Number(s.privateQuietUntil || 0) > now());
   }
   function epoch(key) { return conversation(key)?.kind === 'group' ? Number(ledger.data.control?.epoch || 0) : Number(ledger.data.privateEpoch || 0); }
+  function currentEffect(effect,key) {
+    const source=effect?.sourceKey||key;
+    return effect&&effect.key===key&&effect.epoch===epoch(key)&&!quiet(key)
+      &&(effect.sourceEpoch??effect.epoch)===epoch(source)&&!quiet(source);
+  }
   async function syncControl(message = null) {
     const result = await control(message);
     if (!result?.ok) { ready = false; throw new Error('主人控制状态尚未确认，暂不处理'); }
@@ -139,12 +144,14 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
     if (ledger.data.calls?.[id]) return;
     const turn = ledger.data.turns?.[liveTurns.get(sessionId)];
     // A late call without its original turn cannot inherit today's permission.
-    change(d => { (d.calls ||= {})[id] = { key, name: String(event.data.name).split('__').at(-1), args: parseArgs(event.data.arguments ?? event.data.input), at: now(), epoch: turn?.epoch ?? -1 }; });
+    const args=parseArgs(event.data.arguments??event.data.input);
+    const targetKey=args.key||(args.groupId?`group:${args.groupId}`:args.userId?`private:${args.userId}`:key);
+    change(d => { (d.calls ||= {})[id] = { key, targetKey, targetEpoch:epoch(targetKey), name: String(event.data.name).split('__').at(-1), args, at: now(), epoch: turn?.epoch ?? -1 }; });
   }
   async function action(key, label, fn) {
     requireHealthy();
     const ctx = contexts.getStore(), effect = ctx?.effect;
-    if (!effect || effect.key !== key || effect.epoch !== epoch(key) || quiet(key)) throw new Error('当前操作已失效');
+    if (!currentEffect(effect,key)) throw new Error('当前操作已失效');
     const id = 'action:' + key + ':' + label;
     if (ledger.data.outbox[id]) throw new Error('此项操作已经尝试过，不重复执行');
     change(d => { d.outbox[id] = { at: now(), attempts: [now()], status: 'sending', key }; });
@@ -165,7 +172,7 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
     try { args = JSON.parse(Buffer.from(String(ctx.req.headers['x-whale-args'] || ''), 'base64').toString('utf8')); } catch { throw new Error('发送缺少调用关联'); }
     const key = body.key || (args.groupId ? `group:${args.groupId}` : args.userId ? `private:${args.userId}` : '');
     if (!allowed(key) || !/^[a-f0-9-]{20,100}$/.test(requestId) || !sendTool(name)) throw new Error('发送调用来源未验证');
-    const matches = row => row.key === key && row.name === name && Object.entries(row.args).every(([k, v]) => equal(v, args[k]));
+    const matches = row => (row.targetKey||row.key) === key && allowed(row.key) && row.name === name && Object.entries(row.args).every(([k, v]) => equal(v, args[k]));
     let candidates = [];
     for (let n = 0; n < 40; n++) {
       candidates = Object.entries(ledger.data.calls || {}).filter(([, row]) => matches(row) && (row.requestId === requestId || !row.requestId) && now() - row.at < 600000);
@@ -174,14 +181,14 @@ export function createWhaleRuntime({ root, config, control, now = Date.now, disk
     }
     if (candidates.length !== 1) throw new Error('发送与当前回合无法唯一关联，已暂停本次发送');
     const [id, row] = candidates[0];
-    if (row.epoch !== epoch(key) || quiet(key)) throw new Error('原回合已叫停，不补发旧话');
+    if (row.epoch !== epoch(row.key) || (row.targetEpoch??row.epoch) !== epoch(key) || quiet(row.key) || quiet(key)) throw new Error('原回合已叫停，不补发旧话');
     if (!row.requestId) change(d => { d.calls[id].requestId = requestId; });
-    ctx.effect = { id, key, epoch: row.epoch };
+    ctx.effect = { id, key, epoch: row.targetEpoch??row.epoch, sourceKey:row.key, sourceEpoch:row.epoch };
   }
   async function send(key, segments, transport) {
     requireHealthy();
     const ctx = contexts.getStore(), effect = ctx?.effect;
-    if (!effect || effect.key !== key || effect.epoch !== epoch(key) || quiet(key)) throw new Error('发送缺少有效的当前回合');
+    if (!currentEffect(effect,key)) throw new Error('发送缺少有效的当前回合');
     const source = Array.isArray(segments) ? segments : [];
     const ownerCommand = effect.ownerGroupCommand === true && conversation(key)?.kind === 'group';
     const message = source.map(s => s.type === 'text' && !ownerCommand ? { ...s, data: { ...s.data, text: clean(String(s.data?.text || ''), key) } } : s).filter(s => s.type !== 'text' || s.data.text.trim());
