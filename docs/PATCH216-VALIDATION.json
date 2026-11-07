@@ -64,5 +64,34 @@
     "no semantic deep distillation and no training",
     "long-term naturalness requires real-chat observation"
   ],
-  "deployment": {"status": "pending"}
+  "deployment": {
+    "status": "live",
+    "at": "2026-11-07T13:46:00+08:00",
+    "revision": 216,
+    "manifestPatch": 216,
+    "manifestFiles": 566,
+    "changedFiles": 5,
+    "diskHashesMatch": true,
+    "loadedHashesMatch": true,
+    "loadedFiles": 8,
+    "bridgeIdentity": true,
+    "bridgeProcesses": 1,
+    "bridgeReloads": 1,
+    "qqRestarts": 0,
+    "dshReloads": 0,
+    "qqOnline": true,
+    "webSocketConnected": true,
+    "dshReady": true,
+    "pendingIncoming": 0,
+    "existingUncertainUnchanged": 2,
+    "services": {"dsh": "active", "whale-relay": "active", "whale-ws": "active"},
+    "runtimeProbe": {
+      "packVersion": "v6a662787ba7ee1f2",
+      "categories": 12,
+      "styleBlockChars": {"生活分享": 221, "游戏": 223, "安慰别人": 199},
+      "strategyLinePresent": true
+    },
+    "testsAfterDeploy": 0,
+    "realSends": 0
+  }
 }

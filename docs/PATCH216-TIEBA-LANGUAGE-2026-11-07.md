@@ -85,6 +85,18 @@
 - `version.mjs`：`OVERLAY_PATCH=216`。
 - `README.md`、`AGENTS.md`：版本与交接入口。
 
+## 上线
+
+生产目录 `/opt/whale-surfcore/staging-c174ed0`，2026-11-07 13:46（上海）：
+
+- 部署前基线：manifest patch=215、563 文件、磁盘哈希全对、45 秒内无新来信。
+- 替换 5 个受管文件（3 新增、2 修改），manifest 升到 216、566 文件；备份在 `/root/whale-ops/patch216/backup/`。
+- 只重载 QQ 桥一次（原 `start`/`stop` 接口），**没有重启 QQ，没有重启 dsh**；账本、配置、人格、关系、收藏均未动。
+- 校验：`revision=216`，磁盘 566 文件哈希全对，运行时捕获 8 个加载指纹全对，桥进程身份与工作目录正确且只有 1 个；QQ 在线、WS 连接、DSH ready、pending=0，原 2 条 uncertain 未变。
+- 生产内实际调用 `styleBlock`：三个场景都带 `【接话参考 v6a662787ba7ee1f2】`，长度 199–223 字。
+- `dsh`/`whale-relay`/`whale-ws` 三个服务 active；部署后日志无 TypeError/ReferenceError/SyntaxError。
+- 部署后未发任何 QQ 或 B站消息，未调用模型。
+
 ## 限制与未完成
 
 - 贴吧线上直连仍被风控；要扩大线上样本，只能在用户浏览器里由本人过验证后分批采集，不自动过验证码。
