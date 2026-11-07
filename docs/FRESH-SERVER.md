@@ -12,7 +12,9 @@
 
 只跑 Git，你会得到同一个骨架和同一套行为逻辑，但她不会是"同一个她"——记忆和人设得单独搬。
 
-**219 起，`state-transfer.sh` 的私密包已包含：** `CHAT-STYLE.md`（三端统一说话方式）、`OWNER-RULES.md`（主人永久规则的可覆盖文本，缺失时回落代码常量）、`STICKER-INDEX.md`（352 张 QQ 收藏表情按情绪/画面/编号的速查）、`QQ-CAPABILITIES.md`（219 重写后的能力说明）、`AGENTS.md`（口径指针，不再是总纲）、`SESSION-HANDOFF.md`、`QQ-PEOPLE.md`、`QQ-DUTY-LOG.md`、`surfcore/config.json`（记忆通道与记忆卡设置，`persona.file` 已指向角色卡）、`state/social-v2.json`（会话锚点与当前状态）、`state/qq-public-feed.jsonl`（QQ→B站 的公开消息源）、`state/slang.json`、`state/whale-language/`（语言样本，219 已清掉鱼八股原句）、角色目录下的记忆卡、目的观察与 B站 简报。**219 新增的这几份工作区文件必须一起带走**：漏了 `QQ-CAPABILITIES.md` / `AGENTS.md`，新机会退回旧图闸和 10-27 旧总纲。仍然不打包 QQ/OneBot 票、provider 凭据、审计密钥；这些按第 1 步在本机重填。
+**219 起，`state-transfer.sh` 的私密包已包含：** `CHAT-STYLE.md`（三端统一说话方式）、`OWNER-RULES.md`（主人永久规则的可覆盖文本，缺失时回落代码常量）、`STICKER-INDEX.md`（352 张 QQ 收藏表情按情绪/画面/编号的速查）、`QQ-CAPABILITIES.md`（219 重写后的能力说明）、`AGENTS.md`（口径指针，不再是总纲）、`SESSION-HANDOFF.md`、`QQ-PEOPLE.md`、`QQ-DUTY-LOG.md`、`surfcore/config.json`（记忆通道与记忆卡设置，`persona.file` 已指向角色卡）、`state/social-v2.json`（会话锚点与当前状态）、`state/qq-public-feed.jsonl`（QQ→B站 的公开消息源）、`state/slang.json`、`state/whale-language/`（语言样本，219 已清掉鱼八股原句）、角色目录下的记忆卡、目的观察与 B站 简报。**219 新增的这几份工作区文件必须一起带走**：漏了 `QQ-CAPABILITIES.md` / `AGENTS.md`，新机会退回旧图闸和 10-27 旧总纲。**219c 起再补两份（主人令：「Git 上有的不用打包，包里留重要的」）**：`dsh:surfcore/bili.config.json`（B站偏好、owner/self 称呼、动态开关、配额、通知，运行时每轮重读即刻生效）和 `dsh:qq-chat-control.json`（群聊忽略名单，按真实账号生效）。Git 里只有**读它们的代码**，没有文件本身，`bootstrap.sh` 也不生成，所以不带就会回默认，私信/群聊/B站对不上现在。
+
+仍然不打包 QQ/OneBot 票、provider 凭据、审计密钥、B站 `bili/credentials.json` 与 `owner-credentials.json`（这些按第 1 步在本机重填）；也不带 token 预算、主动搭话历史、消息去重记录、会话瞬态状态、日志与 `.bak`、341MB 旧本地图库（只被 219 已作废的旧发图脚本引用）、`/opt/qq-cs` 外围 cron。它们要么 Git 已有，要么重建后自然产生，要么属于凭据/运维噪音。
 
 > **导出前先设 `SURFCORE_ROOT` 指向实际运行源目录**：老机是 `/opt/whale-surfcore/staging-c174ed0`，不是脚本默认的 `current-source`。不设的话脚本会「跳过不存在」并**静默漏掉** `src:state/*` 五个文件（会话锚点、QQ→B站公开流水、表情库、表情识别、俚语），包会从 71 个文件缩成 66 个。完整命令：
 > `SURFCORE_ROOT=/opt/whale-surfcore/staging-c174ed0 bash deploy/state-transfer.sh export /root/whale-state-219.tar.gz`

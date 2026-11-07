@@ -25,6 +25,11 @@ ITEMS=(
   "dsh:surfcore/memory"
   "dsh:surfcore/relationship-facts.json"
   "dsh:surfcore/config.json"
+  # 219c：Git 里只有读这两份的代码，文件本身是仓库外现值，bootstrap 不生成。
+  # 前者管 B站偏好/称呼/动态开关/配额，后者管群聊忽略名单；不带就会回默认，三端对不上。
+  # 两份都不含凭据，B站登录凭据仍留新机重填。
+  "dsh:surfcore/bili.config.json"
+  "dsh:qq-chat-control.json"
   "dsh:qq-bridge-config.json"
   "ws:CHAT-STYLE.md"
   "ws:OWNER-RULES.md"
