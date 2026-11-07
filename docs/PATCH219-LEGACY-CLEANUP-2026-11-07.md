@@ -64,7 +64,7 @@
 ### 3.3 数据层（防止下次记忆维护／主动搭话回流）
 
 - `purpose-outreach.json`：删 `observations` 里的鱼八股原句和「我熟得很」装熟样本、`goals` 里「你不是早有这个表情包了嘛」、`pending` 与 `history` 里 6 条认图作业／额度补图记录（共 9 条）。
-- `memory-card-full.md` / `memory-card.md` / `memory-card.json` / 三份 `memory-card-prompt-*`：改掉「三端都叫杂扣」「私聊专属称呼」「群里仍按主人叫」「只叫一声杂扣」；把「见过是见过…」「这张见过没…没见过的再问你」「白天认图得认真点」「拿认图当作业写」等旧承诺改成 219 口径；清掉 10-30 的「额度／欠你两张／发条数上限」样本。
+- `memory-card-full.md` / `memory-card.md` / `memory-card.json` / 三份 `memory-card-prompt-*`：改掉「三端都叫杂扣」「私聊专属称呼」「群里仍按主人叫」「只叫一声杂扣」；把「见过是见过…」「这张见过没…没见过的再问你」「白天认图得认真点」「拿认图当作业写」等旧承诺改成 219 口径；清掉 10-30 的「额度／欠你两张／发条数上限」样本。**首次部署只改了渲染产物，源流水在部署后的复核里补改，见第八节。**
 - `state/social-v2.json`：两条 11-07 称呼 anchors 改成场景化；`recentMessages[89]` 的鱼八股原句换成「情绪到了就甩一张图，不写说明书」。
 - `state/whale-language/history.json`：同一句鱼八股与「认得认得…我熟得很」装熟样本清掉。
 - `/root/.dsh/surfcore/config.json`：`persona.file` 从 `/root/dsh-workspace/AGENTS.md` 改指 `/root/.dsh/surfcore/characters/v16-2026-10-27/persona.md`；生产实跑 `resolvePersonaFile()` 仍解析到角色卡。
@@ -96,7 +96,7 @@
 | A9-4 #403「不连发」 | 去掉「不连发」 |
 | A9-5 「不能为了证明活跃连发」 | 「不设上限」与「别烦人四条常识」分开写，不再并列打架 |
 | B1 purpose-outreach 鱼八股/装熟/额度 | 删 9 条 |
-| B2 记忆卡全量版旧句 | 全量卡 / .md / .json / 三份 prompt 一起改 |
+| B2 记忆卡全量版旧句 | 全量卡 / .md / .json / 三份 prompt 一起改；**219b 再补改 `memory-card-full.jsonl` / `memory-inbox.jsonl` 两条源流水**（见第八节） |
 | B3 prompt 里认图作业承诺与「私聊专属」 | 改掉 |
 | B4 语言样本鱼八股原句 | social-v2 / history 清掉 |
 | B5 `0.34` 相似度被误读成发图门槛 | 注释澄清；规则文字也写明【表情匹配】只是参考 |
@@ -134,3 +134,22 @@
 - 导出必须显式指定实际运行源（218 发现的坑）：
   `SURFCORE_ROOT=/opt/whale-surfcore/staging-c174ed0 bash deploy/state-transfer.sh export /root/whale-state-219.tar.gz`
 - 迁移包路径与校验和见本次提交信息；包内不含 OneBot 票、provider 凭据、审计密钥。
+
+---
+
+## 八、219b：全量记忆卡源流水回写修复（部署后复核发现）
+
+**现象**：219 部署当时 `verify219.py` 全绿；约 4 分钟后复核变成 `ok:false`，唯一不合格文件是 `memory-card-full.md`——`这些表情包你全都看过了`、`三端都叫他`、`只叫一声杂扣`、`私聊专属称呼`、`群里仍按` 全回来了，且新写的「称呼按场景」消失。同一时刻六份记忆卡 mtime 一致（`19:17:35`），说明是一次记忆维护重渲染。
+
+**根因**：`src/memory-card.js` 注明 `memory-card-full.jsonl` 是「一行一条、只追加、唯一真相」，`renderFullMemoryCard(records, {now})` 从它生成 `memory-card-full.md`，`recallFullMemory()` 也从它检索。219 只改了**渲染产物**，没改**源流水**：971 条归档里 16 类旧句原封不动，一次维护就全部生回全量卡。其余 5 份卡（`memory-card.json` / `.md` / 三份 prompt）走另一条链，19:17 重渲染后仍是干净的，所以只有全量卡中招。
+
+**修复**（不改代码、不重载桥、不发消息、不调模型）：
+
+1. 先把 `memory-card-full.jsonl`（971 条）与 `memory-inbox.jsonl`（2005 条待归档，防回流）备份到 `/root/whale-ops/patch219/backup/*.before219b`。
+2. 用 `rewrite219.py` 里同一份 27 条 `TEXT_RULES` 对两条源流水做**逐行纯文本替换**（含 JSON 里 `"` → `\"` 的转义变体），只改命中行；逐行 `json.loads` 校验、行数不变、行序不变、文件权限不变。
+3. 用运行时的 `renderFullMemoryCard` 真实重渲染 `memory-card-full.md`：**971 条 / 153276 字节 / 含「称呼按场景」/ 旧句 0**。这是「维护任务再跑一次也不会复活」的证明，不是拿干净文件盖过去。
+4. `journal/*.jsonl` 是 append-only 会话历史，不在提示词／渲染／检索链，**保留作历史证据，不动**。
+
+**结果**：`verify219.py` 恢复 `ok:true`；`revision=219`、`diskOk/loadedOk=true`、`badFiles=[]`、QQ 4875 字 / B站 4871 字、`resolvePersonaFile()` 指向角色卡、桥单进程、QQ/WS/DSH 全 active。源流水与全量卡对旧句的 grep 均为 **0**。
+
+**换机注意**：`deploy/state-transfer.sh` 的 `dsh:surfcore/characters` 整目录打包，已包含修好的 `memory-card-full.jsonl`；**但包必须是 219b 之后重新导出的**，拿 219 当时那个包会把旧源流水带过去，新机第一次记忆维护就复活旧句。验收命令见 `docs/FRESH-SERVER.md`。

@@ -17,6 +17,8 @@
 > **导出前先设 `SURFCORE_ROOT` 指向实际运行源目录**：老机是 `/opt/whale-surfcore/staging-c174ed0`，不是脚本默认的 `current-source`。不设的话脚本会「跳过不存在」并**静默漏掉** `src:state/*` 五个文件（会话锚点、QQ→B站公开流水、表情库、表情识别、俚语），包会从 71 个文件缩成 66 个。完整命令：
 > `SURFCORE_ROOT=/opt/whale-surfcore/staging-c174ed0 bash deploy/state-transfer.sh export /root/whale-state-219.tar.gz`
 
+> **迁移包必须是 219b 之后重新导出的**：`memory-card-full.jsonl`（971 条全量记忆，运行源码标注为「唯一真相、只追加」）和 `memory-inbox.jsonl` 随整目录 `dsh:surfcore/characters` 一起带走。219 首次部署只改了渲染产物 `memory-card-full.md`，19:17 一次记忆维护重渲染就把废弃旧句全部生回全量卡；219b 已把两条源流水按同一套 219 规则改干净，并用运行时的 `renderFullMemoryCard` 重渲染验证。拿 219b 之前的旧包，新机第一次维护就会复活旧口径（详见 `docs/PATCH219-LEGACY-CLEANUP-2026-11-07.md` 第八节）。
+
 ## 前提（下列由人准备，脚本故意不碰）
 
 - Ubuntu 22.04+/Debian 12，root，systemd，Node 24+，Python 3.6+，git/npm/curl。
@@ -57,6 +59,14 @@ bash deploy/bootstrap.sh /root/whale-ops/install.local.json
 3. SurfCore 设置：QQ 后端 `reserved2`、主人/白名单正确、语音与桌宠关闭、自动更新关闭。
 4. 私信一句 → 她回了 → 查腾讯接口原记录（不是看日志自证）。
 5. 群里她说一句普通话能落地；「带原话到群」等主人自然说一次才算验过。
+6. **219b 源流水自检**（换机导入后、以及每次记忆维护后都能跑，预期值见括号）：
+   ```bash
+   MEM=/root/.dsh/surfcore/characters/v16-2026-10-27/memory
+   grep -cE '三端都叫他|群里仍按|这些表情包你全都看过了|只叫一声杂扣|私聊专属称呼' "$MEM/memory-card-full.jsonl"   # 0
+   grep -cE '三端都叫他|群里仍按|这些表情包你全都看过了|只叫一声杂扣|私聊专属称呼' "$MEM/memory-card-full.md"      # 0
+   grep -c  '称呼按场景' "$MEM/memory-card-full.md"                                                              # >=1
+   ```
+   任一不对，说明导入的是 219b 之前的旧包，或全量卡又被旧源流水重渲染了；先按第八节修源，别只把 `.md` 盖回去。
 
 ## 明确不部署（历史遗留，Git 里只留档）
 
@@ -77,3 +87,4 @@ NapCat 容器与 ws 端口、旧 dsh-qq-bridge 平铺镜像、143 构建器、�
 - `build-upstream.sh` 会 `npm ci`，小内存机（2G 且已有服务）容易顶到 OOM。要么在空闲时段跑，要么先加 swap；**不要在生产机上边跑边重启 DSH**。
 - 镜像 `/opt/whale-live` 的 origin 是 `ssh://git@ssh.github.com`，服务器上没有私钥会 `Permission denied`；公开仓库按 HTTPS 匿名取即可。
 - 旧记忆导入用 `integrations/surfcore/import-memory.mjs`（只读快照，原文件保留）；不要拿别人的记忆顶替自己的。
+- **`memory-card-full.md` 只是渲染产物，别只改它**：它由 `memory-card-full.jsonl` 经 `renderFullMemoryCard()` 生成，同一目录的 `memory-inbox.jsonl` 是待归档队列。只清理渲染出来的 `.md`，下一次记忆维护（生产上每半点一次）会把源流水里的旧句原样生回来。219b 的教训，见验收清单第 6 条。

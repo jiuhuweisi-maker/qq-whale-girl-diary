@@ -19,6 +19,8 @@ ok(){ printf '✓ %s\n' "$*"; }
 
 # 私密状态清单：人设/风格/关系、角色包、日记与记忆、表情库、会话锚点、行为设置。
 ITEMS=(
+  # 整目录带走：含 219b 修好的 memory-card-full.jsonl / memory-inbox.jsonl 两条源流水。
+  # 只带渲染产物 memory-card-full.md，新机第一次记忆维护就会把废弃旧句生回来。
   "dsh:surfcore/characters"
   "dsh:surfcore/memory"
   "dsh:surfcore/relationship-facts.json"
