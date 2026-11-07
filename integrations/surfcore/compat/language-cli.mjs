@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {SCENES,languageHome,settings,readJson,atomicJson,currentPack,styleBlock,invalidateLanguageCache} from './language-style.mjs';
+import {loadStrategies,strategyLine} from './language-strategies.mjs';
 import {learnOnce,distillPack,publishPack,rollbackPack} from './language-learning.mjs';
 import {languageAudit} from './language-audit.mjs';
 
@@ -16,6 +17,8 @@ export async function main(args=process.argv.slice(2)){
   return {home,enabled:s.enabled,autoLearn:s.autoLearn,version:p?.version||null,packName:p?.name||null,scenes:p?.scenes?.map(x=>({name:x.name,count:x.count}))||[],corpusCount:state.corpusCount||0,lastAttempt:state.lastAttempt?new Date(state.lastAttempt).toISOString():null,lastCompleted:state.lastCompleted?new Date(state.lastCompleted).toISOString():null,learningLockPresent:fs.existsSync(path.join(home,'learning.lock')),stats:state.stats||null,limits:s,versions:fs.existsSync(path.join(home,'versions'))?fs.readdirSync(path.join(home,'versions')).filter(x=>/^v[0-9a-f]{16}\.json$/.test(x)):[]};
  }
  if(cmd==='pack'){if(arg&&!SCENES.includes(arg))throw Error('未知场景；请运行 status 查看已有场景');return styleBlock({home,scene:arg});}
+ if(cmd==='strategies'){const p=loadStrategies();return {name:p?.name||null,version:p?.version||null,stats:p?.stats||null,categories:p?.categories?.map(c=>({id:c.id,label:c.label,scenes:c.scenes,evidence:c.evidence}))||[]};}
+ if(cmd==='strategy'){const scene=arg&&SCENES.includes(arg)?arg:'日常闲聊';return strategyLine({scene,scope:'cli'});}
  if(cmd==='rollback')return {version:rollbackPack(home,arg)};
  if(cmd==='forget-source'){
   if(!/^BV[0-9A-Za-z]{10}$/.test(arg||''))throw Error('Expected exact BV source');
