@@ -131,6 +131,7 @@
 
 - `compat/expression-style.mjs`、`compat/TOOL-GUIDE.md`、`version.mjs`、`release/runtime-files.json`、4 份 live-mirror 源码/预设、2 份新增 live-mirror 文件、测试、文档与 `deploy/state-transfer.sh` 全部进 Git。
 - 私密状态（19 份工作区/角色卡/记忆卡/语言状态）**不进 Git**，靠 `state-transfer.sh` 打包；219 清单已补齐。
+- **219c 迁移包收口**（主人令「Git 上有的不用打包，包里留重要的」）：清单再补 `dsh:surfcore/bili.config.json`（B站偏好/称呼/动态开关，运行时每轮重读）与 `dsh:qq-chat-control.json`（群聊忽略名单）——Git 里只有读它们的代码、bootstrap 不生成，不带三端会对不上。凭据（B站 `credentials.json`、`owner-credentials.json`）、token 预算、主动搭话历史、去重记录、会话瞬态、日志、341MB 旧图库与外围 cron 一律不带。定稿包 89 文件，校验和见 `docs/FRESH-SERVER.md`。
 - 导出必须显式指定实际运行源（218 发现的坑）：
   `SURFCORE_ROOT=/opt/whale-surfcore/staging-c174ed0 bash deploy/state-transfer.sh export /root/whale-state-219.tar.gz`
 - 迁移包路径、SHA-256 与导入演练结果见 `docs/FRESH-SERVER.md` 的「219 迁移包」一节；包内不含 OneBot 票、provider 凭据、审计密钥。

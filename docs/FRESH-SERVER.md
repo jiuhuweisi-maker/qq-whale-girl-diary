@@ -59,11 +59,13 @@ bash deploy/bootstrap.sh /root/whale-ops/install.local.json
 | 项 | 值 |
 |---|---|
 | 旧机路径 | `/root/whale-ops/migrate-2026-11-07-219/whale-state-20261107-219.tar.gz` |
-| 权限 / 大小 | `600` / 4,179,304 字节 |
-| 内含文件 | 87 个（`MANIFEST.json` 逐个文件 sha256） |
-| SHA-256 | `7cd8de412ec7f97e60691b1310702993fae0622b0a15c087537d16ce06eeaf80` |
+| 权限 / 大小 | `600` / 4,180,154 字节 |
+| 内含文件 | 89 个（`MANIFEST.json` 逐个文件 sha256） |
+| SHA-256 | `9095c0b7b710837fb94286776d4c5c256f04d5c298f8d12933b68365a56e43dc` |
 | 同目录产物 | `SHA256SUMS`、`result.json`（只读导入演练结果） |
-| 对应 Git | `816780b`（219b），镜像 `/opt/whale-live` 已 ff-only 同步 |
+| 对应 Git | `3ef131d`（219c），镜像 `/opt/whale-live` 已 ff-only 同步 |
+
+这是 **219c 定稿包**：在 219b 基础上补了 `dsh:surfcore/bili.config.json` 与 `dsh:qq-chat-control.json`（87 → 89 文件）。旧包（87 文件、sha256 `7cd8de41…`）作废，别用。
 
 导出命令（重打时照抄，`SURFCORE_ROOT` 不能省）：
 
@@ -73,7 +75,7 @@ SURFCORE_ROOT=/opt/whale-surfcore/staging-c174ed0 \
   /root/whale-ops/migrate-2026-11-07-219/whale-state-20261107-219.tar.gz
 ```
 
-新机把包与 `SHA256SUMS` 放同一目录后 `sha256sum -c SHA256SUMS`，再按验收清单第 6 条查源流水。只读导入演练已验证：87 个文件哈希全对、219 新句齐备、废弃旧句 0、无票与凭据文件。**包是私密状态，不进 Git、别放公开目录，传完就删。** 重新导出会改变 gzip 时间戳与 sha256，以 `SHA256SUMS` 当时那份为准。
+新机把包与 `SHA256SUMS` 放同一目录后 `sha256sum -c SHA256SUMS`，再按验收清单第 6 条查源流水。只读导入演练已验证：89 个文件哈希全对、219 新句齐备、废弃旧句 0、B站行为配置与群聊忽略名单都在、无票与 B站凭据、无 341MB 旧图库。**包是私密状态，不进 Git、别放公开目录，传完就删。** 重新导出会改变 gzip 时间戳与 sha256，以 `SHA256SUMS` 当时那份为准。
 
 ## 验收清单（按顺序，任一项不对就别急着上线）
 
