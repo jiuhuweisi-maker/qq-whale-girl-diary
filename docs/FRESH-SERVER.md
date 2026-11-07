@@ -1,4 +1,4 @@
-# 换一台 Linux 服务器：一次部署到最新版（适配 218）
+# 换一台 Linux 服务器：一次部署到最新版（适配 219）
 
 **结论先说：代码层已经可以照 Git 原样复现，不是"差不多"。** 2026-11-04 实测：从本仓库的 `integrations/surfcore/version.mjs` 取固定上游 `0deb8261…`（SurfCore 0.8.8），跑 `build.mjs` 打出覆盖层，得到 **566 个文件，与线上生产清单逐个 sha256 完全相同（0 处差异）**。所以换机不需要拷运行目录，只要这套流程。
 
@@ -6,16 +6,16 @@
 
 | 层 | 是什么 | 从哪来 | 进 Git 吗 |
 |---|---|---|---|
-| 代码层 | SurfCore 0.8.8 + 鲸戒适配 218（桥、运行时、兼容层、工具） | 本仓库，一条命令构建 | 是 |
+| 代码层 | SurfCore 0.8.8 + 鲸戒适配 219（桥、运行时、兼容层、工具） | 本仓库，一条命令构建 | 是 |
 | 配置层 | QQ 号、provider/model、OneBot 票、控制台端口 | 仓库外私密 `install.local.json` + 票文件，`init.mjs` 生成 | 否 |
 | 状态层 | 她的人设、聊天风格、重要关系、记忆与日记、表情收藏、账本 | 旧机用 `state-transfer.sh` 打包搬过去 | **否，私密** |
 
 只跑 Git，你会得到同一个骨架和同一套行为逻辑，但她不会是"同一个她"——记忆和人设得单独搬。
 
-**218 起，`state-transfer.sh` 的私密包已包含：** `CHAT-STYLE.md`（三端统一说话方式）、`OWNER-RULES.md`（主人永久规则的可覆盖文本，缺失时回落代码常量）、`STICKER-INDEX.md`（352 张 QQ 收藏表情按情绪/画面/编号的速查）、`surfcore/config.json`（记忆通道与记忆卡设置）、`state/social-v2.json`（会话锚点与当前状态）、`state/qq-public-feed.jsonl`（QQ→B站 的公开消息源）、`state/slang.json`、角色目录下的记忆卡与 B站 简报。仍然不打包 QQ/OneBot 票、provider 凭据、审计密钥；这些按第 1 步在本机重填。
+**219 起，`state-transfer.sh` 的私密包已包含：** `CHAT-STYLE.md`（三端统一说话方式）、`OWNER-RULES.md`（主人永久规则的可覆盖文本，缺失时回落代码常量）、`STICKER-INDEX.md`（352 张 QQ 收藏表情按情绪/画面/编号的速查）、`QQ-CAPABILITIES.md`（219 重写后的能力说明）、`AGENTS.md`（口径指针，不再是总纲）、`SESSION-HANDOFF.md`、`QQ-PEOPLE.md`、`QQ-DUTY-LOG.md`、`surfcore/config.json`（记忆通道与记忆卡设置，`persona.file` 已指向角色卡）、`state/social-v2.json`（会话锚点与当前状态）、`state/qq-public-feed.jsonl`（QQ→B站 的公开消息源）、`state/slang.json`、`state/whale-language/`（语言样本，219 已清掉鱼八股原句）、角色目录下的记忆卡、目的观察与 B站 简报。**219 新增的这几份工作区文件必须一起带走**：漏了 `QQ-CAPABILITIES.md` / `AGENTS.md`，新机会退回旧图闸和 10-27 旧总纲。仍然不打包 QQ/OneBot 票、provider 凭据、审计密钥；这些按第 1 步在本机重填。
 
 > **导出前先设 `SURFCORE_ROOT` 指向实际运行源目录**：老机是 `/opt/whale-surfcore/staging-c174ed0`，不是脚本默认的 `current-source`。不设的话脚本会「跳过不存在」并**静默漏掉** `src:state/*` 五个文件（会话锚点、QQ→B站公开流水、表情库、表情识别、俚语），包会从 71 个文件缩成 66 个。完整命令：
-> `SURFCORE_ROOT=/opt/whale-surfcore/staging-c174ed0 bash deploy/state-transfer.sh export /root/whale-state-218.tar.gz`
+> `SURFCORE_ROOT=/opt/whale-surfcore/staging-c174ed0 bash deploy/state-transfer.sh export /root/whale-state-219.tar.gz`
 
 ## 前提（下列由人准备，脚本故意不碰）
 
@@ -52,7 +52,7 @@ bash deploy/bootstrap.sh /root/whale-ops/install.local.json
 
 ## 验收清单（按顺序，任一项不对就别急着上线）
 
-1. `whale-overlay-manifest.json` 里 `patch=218`、`sums` 566 条；`init.mjs` 已核过哈希才继续。
+1. `whale-overlay-manifest.json` 里 `patch=219`、`sums` 566 条；`init.mjs` 已核过哈希才继续。
 2. `systemctl status whale-relay` 活着；`curl -s -XPOST 127.0.0.1:3000/get_login_info -d '{}'` 回 `retcode:0`。
 3. SurfCore 设置：QQ 后端 `reserved2`、主人/白名单正确、语音与桌宠关闭、自动更新关闭。
 4. 私信一句 → 她回了 → 查腾讯接口原记录（不是看日志自证）。
@@ -70,10 +70,10 @@ NapCat 容器与 ws 端口、旧 dsh-qq-bridge 平铺镜像、143 构建器、�
 - **与线上不同**：`poke.py`、`auto_memes.py`、`weekly_report.py` 是旧版本；`wsd.py` 线上那份把 OneBot WS 票直接写死在 `WS_URL` 里，Git 版是脱敏的 `ws://127.0.0.1:3001`。要复刻戳一戳转发，自己把票填进脱敏位置（票不进 Git）。
 - **cron 实际只跑五个**：`live_backup.sh`、`memory_store.py`、`watchdog.sh`、`snowluma-guard.sh`、`version_check.sh`。`version_check.sh` 已补进 `scripts/`，但**默认不装**——先确认 `notify.conf` 里的 webhook 是你自己的。
 
-所以"一模一样"的边界是清楚的：**她怎么说话、怎么记事、怎么发图、怎么换场，全在 536 个文件里；这堆旧脚本只影响备份、巡检、戳一戳这些外围动作。**
+所以"一模一样"的边界是清楚的：**她怎么说话、怎么记事、怎么发图、怎么换场，全在 566 个文件里；这堆旧脚本只影响备份、巡检、戳一戳这些外围动作。**
 
 ## 已知坑
-- **`version.mjs` 的 `OVERLAY_PATCH` 必须等于线上实际补丁号**。2026-11-04 之前它停在 199，而代码已是 200；218 起已同步到 218。以后每次上补丁都要同步这一行。
+- **`version.mjs` 的 `OVERLAY_PATCH` 必须等于线上实际补丁号**。2026-11-04 之前它停在 199，而代码已是 200；219 起已同步到 219。以后每次上补丁都要同步这一行。
 - `build-upstream.sh` 会 `npm ci`，小内存机（2G 且已有服务）容易顶到 OOM。要么在空闲时段跑，要么先加 swap；**不要在生产机上边跑边重启 DSH**。
 - 镜像 `/opt/whale-live` 的 origin 是 `ssh://git@ssh.github.com`，服务器上没有私钥会 `Permission denied`；公开仓库按 HTTPS 匿名取即可。
 - 旧记忆导入用 `integrations/surfcore/import-memory.mjs`（只读快照，原文件保留）；不要拿别人的记忆顶替自己的。

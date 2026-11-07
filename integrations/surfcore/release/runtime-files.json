@@ -7,6 +7,8 @@
   "src/memory-card.js",
   "src/qq-model-view.js",
   "src/sticker-lib.js",
+  "src/self-identity.js",
+  "src/sticker-semantics.js",
   "plugins/surfcore/lib/align.js",
   "plugins/surfcore/lib/bridge.js",
   "plugins/surfcore/lib/index.js",

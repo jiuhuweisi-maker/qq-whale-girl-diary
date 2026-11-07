@@ -27,11 +27,18 @@ ITEMS=(
   "ws:CHAT-STYLE.md"
   "ws:OWNER-RULES.md"
   "ws:STICKER-INDEX.md"
+  # 219：早期口径文档已改写，换机必须一起带走，否则新机会退回旧总纲/旧图闸。
+  "ws:QQ-CAPABILITIES.md"
+  "ws:AGENTS.md"
+  "ws:SESSION-HANDOFF.md"
+  "ws:QQ-PEOPLE.md"
+  "ws:QQ-DUTY-LOG.md"
   "src:state/stickers.json"
   "src:state/sticker-recognition.json"
   "src:state/social-v2.json"
   "src:state/qq-public-feed.jsonl"
   "src:state/slang.json"
+  "src:state/whale-language"
 )
 EXCLUDES=(--exclude='*.bak*' --exclude='*.before*' --exclude='archive' --exclude='snapshots' --exclude='*.log')
 

@@ -1,8 +1,12 @@
 # 鲸戒项目接手入口
 
-当前生产代码为 **适配218 / SurfCore 0.8.8**，固定官方提交见 `integrations/surfcore/version.mjs`。先读 `docs/PATCH218-STICKER-QUOTE-RULINGS-2026-11-07.md`、`docs/PATCH217-OWNER-RULES-2026-11-07.md`、`docs/PATCH216-TIEBA-LANGUAGE-2026-11-07.md`、`docs/PATCH215-QQ-COMMANDS-AND-CONTINUITY-2026-11-06.md`、`docs/PATCH214-OWNER-TASTE-2026-11-06.md` 和仓库外 `.ops/CONTINUE216.md`（217 的变更与回退见 `docs/PATCH217-OWNER-RULES-2026-11-07.md`）；213分享能力、209低开销记录和208语言记录保留。不要依据归档里的旧拓扑、数字和“未完成”重做部署。
+当前生产代码为 **适配219 / SurfCore 0.8.8**，固定官方提交见 `integrations/surfcore/version.mjs`。先读 `docs/PATCH219-LEGACY-CLEANUP-2026-11-07.md`、`docs/PATCH218-STICKER-QUOTE-RULINGS-2026-11-07.md`、`docs/PATCH217-OWNER-RULES-2026-11-07.md`、`docs/PATCH216-TIEBA-LANGUAGE-2026-11-07.md`、`docs/PATCH215-QQ-COMMANDS-AND-CONTINUITY-2026-11-06.md`、`docs/PATCH214-OWNER-TASTE-2026-11-06.md` 和仓库外 `.ops/CONTINUE216.md`（217 的变更与回退见 `docs/PATCH217-OWNER-RULES-2026-11-07.md`）；213分享能力、209低开销记录和208语言记录保留。不要依据归档里的旧拓扑、数字和“未完成”重做部署。
 
 **「她不回消息 / 刚重启还没活」先走运维手册**：`docs/RECOVERY-RUNBOOK-2026-11-07.md`（决策、备份、重启后快速恢复、验证清单），背景与根因见 `docs/INCIDENT-2026-11-07-MEMORY-EXHAUSTION.md`；一键只读巡检 `python3 scripts/recovery_status.py --watch 3 --interval 20`。
+
+## ★ 219（2026-11-07，WorkBuddy）
+
+主人裁决「全部按最新标准改，旧的都废弃，不用在鲸戒身上」：表情包按不设限制（匹配分、张数、频率、间隔、冷却、同图重复、私聊少发全废）；看到图默认看懂意思接着聊，删掉所有「问图才认真看／图片需要实际查看后再判断」的尾巴；称呼按场景——玩笑、打趣、撒娇叫「杂扣～❤️」，认真叙事、说正事叫「主人」，两种都算对（推翻 218 的「三端都叫杂扣」）。全库 25 个冲突证据点一次收口：`OWNER_RULES_CORE` 加第六节「旧口径全部作废」、`EXPRESSION_CORE` 去掉连发与问图旧句、`TOOL-GUIDE` 删旧梗图库例外、`QQ-CAPABILITIES.md` 整份重写、`AGENTS.md` 降为指针、`config.json → persona.file` 改指角色卡；代码层还改了 `self-identity.js`（固定称呼行）、`bridge.js`（禁掉会喂装熟的【表情记忆174】注入）、`mcp-snowluma-safe.js`（工具描述）、`sticker-semantics.js`（0.34 只是检索排序分）、agent 预设（删匹配分 ≥0.7 与偷图收藏）；数据层清掉 purpose-outreach 的鱼八股/装熟/认图作业样本、记忆卡全量版与三份 prompt 的旧称呼和旧承诺、social-v2 anchors 与语言样本的鱼八股原句。`runtime-files.json` 新增 `src/self-identity.js`、`src/sticker-semantics.js` 两份 live-mirror 文件，确保换机随构建带上。生产 revision=219、566 文件哈希全对、7 个构建文件 + 19 个状态文件更新、桥只重载一次；`verify219.py` 全绿，生产 `owner-rules` 11/11、`bili-style` 5/5、`bridge-integration` PASS_ALL 47，本地 295 项中 7 项失败仍是既有环境性失败。**217 表 #5/#6/#8/#9 连同体检 25 点全部结案。**详见 `docs/PATCH219-LEGACY-CLEANUP-2026-11-07.md`。
 
 ## ★ 218（2026-11-07，WorkBuddy）
 

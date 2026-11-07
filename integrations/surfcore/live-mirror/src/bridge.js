@@ -1834,7 +1834,10 @@ function seenStickerHint174(key, mediaList) {
     }
   }
   if (!bits.length) return '';
-  return '\n【表情记忆174】' + bits.join('；') + '——是老表情就接住玩，别再整套辨认或解释一遍。';
+  // 219（2026-11-07 主人令）：见过了不要说见过了，也不报备见没见过。
+  // 这段「之前就见过／第几次」的提醒会把装熟直接喂回模型，故不再注入；
+  // 记录逻辑 noteSeenSticker174 保留，状态与日志不受影响。
+  return '';
 }
 
 function extractMediaFromSegments(segments) {
@@ -10806,7 +10809,7 @@ async function main() {
   function mediaHintCore174(key, messageRef, mediaList) {
     if (!Array.isArray(mediaList) || mediaList.length === 0 || !messageRef) return '';
     if (currentMode === 'reserved2') {
-      return `\n【图片/表情】本条消息包含 ${mediaList.length} 个图片/表情（消息ID=${messageRef}）。如需要查看/识别，请调用 mcp__snowluma__qq_get_message_images，参数 key="${key}", messageId="${messageRef}"。`;
+      return `\n【图片/表情】本条消息包含 ${mediaList.length} 个图片/表情（消息ID=${messageRef}）。普通表情包看懂意思接着聊就行，不用逐张查图；确实要看清内容时再调用 mcp__snowluma__qq_get_message_images，参数 key="${key}", messageId="${messageRef}"。`;
     }
     return `\n【图片/表情】本条消息包含 ${mediaList.length} 个图片/表情（消息ID=${messageRef}）。`;
   }
