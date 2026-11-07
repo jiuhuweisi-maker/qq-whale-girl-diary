@@ -6,7 +6,7 @@
 - 新部署：[完整部署说明](docs/DEPLOY-SURFCORE.md) 和 [模板入口](deploy/README.md)
 - 最新修复见 [216 贴吧语言蒸馏](docs/PATCH216-TIEBA-LANGUAGE-2026-11-07.md)：12 类场景化接话策略、贴吧真实语料统计基线、每轮只注入一条规则；保留 [215 QQ 指令与持续接话](docs/PATCH215-QQ-COMMANDS-AND-CONTINUITY-2026-11-06.md)、[209 低开销经历](docs/PATCH209-LOW-COST-EXPERIENCE-2026-11-06.md)、208 随浏览学习和 214 分享口味判据；没有独立模型整理调度。
 - 历史版本：已从树里移出（143 构建器、平铺镜像、旧测试草稿、人设卡镜像），需要时从提交 `3deeeb8` 取：`git show 3deeeb8:archive/2026-11-03/README.md`
-- 运维接手：[AGENTS.md](AGENTS.md) 和 [10月30日任务书](docs/CODEX-BRIEF-2026-10-30.md)
+- 运维接手：[AGENTS.md](AGENTS.md)、[10月30日任务书](docs/CODEX-BRIEF-2026-10-30.md)；故障与重启恢复走 [重启后快速恢复手册](docs/RECOVERY-RUNBOOK-2026-11-07.md)（只读巡检 `scripts/recovery_status.py`），[11月7日故障复盘](docs/INCIDENT-2026-11-07-MEMORY-EXHAUSTION.md) 记录根因与证据
 - 可选模拟盘：[服务源码与安装说明](services/fundpilot/README.md)，支持明确订单按需补充虚拟资金；不连接真实券商
 
 旧安装器已停用。下面保留当时的历史记录，其中 NapCat、旧主动聊天、收藏与记忆描述不代表当前行为；不要据此恢复旧 cron 或启动第二个客户端。
