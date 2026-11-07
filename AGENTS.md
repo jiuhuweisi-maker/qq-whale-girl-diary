@@ -1,8 +1,12 @@
 # 鲸戒项目接手入口
 
-当前生产代码为 **适配217 / SurfCore 0.8.8**，固定官方提交见 `integrations/surfcore/version.mjs`。先读 `docs/PATCH217-OWNER-RULES-2026-11-07.md`、`docs/PATCH216-TIEBA-LANGUAGE-2026-11-07.md`、`docs/PATCH215-QQ-COMMANDS-AND-CONTINUITY-2026-11-06.md`、`docs/PATCH214-OWNER-TASTE-2026-11-06.md` 和仓库外 `.ops/CONTINUE216.md`（217 的变更与回退见 `docs/PATCH217-OWNER-RULES-2026-11-07.md`）；213分享能力、209低开销记录和208语言记录保留。不要依据归档里的旧拓扑、数字和“未完成”重做部署。
+当前生产代码为 **适配218 / SurfCore 0.8.8**，固定官方提交见 `integrations/surfcore/version.mjs`。先读 `docs/PATCH218-STICKER-QUOTE-RULINGS-2026-11-07.md`、`docs/PATCH217-OWNER-RULES-2026-11-07.md`、`docs/PATCH216-TIEBA-LANGUAGE-2026-11-07.md`、`docs/PATCH215-QQ-COMMANDS-AND-CONTINUITY-2026-11-06.md`、`docs/PATCH214-OWNER-TASTE-2026-11-06.md` 和仓库外 `.ops/CONTINUE216.md`（217 的变更与回退见 `docs/PATCH217-OWNER-RULES-2026-11-07.md`）；213分享能力、209低开销记录和208语言记录保留。不要依据归档里的旧拓扑、数字和“未完成”重做部署。
 
 **「她不回消息 / 刚重启还没活」先走运维手册**：`docs/RECOVERY-RUNBOOK-2026-11-07.md`（决策、备份、重启后快速恢复、验证清单），背景与根因见 `docs/INCIDENT-2026-11-07-MEMORY-EXHAUSTION.md`；一键只读巡检 `python3 scripts/recovery_status.py --watch 3 --interval 20`。
+
+## ★ 218（2026-11-07，WorkBuddy）
+
+主人裁决了 217 留下的矛盾表：吐槽只允许「没见过且够猎奇」的图、一次一句、别大惊小怪；**推翻 217 的「全都见过、不用再认」**，改成别装熟、见过了不要说见过了、看懂图的意思接着正常聊；认亲/收图只有明确叫「收下」才做，QQ 收藏已有就一句「已经有了」；挑图只从 QQ 收藏面板；单发一张比硬续话有效；emoji 可在句中；多人/连发/答具体问题默认引用，正常一对一不用。底层 `OWNER_RULES_CORE` 重写为五节，`EXPRESSION_CORE` 的引用与 emoji 句同步改掉，CHAT-STYLE / TOOL-GUIDE / 角色卡 / STICKER-INDEX 四处统一，角色卡里「每天认 10 张表情」的主动任务和晚间汇报的「认了几张」一并收掉。生产 revision=218、566 文件、桥单进程、只重载一次；本地 293 项中 7 项失败为既有环境性失败（与基线一致），生产 `owner-rules` 9/9、`bili-style` 5/5、`bridge-integration` PASS_ALL 47。详见 `docs/PATCH218-STICKER-QUOTE-RULINGS-2026-11-07.md`。**217 表 #5/#6/#8/#9 仍未裁决，保留原样。**
 
 ## ★ 216（2026-11-07，WorkBuddy）
 

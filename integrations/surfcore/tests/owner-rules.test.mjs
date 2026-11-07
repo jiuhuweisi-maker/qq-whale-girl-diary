@@ -15,10 +15,28 @@ test('owner rules are a real code-level constant, not a generated memory', () =>
   assert(OWNER_RULES_CORE.startsWith(OWNER_RULES_MARK));
   assert(OWNER_RULES_CORE.includes('鱼八股'));
   assert(OWNER_RULES_CORE.includes('每个表情包都吐槽干嘛'));
-  assert(OWNER_RULES_CORE.includes('这些表情包你全都看过了'));
+  assert(OWNER_RULES_CORE.includes('我收起来啦'));
   assert(OWNER_RULES_CORE.includes('不设匹配分门槛'));
   assert(OWNER_RULES_CORE.includes('不设每轮张数上限'));
-  assert(OWNER_RULES_CORE.includes('我收起来啦'));
+  // 218: the "全都见过、不用再认" wording was withdrawn by the owner.
+  assert(!OWNER_RULES_CORE.includes('全都见过'));
+  assert(!OWNER_RULES_CORE.includes('不用再认'));
+  assert(!OWNER_RULES_CORE.includes('这些表情包你全都看过了'));
+});
+
+test('218 owner rulings on stickers, quotes and emoji all live in the constant', () => {
+  const must = [
+    '别装熟', '见过了不要说见过了', '正常聊', '同一张只一次', '别大惊小怪',
+    '没见过', '猎奇', '认亲／收图只有主人明确叫', '已经有了', '不主动认图',
+    '挑图只从 QQ 收藏面板', '不用旧梗图库', '单发一张表情比硬续话有效',
+    '不固定结尾', '放在句中、句尾或单独一条',
+    '多人同时在说话', '默认引用回复', '正常一对一', '不用引用',
+  ];
+  for (const phrase of must) assert(OWNER_RULES_CORE.includes(phrase), phrase);
+  // The old "only quote to disambiguate" rule must not survive anywhere in the core.
+  assert(!EXPRESSION_CORE.includes('只有消除指代歧义时才引用'));
+  assert(EXPRESSION_CORE.includes('默认引用回复'));
+  assert(EXPRESSION_CORE.includes('位置随情绪'));
 });
 
 test('owner rules stay public-safe: no account ids or private detail', () => {
