@@ -52,6 +52,27 @@ bash deploy/bootstrap.sh /root/whale-ops/install.local.json
 
 然后 `systemctl restart dsh`，用主人私信一句普通问候验收：核对实际回执、收件人、引用和发送次数。**不要往真实群灌测试消息。**
 
+## 219 迁移包（旧机已导出 · 2026-11-07 · 219b）
+
+| 项 | 值 |
+|---|---|
+| 旧机路径 | `/root/whale-ops/migrate-2026-11-07-219/whale-state-20261107-219.tar.gz` |
+| 权限 / 大小 | `600` / 4,179,304 字节 |
+| 内含文件 | 87 个（`MANIFEST.json` 逐个文件 sha256） |
+| SHA-256 | `7cd8de412ec7f97e60691b1310702993fae0622b0a15c087537d16ce06eeaf80` |
+| 同目录产物 | `SHA256SUMS`、`result.json`（只读导入演练结果） |
+| 对应 Git | `816780b`（219b），镜像 `/opt/whale-live` 已 ff-only 同步 |
+
+导出命令（重打时照抄，`SURFCORE_ROOT` 不能省）：
+
+```bash
+SURFCORE_ROOT=/opt/whale-surfcore/staging-c174ed0 \
+  bash /opt/whale-live/deploy/state-transfer.sh export \
+  /root/whale-ops/migrate-2026-11-07-219/whale-state-20261107-219.tar.gz
+```
+
+新机把包与 `SHA256SUMS` 放同一目录后 `sha256sum -c SHA256SUMS`，再按验收清单第 6 条查源流水。只读导入演练已验证：87 个文件哈希全对、219 新句齐备、废弃旧句 0、无票与凭据文件。**包是私密状态，不进 Git、别放公开目录，传完就删。** 重新导出会改变 gzip 时间戳与 sha256，以 `SHA256SUMS` 当时那份为准。
+
 ## 验收清单（按顺序，任一项不对就别急着上线）
 
 1. `whale-overlay-manifest.json` 里 `patch=219`、`sums` 566 条；`init.mjs` 已核过哈希才继续。

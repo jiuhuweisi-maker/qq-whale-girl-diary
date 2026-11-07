@@ -133,7 +133,7 @@
 - 私密状态（19 份工作区/角色卡/记忆卡/语言状态）**不进 Git**，靠 `state-transfer.sh` 打包；219 清单已补齐。
 - 导出必须显式指定实际运行源（218 发现的坑）：
   `SURFCORE_ROOT=/opt/whale-surfcore/staging-c174ed0 bash deploy/state-transfer.sh export /root/whale-state-219.tar.gz`
-- 迁移包路径与校验和见本次提交信息；包内不含 OneBot 票、provider 凭据、审计密钥。
+- 迁移包路径、SHA-256 与导入演练结果见 `docs/FRESH-SERVER.md` 的「219 迁移包」一节；包内不含 OneBot 票、provider 凭据、审计密钥。
 
 ---
 
