@@ -1,6 +1,6 @@
 #!/bin/bash
 # 把这台机器上「她本人」的私密状态打包带走 / 铺到新机，让新服务器长成同一个她。
-# 只装人设与记忆，不装凭据：config.json、审计密钥、OneBot 票一律不打包。
+# 只装人设、说话风格、记忆与行为设置；QQ/OneBot 票、审计密钥、provider 凭据不打包。
 # 用法：
 #   旧机： bash deploy/state-transfer.sh export /root/whale-state-20261104.tar.gz
 #   新机： bash deploy/state-transfer.sh import /root/whale-state-20261104.tar.gz [--force]
@@ -12,18 +12,24 @@ FORCE=${3:-}
 REPO=$(cd -- "$(dirname -- "$0")/.." && pwd)
 DHS_HOME=${DSH_HOME:-/root/.dsh}
 SURFCORE_ROOT=${SURFCORE_ROOT:-/opt/whale-surfcore/current-source}
+WORKSPACE_HOME=${WORKSPACE_HOME:-/root/dsh-workspace}
 
 die(){ printf '✗ %s\n' "$*" >&2; exit 1; }
 ok(){ printf '✓ %s\n' "$*"; }
 
-# 私密状态清单：人设/风格/关系、角色包、日记与记忆、表情库、旧配置。
+# 私密状态清单：人设/风格/关系、角色包、日记与记忆、表情库、会话锚点、行为设置。
 ITEMS=(
   "dsh:surfcore/characters"
   "dsh:surfcore/memory"
   "dsh:surfcore/relationship-facts.json"
+  "dsh:surfcore/config.json"
   "dsh:qq-bridge-config.json"
+  "ws:CHAT-STYLE.md"
   "src:state/stickers.json"
   "src:state/sticker-recognition.json"
+  "src:state/social-v2.json"
+  "src:state/qq-public-feed.jsonl"
+  "src:state/slang.json"
 )
 EXCLUDES=(--exclude='*.bak*' --exclude='*.before*' --exclude='archive' --exclude='snapshots' --exclude='*.log')
 
@@ -33,7 +39,7 @@ export)
   mkdir -p "$TMP/bundle"
   for item in "${ITEMS[@]}"; do
     scope=${item%%:*}; rel=${item#*:}
-    case "$scope" in dsh) base=$DHS_HOME;; src) base=$SURFCORE_ROOT;; esac
+    case "$scope" in dsh) base=$DHS_HOME;; src) base=$SURFCORE_ROOT;; ws) base=$WORKSPACE_HOME;; esac
     [ -e "$base/$rel" ] || { printf '! 跳过不存在：%s\n' "$base/$rel" >&2; continue; }
     mkdir -p "$TMP/bundle/$scope/$(dirname "$rel")"
     cp -a "$base/$rel" "$TMP/bundle/$scope/$rel"
@@ -73,14 +79,14 @@ import)
   if [ "$FORCE" != "--force" ]; then
     while IFS= read -r f; do
       rel=${f#"$TMP"/bundle/}; rel=${rel#./}
-      case "$rel" in dsh/*) target=$DHS_HOME/${rel#dsh/};; src/*) target=$SURFCORE_ROOT/${rel#src/};; *) continue;; esac
+      case "$rel" in dsh/*) target=$DHS_HOME/${rel#dsh/};; src/*) target=$SURFCORE_ROOT/${rel#src/};; ws/*) target=$WORKSPACE_HOME/${rel#ws/};; *) continue;; esac
       [ -e "$target" ] && die "目标已存在：$target（确认要覆盖就加 --force，旧文件会备份成 .bak-import-<时间>）"
     done < <(cd "$TMP/bundle" && find . -type f)
   fi
   STAMP=$(date +%Y%m%d%H%M%S)
   while IFS= read -r f; do
     rel=${f#"$TMP"/bundle/}; rel=${rel#./}
-    case "$rel" in dsh/*) target=$DHS_HOME/${rel#dsh/};; src/*) target=$SURFCORE_ROOT/${rel#src/};; *) continue;; esac
+    case "$rel" in dsh/*) target=$DHS_HOME/${rel#dsh/};; src/*) target=$SURFCORE_ROOT/${rel#src/};; ws/*) target=$WORKSPACE_HOME/${rel#ws/};; *) continue;; esac
     mkdir -p "$(dirname "$target")"
     [ -e "$target" ] && cp -a "$target" "$target.bak-import-$STAMP"
     install -m 600 "$TMP/bundle/$rel" "$target"
