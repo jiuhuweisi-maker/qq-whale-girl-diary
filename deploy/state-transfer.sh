@@ -78,20 +78,20 @@ import)
   ' "$TMP" || die "包校验失败，拒绝导入"
   if [ "$FORCE" != "--force" ]; then
     while IFS= read -r f; do
-      rel=${f#"$TMP"/bundle/}; rel=${rel#./}
+      rel=${f#"$TMP"/}; rel=${rel#./}
       case "$rel" in dsh/*) target=$DHS_HOME/${rel#dsh/};; src/*) target=$SURFCORE_ROOT/${rel#src/};; ws/*) target=$WORKSPACE_HOME/${rel#ws/};; *) continue;; esac
       [ -e "$target" ] && die "目标已存在：$target（确认要覆盖就加 --force，旧文件会备份成 .bak-import-<时间>）"
-    done < <(cd "$TMP/bundle" && find . -type f)
+    done < <(cd "$TMP" && find . -type f)
   fi
   STAMP=$(date +%Y%m%d%H%M%S)
   while IFS= read -r f; do
-    rel=${f#"$TMP"/bundle/}; rel=${rel#./}
+    rel=${f#"$TMP"/}; rel=${rel#./}
     case "$rel" in dsh/*) target=$DHS_HOME/${rel#dsh/};; src/*) target=$SURFCORE_ROOT/${rel#src/};; ws/*) target=$WORKSPACE_HOME/${rel#ws/};; *) continue;; esac
     mkdir -p "$(dirname "$target")"
     [ -e "$target" ] && cp -a "$target" "$target.bak-import-$STAMP"
-    install -m 600 "$TMP/bundle/$rel" "$target"
+    install -m 600 "$TMP/$rel" "$target"
     chown --reference="$(dirname "$target")" "$target" 2>/dev/null || true
-  done < <(cd "$TMP/bundle" && find . -type f)
+  done < <(cd "$TMP" && find . -type f)
   chmod 700 "$DHS_HOME/surfcore/characters" 2>/dev/null || true
   ok "已铺入人设/记忆/表情库；重启 DSH 后生效"
   printf '%s\n' "提醒：导入的是私密状态，别把她的记忆推到 Git 或公开日志。" >&2
