@@ -75,12 +75,24 @@
 | 8 | `memory-card.json` 50 条相关碎片 | 「我的鲸鱼表情包呢」「你认识你的那些表情包了」等主人抱怨原话 | 读起来像「还没认全」，可能诱发装熟/编来历 | 未删，等主人定是否清理或改写成规则型记录 |
 | 9 | 216 策略 `meme`「一条消息最多一个梗」、`cute`「不连续卖萌」 | | 与「情绪到了就连着用」轻微 | 保留（管的是梗/卖萌，不是图） |
 
-## 验证
+### 6. 角色卡
 
-- 本地：`tests/owner-rules.test.mjs`（16 项）+ `tests/expression-style.test.mjs` 全过。
-- B站集成测试需以生产 `live-mirror` 为 root（本地镜像缺 `src/persona-layers.js`），部署后在生产跑。
-- 生产探针：QQ 与 B站 的 `confirmedExpressionBlock` 输出都含永久规则；`revision=217`、manifest 哈希、桥单进程、QQ/WS/DSH ready。
+`persona.md` 末尾追加【图库认知·2026-11-07 主人复核】：352 张全是自己的、全都见过、不用再认，别人发图接住就收，情绪到了就发图，并声明以每轮注入的【主人永久规则】为准。**只新增，不删旧段**——旧段按主人要求留待决定。
+
+## 验证（全部实测）
+
+- 本地：`owner-rules.test.mjs` 16 项 + `expression-style.test.mjs` 等回归 **55/56**；唯一未在本地跑通的是 `bridge-integration.test.mjs`（本地 `live-mirror` 按设计只含 overlay，缺 `src/sticker-semantics.js`），改在生产完整运行源下执行。
+- 生产集成：`bili-style.test.mjs` **5/5**、`bridge-integration.test.mjs` **PASS_ALL 47**。
+- 生产 `verify217.py` **全绿**：`revision=217`、manifest 566 文件磁盘与运行时哈希全对、桥单进程、QQ/WS/DSH ready、pending 0；`confirmedExpressionBlock` 的 QQ 输出 3846 字、B站 3842 字，**两端都含永久规则**；规则文件与代码常量逐字一致；风格文件已无「一轮最多一张 / 匹配分」；公开安全检查通过。
+- 部署只重载桥一次，未重启 QQ 与 dsh，未发任何消息、未调用模型。
+- 迁移包导入演练：`ws/CHAT-STYLE.md`(7934B)、`OWNER-RULES.md`(2780B)、`STICKER-INDEX.md`(52050B) 三个文件正确落到目标目录，包内 persona 含新增段，不含任何票与密钥。
 - 不做真实发消息验收，由主人在下一次私聊/群聊观察。
+
+## 交付位置
+
+- Git：`fb0fe0c`（代码、测试、文档、迁移脚本），本地 = origin/main，服务器镜像 `/opt/whale-live` 同 HEAD。
+- 迁移包：`/root/whale-ops/migrate-2026-11-07-217/whale-state-20261107-217.tar.gz`，71 文件，sha256 `3f999a2b8781a3428bdba587282e3dd27e2c79e970f815bac0f12eb7ec366481`。
+- 生产备份与回退：`/root/whale-ops/patch217/backup/`（expression-style.mjs、manifest、CHAT-STYLE.md、persona.md）。
 
 ## 回退
 
