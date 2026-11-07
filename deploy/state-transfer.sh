@@ -25,6 +25,8 @@ ITEMS=(
   "dsh:surfcore/config.json"
   "dsh:qq-bridge-config.json"
   "ws:CHAT-STYLE.md"
+  "ws:OWNER-RULES.md"
+  "ws:STICKER-INDEX.md"
   "src:state/stickers.json"
   "src:state/sticker-recognition.json"
   "src:state/social-v2.json"

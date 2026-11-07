@@ -1,6 +1,6 @@
 # 鲸戒项目接手入口
 
-当前生产代码为 **适配216 / SurfCore 0.8.8**，固定官方提交见 `integrations/surfcore/version.mjs`。先读 `docs/PATCH216-TIEBA-LANGUAGE-2026-11-07.md`、`docs/PATCH215-QQ-COMMANDS-AND-CONTINUITY-2026-11-06.md`、`docs/PATCH214-OWNER-TASTE-2026-11-06.md` 和仓库外 `.ops/CONTINUE216.md`；213分享能力、209低开销记录和208语言记录保留。不要依据归档里的旧拓扑、数字和“未完成”重做部署。
+当前生产代码为 **适配217 / SurfCore 0.8.8**，固定官方提交见 `integrations/surfcore/version.mjs`。先读 `docs/PATCH217-OWNER-RULES-2026-11-07.md`、`docs/PATCH216-TIEBA-LANGUAGE-2026-11-07.md`、`docs/PATCH215-QQ-COMMANDS-AND-CONTINUITY-2026-11-06.md`、`docs/PATCH214-OWNER-TASTE-2026-11-06.md` 和仓库外 `.ops/CONTINUE216.md`（217 的变更与回退见 `docs/PATCH217-OWNER-RULES-2026-11-07.md`）；213分享能力、209低开销记录和208语言记录保留。不要依据归档里的旧拓扑、数字和“未完成”重做部署。
 
 **「她不回消息 / 刚重启还没活」先走运维手册**：`docs/RECOVERY-RUNBOOK-2026-11-07.md`（决策、备份、重启后快速恢复、验证清单），背景与根因见 `docs/INCIDENT-2026-11-07-MEMORY-EXHAUSTION.md`；一键只读巡检 `python3 scripts/recovery_status.py --watch 3 --interval 20`。
 

@@ -11,7 +11,7 @@ const {buildPersonaIdentity,personaNameFromCard}=await import(pathToFileURL(path
 let style='可爱颜文字与小括号',card='身份底色\n'+('很长的人设正文'.repeat(900));
 const env={readUnified:()=>({config:{persona:{compactChars:600}}}),resolvePersonaFile:()=>'/fixture/persona.md',readTextFile:()=>card,qqPersona,confirmedExpressionBlock,readConfiguredStyle:()=>style,path,QQ_STATE_DIR:'/fixture/state',composePersonaLayers,buildPersonaIdentity,personaNameFromCard,readPersonaLayerText:()=>''};
 const render=new Function(...Object.keys(env),src.slice(a,b).replace('export function','function')+src.slice(c,d)+'return personaCardBlock();');
-test('the actual Bili assembly keeps full shared preferences outside the persona truncation',()=>{const text=render(...Object.values(env));assert(text.includes(style));assert(text.indexOf(style)<text.indexOf('统一人设卡'));assert(text.length<1000);});
+test('the actual Bili assembly keeps full shared preferences outside the persona truncation',()=>{const text=render(...Object.values(env));assert(text.includes(style));assert(text.indexOf(style)<text.indexOf('统一人设卡'));assert(text.includes('主人永久规则'));assert(text.length<2500);});
 test('the actual Bili assembly reads changed preferences next time instead of an old embedded copy',()=>{render(...Object.values(env));style='新确认的emoji与情绪';const text=render(...Object.values(env));assert(text.includes(style));assert(!text.includes('可爱颜文字与小括号'));});
 test('the shared preference block and persona keep public identity masking',()=>{style='账号87654321不会公开';card='身份底色\n## 群友QQ\n12345678\n## 性格\n可爱';const text=render(...Object.values(env));assert(!text.includes('87654321'));assert(!text.includes('12345678'));assert(text.includes('可爱'));});
 

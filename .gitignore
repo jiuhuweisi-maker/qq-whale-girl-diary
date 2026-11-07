@@ -15,3 +15,6 @@ node_modules/
 __pycache__/
 *.pyc
 /live-backup/
+
+# Windows: ssh UserKnownHostsFile=NUL creates a literal file
+NUL
