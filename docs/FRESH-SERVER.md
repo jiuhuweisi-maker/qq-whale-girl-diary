@@ -14,6 +14,9 @@
 
 **218 起，`state-transfer.sh` 的私密包已包含：** `CHAT-STYLE.md`（三端统一说话方式）、`OWNER-RULES.md`（主人永久规则的可覆盖文本，缺失时回落代码常量）、`STICKER-INDEX.md`（352 张 QQ 收藏表情按情绪/画面/编号的速查）、`surfcore/config.json`（记忆通道与记忆卡设置）、`state/social-v2.json`（会话锚点与当前状态）、`state/qq-public-feed.jsonl`（QQ→B站 的公开消息源）、`state/slang.json`、角色目录下的记忆卡与 B站 简报。仍然不打包 QQ/OneBot 票、provider 凭据、审计密钥；这些按第 1 步在本机重填。
 
+> **导出前先设 `SURFCORE_ROOT` 指向实际运行源目录**：老机是 `/opt/whale-surfcore/staging-c174ed0`，不是脚本默认的 `current-source`。不设的话脚本会「跳过不存在」并**静默漏掉** `src:state/*` 五个文件（会话锚点、QQ→B站公开流水、表情库、表情识别、俚语），包会从 71 个文件缩成 66 个。完整命令：
+> `SURFCORE_ROOT=/opt/whale-surfcore/staging-c174ed0 bash deploy/state-transfer.sh export /root/whale-state-218.tar.gz`
+
 ## 前提（下列由人准备，脚本故意不碰）
 
 - Ubuntu 22.04+/Debian 12，root，systemd，Node 24+，Python 3.6+，git/npm/curl。

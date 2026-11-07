@@ -61,7 +61,8 @@
 
 - 生产备份与回退：`/root/whale-ops/patch218/backup/`（2 个 `whale-compat` 文件、4 个状态文件、manifest）。
 - 部署/验证脚本：`/root/whale-ops/patch218/candidate/deploy218.py`、`verify218.py`；本地源在仓库外 `.ops/work218/`。
-- 迁移包：`/root/whale-ops/migrate-2026-11-07-218/whale-state-20261107-218.tar.gz`（含新规则、图库索引、角色卡，不含票与密钥）。
+- 迁移包：`/root/whale-ops/migrate-2026-11-07-218/whale-state-20261107-218.tar.gz`，**71 文件**，sha256 `959e0257f6023130018f788dadd5a2be87e33a1a380e6f71d1cad5b60ac668d2`；含新规则、图库索引、角色卡与 5 个 `state/` 文件，不含票与密钥；导入演练通过（3 个 ws 文件与 5 个 state 文件正确落位）。
+- **导出坑（已修文档）**：必须显式设 `SURFCORE_ROOT=/opt/whale-surfcore/staging-c174ed0`，脚本默认的 `current-source` 在老机不存在，会「跳过不存在」静默漏掉 `src:state/*` 五个文件，包缩成 66 文件。已写入 `docs/FRESH-SERVER.md`。
 - 生产测试副本：`/root/whale-ops/patch218/lab/`。
 
 ## 回退
