@@ -1,0 +1,3 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {matchesStickerQuery} from '../compat/legacy-media.mjs';
+test('a natural model query can find a synonymous mood rather than requiring two literal labels',()=>{assert(matchesStickerQuery('开心 雀跃','蓝发女仆开心笑'));assert(matchesStickerQuery('找个震惊的表情包','蓝发女仆惊讶提问'));assert(matchesStickerQuery('一张高兴的图片','少女开心确认'));});
+test('content constraints and unrelated emotions remain distinct',()=>{assert(!matchesStickerQuery('猫耳 开心','蓝发女仆开心笑'));assert(!matchesStickerQuery('委屈','少女得意笑'));assert(matchesStickerQuery('蓝发 开心','蓝发女仆开心笑'));assert(matchesStickerQuery('','蓝发女仆'));});

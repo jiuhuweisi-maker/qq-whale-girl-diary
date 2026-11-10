@@ -1,0 +1,257 @@
+# 鲸戒 QQ 机器人 · SurfCore 适配
+
+当前部署版为 **鲸戒适配226：DSH + SurfCore固定0.8.8 + SnowLuma/OneBot**。主入口从固定源码逐文件验指纹后构建最新完整运行源，包含精确回执、重启去重、原生收藏表情、图片预览兼容、共用日记、按人物/会话优先检索和兼容更新保护。Git 保存代码、配置模板和离线测试；私人记忆、角色、凭据、收藏与账本不在仓库中。
+
+- **换台 Linux 服务器**：[一次部署到最新版](docs/FRESH-SERVER.md)（`deploy/bootstrap.sh` 一条命令构建，`deploy/state-transfer.sh` 搬她的人设与记忆）
+- 最新一轮：[226 持续情绪、关系事件与主动求和](docs/PATCH226-EMOTION-RELATION-REPAIR-2026-11-09.md)：审计确认改造前情绪 100% 只是提示词文字、没有状态/持久化/衰减；新增 `emotion-state.mjs` 与 `state/emotion-relations.json`，按 QQ 号分桶存 9 类情绪和争执事件，绝对时间指数衰减、重启不丢；在**既有**主动机会定时器里插入事件驱动求和候选（每次争执最多一次、群聊不公开处理、静默不打扰、没回不追问），并抑制随机调侃；情绪只在非平静时注入一小段，平静时为空串不加重注入
+- 上一轮：[225 私信教训下沉 + 限流叙事隔离](docs/PATCH225-PRIVATE-LESSONS-BASELINE-2026-11-09.md)：11-09 深夜八类私信教训写进 `OWNER_RULES_CORE`／`EXPRESSION_CORE`（不新增第十节），主人私聊文字不再受 60 条/小时、429 不再进模型上下文也不掐唤醒、四处收尾字段由服务端过滤内部状态；`CHAT-STYLE.md` 与二代预设同步做减法，注入字数净减 14 KB 以上
+- 上一轮：[224 日语空耳下沉到代码层](docs/PATCH224-JAPANESE-PHONETIC-BASELINE-2026-11-09.md)：把 11-06 私信教过的「加日语谐音增加二次元感」连同 ciallo～／压力马斯内／狗修金撒嘛三个例子写进永久规则第五节，随 Git 走；生产 `OWNER-RULES.md` 由常量逐字生成，二代预设同步，换机不再只靠记忆层
+- 上一轮：[223 评论区玩法改由真实语料蒸馏](docs/PATCH223-REAL-CORPUS-BANTER-2026-11-08.md)：用她自己攒的 504 条真实 B站 热评/楼中楼（15 视频、5 分区）按 216 贴吧口径离线蒸馏，原文一句不入库；每轮注入分区速查、真实分寸与自学习节奏，手写 12 招按分区轮换，@ 主人分享同口径
+- 上一轮：[222 分享是行为、评论区是串子场](docs/PATCH222-PROACTIVE-SHARE-2026-11-08.md)：主人私信里带视频去 B站 由服务端一律升级成 @ 主人，B站 侧直接跑分享评论不再交给模型自由发挥；永久规则新增第九节「评论区不是解说席」，12 招串子玩法每轮轮换注入，解说腔加了窄闸；今晚的编造句和解说腔范本全部清源
+- 上一轮：[221 主动分享就 @ 得到](docs/PATCH221-PROACTIVE-SHARE-2026-11-08.md)：她在私信里主动提起一个想给主人看的视频，同一轮就真去 B站 评论区 @ 主人，不用等他开口叫；办完只在本地悄悄记一笔事实，不推送、不播报，主人问起才答
+- 上一轮：[220 跨端 @主人打通、反「编过程」](docs/PATCH220-CROSS-SCENE-2026-11-08.md)：主人当场叫去 B站 @ 他会真的发分享型评论，不再去跟路人搭话；永久规则新增「不编造没做过的动作／不播报内部细节／不连环承诺」与「提了视频就带链接」；今晚的编造样本从全部记忆源流水清掉，语言包补了跨端场景的确定策略
+- 口径体检与收口：[218 之后的冲突清单](docs/AUDIT-2026-11-07-CONFLICTS.md)（25 个证据点，留作历史证据）→ 已由 [219 全量收口](docs/PATCH219-LEGACY-CLEANUP-2026-11-07.md) 一次性按最新标准改完，旧口径全部废弃；部署后复核补修了会重渲染复活旧句的全量记忆卡源流水（219b，见该文档第八节）
+- 新部署：[完整部署说明](docs/DEPLOY-SURFCORE.md) 和 [模板入口](deploy/README.md)
+- 最新修复见 [219 全量口径收口](docs/PATCH219-LEGACY-CLEANUP-2026-11-07.md)：表情包不设匹配分/张数/频率/间隔/冷却任何限制、看到图默认看懂意思接着聊、称呼按场景（玩笑叫「杂扣～❤️」、认真叙事叫「主人」）、旧图闸/认图任务/表情三档/旧总纲全部废弃并清出代码层、工具描述、角色卡、记忆卡与语言样本；换机迁移清单同步补齐。其上的 [218 表情包 / 回复条口径裁决](docs/PATCH218-STICKER-QUOTE-RULINGS-2026-11-07.md)：不装熟、见过了不要说见过了、没见过又够猎奇才吐槽一次、只从 QQ 收藏面板挑图、明确叫收下才收图、多人/连发/答具体问题默认引用、emoji 位置自由。其上的 [217 主人永久规则](docs/PATCH217-OWNER-RULES-2026-11-07.md) 仍负责把私聊教过的话下沉到代码层常量，三端每轮注入、不随会话或记忆整理消失，并保留取消表情包门槛与反鱼八股。保留 [216 贴吧语言蒸馏](docs/PATCH216-TIEBA-LANGUAGE-2026-11-07.md)：12 类场景化接话策略、贴吧真实语料统计基线、每轮只注入一条规则；以及 [215 QQ 指令与持续接话](docs/PATCH215-QQ-COMMANDS-AND-CONTINUITY-2026-11-06.md)、[209 低开销经历](docs/PATCH209-LOW-COST-EXPERIENCE-2026-11-06.md)、208 随浏览学习和 214 分享口味判据；没有独立模型整理调度。
+- 历史版本：已从树里移出（143 构建器、平铺镜像、旧测试草稿、人设卡镜像），需要时从提交 `3deeeb8` 取：`git show 3deeeb8:archive/2026-11-03/README.md`
+- 运维接手：[AGENTS.md](AGENTS.md)、[10月30日任务书](docs/CODEX-BRIEF-2026-10-30.md)；故障与重启恢复走 [重启后快速恢复手册](docs/RECOVERY-RUNBOOK-2026-11-07.md)（只读巡检 `scripts/recovery_status.py`），[11月7日故障复盘](docs/INCIDENT-2026-11-07-MEMORY-EXHAUSTION.md) 记录根因与证据
+- 可选模拟盘：[服务源码与安装说明](services/fundpilot/README.md)，支持明确订单按需补充虚拟资金；不连接真实券商
+
+旧安装器已停用。下面保留当时的历史记录，其中 NapCat、旧主动聊天、收藏与记忆描述不代表当前行为；不要据此恢复旧 cron 或启动第二个客户端。
+
+<details>
+<summary>展开历史部署与养成记录</summary>
+
+# 🐋 云上鲸鱼娘养成实录 — DeepSeek Harness × SnowLuma × QQ 群
+
+把一只 AI 鲸鱼娘养进了我的 QQ 群：她住在阿里云 2C2G 轻量服务器上，
+陪聊、按情绪甩表情包、@全体喊人打 CS、不打工、不失忆。
+关电脑她也上班。
+
+这份仓库是整个过程的**完整记录**：架构、每一次踩坑、每一行补丁、
+以及"怎么把机器人养得像群友"的心得。照着做，一晚上能复现。
+
+> ⚠️ 文中所有 IP / 密码 / 密钥 / QQ 号 / 群号均已脱敏为占位符。
+> 表情库存图来自 memecub 等公开站，属网络收集图，仅供聊天玩梗，请勿商用。
+> 当前服务器运行 SnowLuma（Linux 官方 QQ 客户端注入方式），通过 `whale-relay` 暴露 OneBot 兼容接口；配置中沿用的 `NapCat` 字段名是历史遗留，不代表仍在运行 NapCat 客户端。
+
+## 最终形态
+
+| 能力 | 实现 |
+|---|---|
+| QQ 收发 | SnowLuma（Linux 官方 QQ 客户端注入）+ `whale-relay`（OneBot 兼容 HTTP）+ dsh-qq-bridge 插件 |
+| 大脑 | DeepSeek Harness（`dsh web --port 3080`，systemd 托管） |
+| 群规 | 先读同批文字和图片再回应；纯 @ 可短问一句；多人连发挑有内容的一两条接，允许不回 |
+| 续聊 | 谁 @ 了她，3 分钟内他不用 @ 也接着聊（"热聊窗"） |
+| 分流 | 每条 QQ 输入用 DSH 消息 ID 对上实际处理它的回合；网页控制台里的回复不会外发到 QQ |
+| 表情包 | 自有图库（主人供货 + **群友贡献**：群友甩图让她保存就能收进轮换池，指纹防重挂名溯源，一天自存限 3 张），按语境/情绪挑图；**没有固定发图指标**，图闸只负责拦重复和贴太密的图（私聊基本不贴图） |
+| 群聊表达 | 白话、像普通群友聊天；不强制表情、颜文字或旁白；看上下文接话，不用固定模板 |
+| 冷启动打标 | caption.py 用 qwen3-vl-plus 视觉模型给全库自动打语义标题（画面+情绪）→ INDEX.tsv，可断点续跑 |
+| 轮换曝光 | pick_hint 优先挑久未露面的图，聊得越久全库轮得越开 |
+| 现画兜底 | 百炼 qwen-image-2.1-pro，仅限群友原话明确说"画"才用 |
+| CS 叫魂 | cron 每 2~4 天随机时刻（晚间黄金档 20-23 点）@全体 喊打 CS（8 条文案轮换，40% 配图） |
+| 记忆 | 值班交接日志 QQ-DUTY-LOG.md + 每 2 天的桌面侧巡检换班 |
+| CS 真爱 | 人设焊死：群里 @全体 喊打 CS 她永远最积极，秒回抢报名聊枪法 |
+| 网感自学 | cron 每 2~4 天扒微博/百度热榜→冲浪小抄 MEME_NOTES.md，聊天自然用梗、不硬塞、不复读 |
+| 人设 | AGENTS.md"群友修炼手册"：口语、短、会抬杠、记仇、callback 旧梗、潜水文化、句尾不带句号 |
+| 精准路由 | 每轮回复绑定来路和本轮对象；引用原文补全、多人发言保序、点名逐轮处理，插话作背景（patch100） |
+| 合并缓冲 | 有人连珠炮时等 5~7 秒静默窗合并成一条多行消息，她整体回应不机关枪 |
+| 群聊记忆库 | 每半小时把群史存进本地库（/opt/qq-cs/memory），她能查"上次谁说过啥"接旧账（memory_query.py），查不到就承认不瞎编 |
+| 群日报 | 每晚 22:35 把当天群聊精华（条数/话痨榜/3条金句/@她次数）私聊直发主人，零 token 不占她脑子 |
+| 周荣枯榜 | 每周日 22:38 她在群里颁"嘴王/梗王/潜水王"（memory jsonl 统计，模板文案零 token，数据不足自动跳过） |
+| 鲸元券抽奖 | 桥层零 token 小游戏：每两天晚 20:05 自动或主人一句"发张鲸元券"在群里甩券图+口令，第一个喊对口令的领一张奖品表情包（两小时有效，先到先得，台账可查；真人实测已跑通） |
+| B站搜片官 | 群友找她要视频（"分享个XX的名场面"）→ 她提炼关键词跑 `bilibili_search.py`（bing/sogou 抽 BV→B站 view 接口验真→热度×新鲜×时长排序），自然口吻甩「标题+链接」，绝不提搜索；零 LLM 之外的成本 |
+| 梗时鲜 | `/opt/qq-cs/bili_memes.md` 近月B站热梗清单（不烧心文学/黄仁勋巡演/攻略吃灰…），她玩没把握的梗先翻这本，每月自动补报 |
+| 会话巡检 | 看门狗每半小时检查服务和会话；网页会话没载入时会通过已验证的 Remote API 唤醒既有鲸鱼娘会话，再以桥探针确认 |
+| 余额预警 | DeepSeek 余额 <¥15 / <¥8 两档，她自己在群里喊缺粮提醒主人充值（每档每天一次，看门狗随车检查，零 token） |
+| 自愈看门狗 | 每半小时检查 dsh、消息转发服务和 SnowLuma；服务挂了尝试拉起，SnowLuma 容器只检查不自动重启，避免把 QQ 登出 |
+| 管理指令 | 主人私聊「禁言 昵称或QQ 分钟」「解禁」「踢 昵称」直达 QQ 管理接口（她是管理员实测可达；她自己是 admin 禁不了自己） |
+| 主动冒泡+防冷群 | cron 每小时:17 醒一次：正常按 3~11 小时随机节奏冒泡；群里冷场时偶尔试着接个话题；图只有合适时才配 |
+| 私聊小温度（10-23 上线） | `scripts/private_bubble.py` cron `29 10-22`：每晚 22 点档**一句晚安**；约 2~3 天一次**报备**（学了啥/群里的乐子，两句不带图）；主人凌晨 1~3 点还在说话（wsd 记 flag）→ 次日上午**熬夜补刀**（先损后关心一句）。除这三种时刻，主人沉默她绝不打扰 |
+| 画图两段式 | 明说"画"→秒回"稍等"→桥自动开画图轮→@人交图"久等了"（实测 44 秒交稿） |
+| 略过权+收尾权 | 无关消息输出"略过"=桥层真沉默；对方说"睡了/别回了"→告别+关陪聊窗，再@才理 |
+| 小黄脸识别 | QQ 自带 [微笑] 等 face 段翻译成文字给她，按梗味接（[微笑]=敷衍阴间） |
+| 引用回复 | 桥自动带 reply 段，灰色引用条已生效 ✅（坑：NapCat 的 reply 段字段是 `data.id/seq`，发 `message_id` 会被静默吞掉） |
+| 读空气 | 群消息转进会话前，桥先注入"最近八条现场回放"（别人看不到）：她看清上下文再开口——对线不硬凑、死梗不复读、主人真难过时收起毒舌（实战：群里骂街她劝「火气这么大 先喝口水凉凉」） |
+| 戳一戳·戳人 | `python3 poke.py <QQ号>`：好友私戳、群友群戳，自动查名片称呼；人设教会她什么时候该戳 |
+| 戳一戳·被戳 | SnowLuma WebSocket → wsd.py 常驻客户端 → 桥 /poke：她实时感知「【某某】戳了戳你」并按情绪回应；私聊只认主人，群聊来者不拒（每号 30 秒冷却） |
+| 主人特权 | 主人私聊指令 `查余额/余额预警开没有/状态/闭嘴[分钟]/开口/去群里说 文本/日志N/冷却/帮助`：桥层直接执行**不进会话零 token**；只有明确说“查余额”才查账，聊到余额或纠正上下文不会触发；“余额预警开没有”只查预警状态；闭嘴连带掐掉主动冒泡和被戳回应；查余额直连 DeepSeek 官方接口 |
+| 自动回戳（10-23 patch23） | 收到戳→桥 3~7 秒随机延迟后**物理替她回戳**（100%、静音联动、同人 30 秒冷却压连环戳），通知文本附对方 QQ 号并注明"已替你回戳过"防她重复跑；群戳此前不回的根因：她查不到群友 QQ 号，现在权限给到桥 |
+| 系统标签 | v9 人设内核：鲸类萝莉/尾鳍情绪/中文限定/米饭至上/聪明但懒/傲娇但甜/说胖炸毛/潜水电报 |
+| 自主学习 | 每天 22:30 自动开"内部轮"复盘：回顾当天对话，把群友画像/新梗/翻车教训写进值班日志，全程不发 QQ——聊天不白聊 |
+
+## 当前服务器架构
+
+```
+阿里云 SWAS (2C2G, Alibaba Cloud Linux 3)
+├── SnowLuma                   Linux 官方 QQ 客户端；容器不要随手重启，可能要重新登录
+│   └── OneBot 兼容接口 :3002  只在本机使用
+├── systemd: whale-relay       本机 :3000 转发到 SnowLuma :3002
+├── systemd: whale-ws.service  wsd.py 收实时事件，把「戳一戳」转发给桥 /poke
+├── systemd: dsh.service       dsh web --port 3080（token 每次重启会变）
+│   └── dsh-qq-bridge 插件     4 秒轮询 :3000 收消息 → 转进 DSH 会话
+│                              按 DSH 实际认领的 QQ 消息 ID 回发；网页回复不外发
+├── /root/dsh-workspace/
+│   ├── AGENTS.md              人设与规矩（每轮生效，改完不用重启）
+│   ├── QQ-DUTY-LOG.md         值班交接日志（记忆载体）
+│   └── stickers/whale/        431 张表情库 + INDEX.tsv 语义索引 + .used.json 轮换账
+└── /opt/qq-cs/                cron 杂务 + 戳一戳收发
+    ├── wsd.py         systemd: whale-ws  wsServer 客户端（被戳→转桥 /poke）
+    ├── poke.py        被 agent 调用：戳人（好友私戳/群友群戳，自动查称呼）
+    ├── cs.py          crontab: 7 20-23 * * *    CS 叫魂（只走晚间黄金档）
+    ├── caption.py     一次性：视觉模型给全库表情包打语义标题
+    ├── learn_memes.py crontab: 39 */6 * * *     扒热搜炼成冲浪小抄
+    ├── proactive.py   crontab: 17 10-21 * * *   主动冒泡（调桥 /nudge 路由）
+    ├── reflect.py     crontab: 33 22 * * *      晚间复盘（/nudge channel=none，只写日志不发QQ）
+    ├── draw.py        被 agent 调用：生图（画图两段式的执行端）
+    └── pick_hint.py   被 agent 调用：3 张"久未露面"候选图
+```
+
+本地电脑通过 SSH 隧道（`-L 13080:3080 -L 16099:6099`）访问 DSH 控制台和 SnowLuma 管理页。
+防火墙只开 22，别的端口一律不开——要访问就走隧道。
+
+配置里 `NapCat` 是历史字段名，实际连的是 SnowLuma 的 OneBot 接口；别照旧文档去启动 NapCat。
+
+QQ 设备风险下线时，按 **[docs/QQ-RISK.md](docs/QQ-RISK.md)** 暂停自动重连并核对账号安全。
+
+DSH 会话上下文过长时，按 **[docs/SESSION-ROTATION.md](docs/SESSION-ROTATION.md)** 交接并切换 QQ 桥接；旧会话档案可按需检索。
+
+## 换新服务器？
+先看 **[docs/REBUILD.md](docs/REBUILD.md)** —— 速建手册：带走清单、装机顺序（每步带验证命令）、
+已付学费的坑、试运行验收电池；一键脚本 `scripts/bootstrap.sh`。
+表情库本体（431 张 261MB）备份在 GitHub Release **stickers-lib-2026-10**（分卷，cat 还原）。
+日志/小抄最新版每天 12:40/22:40 由旧机自动同步在 **live-backup/** 目录。
+**开荒时把 REBUILD.md §4 那段开场白发给 agent 即可，主人只填尖括号。**
+
+## 旧版 NapCat 部署速览（历史资料）
+
+下面这份是早期 NapCat 方案，**不是当前服务器的部署步骤**。当前运行方式见上面的架构图和 `docs/SNOWLUMA.md`。
+
+1. **服务器**：SWAS 装 Docker，跑 `mlikiowa/napcat-docker`（restart=unless-stopped），
+   WebUI 里登录小号 QQ。⚠️ 同一账号别在本地再开 NapCat，会互踢。
+2. **Node + DSH**：装 Node（如 `/opt/node`），`npm i -g @deepseek-ai/dsh`，
+   systemd 起 `dsh web --port 3080 --no-open`。日志里会打印带 token 的 URL。
+3. **桥插件**：`dsh plugin --profile web add github:Yuuyuko-uu/dsh-qq-bridge`，
+   配置写 `/root/.dsh/qq-bridge-config.json`（总开关/目标会话/私聊QQ/群号/NapCat 地址）。
+4. **OneBot HTTP**：NapCat WebUI 新建 HTTP 客户端（127.0.0.1:3000），
+   或手改 `onebot11_<账号>.json` 加 httpServers。
+5. **百炼**：`/root/.dsh/secrets.env` 存 `DASHSCOPE_API_KEY=...`（chmod 600），
+   `dsh.service` 加 `EnvironmentFile=`。图像模型 ID 是 `qwen-image-2.1-pro`
+   （写 `qwen-image` 会报 Model not exist，坑）。
+6. **人设**：把 `templates/AGENTS.md` 改改扔进 `/root/dsh-workspace/`。
+7. **表情库**：图库扔进 `stickers/whale/`，跑 `scripts/caption.py` 用视觉模型
+   自动打标题建 INDEX.tsv（画面+情绪，431 张约 3 分钟），pick_hint.py 指向库目录。
+8. **CS**：`scripts/cs.py` 改群号，cron 挂上，`--force` 打一发验证 @全体
+   （前提：先把 bot 设为群管理员，否则 @全体 无效）。
+9. **网感**：`scripts/learn_memes.py` cron 挂上（0 token 扒热搜写小抄），
+   人设里配"懂才用、不硬塞、不复读、不提爬虫"四条使用纪律。
+10. **画图**：`scripts/draw.py` 放 `/opt/qq-cs/`，key 用 secrets.env 里的
+    `DASHSCOPE_API_KEY`（maas 镜像的 images/generations 也认它）。
+    人设配合"画图两段式流程"（先回稍等→桥注入画图轮→交图@人）。
+11. **主动冒泡**：`scripts/proactive.py` cron 挂上（10-21 点每小时检查，
+    内部 state 文件控每天 1~2 次节奏），调桥的 `/nudge` 路由注入群通道提示。
+12. **遥控器**：`scripts/whale.ps1`（Windows 本机）：status / say / log / pull /
+    push / wake。⚠️ dsh 每次 restart 后必须 `wake`（建隧道+开 GUI 标签唤醒会话），
+    patch12 保证昏迷期 10 分钟内消息不丢。
+13. **读空气**：无需额外部署——patch19 在桥的群消息入口自动拼"现场回放"前缀，
+    人设里配"读空气"守则（不揭回放机制、不复读没 @ 她的话）。
+14. **戳一戳**：`deploy/napcat-compose.example.yml` 加 `ACCOUNT=` 和 3001 端口映射；
+    onebot11 配置加 `websocketServers`（样例见 `config/onebot11_example.json`，
+    **别配 httpClients 上报， NapCat 那版不推事件**）；`scripts/wsd.py` 放
+    `/opt/qq-cs/`（pip 装 `websocket-client==0.59.0`，py3.6 兼容版），
+    `deploy/whale-ws.service` 挂 systemd；`scripts/poke.py` 供她戳人用。
+15. **主人特权**：patch21 在桥的私聊轮询里加了指令拦截——纯文字匹配「查余额/状态/闭嘴/开口/
+    去群里说 X/日志/冷却/帮助」，桥层执行直接回执，**不进会话不烧 token**；闭嘴时
+    `/nudge` 冒泡和 `/poke` 回应一并挡掉。余额读 `.credentials.yaml` 里的 `DEEPSEEK_API_KEY`
+    调官方 `/user/balance`（第三方 maas 镜像无计费端点，查不了）。调试可用
+    `POST /dsh-qq-bridge/master-cmd {text}`（走同一执行器）。人设配套 v12：告诉她别学【系统】腔、别点破。
+
+## 踩坑名场面（每条都是血泪）
+
+- **SSH 远程命令被本地 PowerShell 劫持**：`"$(cmd)"` 双引号里会被 pwsh 先执行。
+  远端命令一律单引号；要传长 JSON 就 base64 → 落地文件 → `curl -d @file`。
+- **dsh 的 token 每次重启都换**：写脚本 `journalctl -u dsh | grep -oE 'token=...'` 现取，
+  别缓存。
+- **QQ @ 判定字段**：OneBot 的 at 段里 qq 号在 `segment.data.qq`，不是 `segment.qq`。
+  一开始只认 @我的消息，永远不触发——查了两小时。
+- **补丁引发作用域 ReferenceError**：在函数里引用了别的函数作用域的变量，
+  `node --check` 语法全过但一跑就炸，bot 直接静音。教训：补丁只用当前作用域已有的变量，
+  上线前用调试路由注入一条消息实测。
+- **回复串门**：全局"最后来路"会被别的通道翻掉，导致群里的话私发给主人。
+  改成带时间戳的 90 秒窗口分流才根治。
+- **裸图片路径当文本发进群**：出站"抠图"只认 markdown `![]()`。补一条
+  整行路径正则才兜住。
+- **AI 生成的表情"太猎奇"**：qwen-image 手绘的鲸鱼娘被全群吐槽，
+  果断换成 memecub 正版梗图库——现成的灵魂画风永远比 AI 稳定。
+  AI 现画降级为"点名才画"。
+- **memecub 原图后缀不定**：列表页只有 thumb webp，真图在详情页 `og:image`
+  （png/webp/gif 都有可能），下载要先解析 og 标签。
+- **上下文膨胀**：会话跑到 167K tok 后每条 QQ 消息都驮着历史跑。
+  对策：交接日志保记忆 + 定时巡检 + 到阈值换班开新会话。
+- **本地直推 GitHub 连不上**：网络到 github.com 被 reset。
+  对策：`git bundle create` → scp 到阿里云 → 服务器上 clone bundle →
+  带 token 的 URL 一次性 push（推完 shred 掉 token，服务器不留档）。
+- **restart 后会话昏迷，要 GUI 连上才醒**：web 会话必须有 websocket 连接才复活，
+  没有无头 resume。对策：SSH 隧道 + 浏览器开新 token URL（whale.ps1 wake 一键），
+  patch12 的"昏迷期不丢消息"兜底 10 分钟。
+- **QQ 小黄脸对 bot 默认不可见**：桥的片段转换只收 text/image，face 段直接丢——
+  别人发 [微笑] 她全程瞎。patch15 加 id→名字翻译表才让她看见小黄脸。
+- **生图 size 格式**：maas 镜像要 `1024x1024`（字母 x），写 `1024*1024` 报
+  InvalidParameter。好在报错文案直白，一眼定位。
+- **服务器 python 是 3.6**：`capture_output` 这类 3.7+ 语法直接 TypeError，
+  运维脚本按石器时代写（stdout=PIPE）。
+- **NapCat 假成功**：发送 reply 引用段返回 retcode 0，实际静默吞掉不渲染。
+  教训：别信 retcode，用 `get_msg` 反查已发消息的结构验证。
+- **NapCat httpClient 上报彻底哑火**：配置正确、日志"已启动"、容器→宿主机 curl 通，
+  但它**一个事件都不推**——开 `reportSelfMsg=true` 连自己发的消息都不推，心跳/lifecycle 全无。
+  换 **wsServer**（NapCat 服务端、客户端连入）后 lifecycle+心跳+群消息+notice 哗哗推。
+  收不到事件的教训：**先换传输，别怀疑人生**。
+- **NapCat 重启就扫码**：容器重建/重启后 QQ 会话没了，WebUI 里要重新扫码。
+  根治：docker-compose 环境变量加 `ACCOUNT=<她的QQ>`，启动即自动快速登录。
+- **容器里访问宿主机别写 127.0.0.1**：NapCat 容器里的"本机"是容器自己。
+  上报/回调宿主机服务要用 docker 网桥网关地址（`ip route` 看，一般是 172.18.x.1）。
+- **WebUI 的配置 API 是坑**：`/api/OB11Config/get_config` 直接 404，没法热改。
+  手改 `onebot11_<账号>.json` + 重建容器才是正路。
+- **python 管道吞输出**：脚本 print 走管道是块缓冲，进程被 timeout 杀掉就全丢，
+  表现为"跑了但零输出"。常驻/诊断脚本一律 `python3 -u`。
+
+## "像群友而不是客服"心法
+
+1. **自然聊天，不打卡配图**：不按消息条数发图，也不要求每句话带表情。先看对方说了什么、群里什么气氛；表情或图片能帮忙表达时再用，不合适就纯文字。
+2. **短、参差、口语**：禁止每句结尾打卡式带🐋，允许"哈/得了吧/酸了"。
+3. **热聊要跟到底**：续聊窗内主动反问、抛旧梗，不行礼式回一句就蒸发。
+4. **记忆最值钱**：callback"你昨天说要戒奶茶"比任何话术都像活人。
+5. **拒绝要幽默**：打工请求一句俏皮话软拒，不解释不举例。
+6. **大库才是表情包 wars 的底气**：431 张全语义打标，什么情绪都有得配；
+   轮换曝光防重复，久未露面的优先上桌。
+7. **不接的话就别让 token 进线**：群消息过滤做在桥层（不 @ 不进会话），
+   比"进了会话再装死"省钱一个数量级。
+8. **给一条真爱爱好**：CS 这种"她自己的兴趣"让对话有重心——喊打游戏时的
+   积极劲儿，比任何话术模板都活。
+9. **让她上网自学**：热搜小抄自动更新 + "懂才用不硬塞"的纪律，
+   梗的保质期跟着滚动，一周后她还"活在网里"。
+10. **机关枪是最像机器人的行为**：合并缓冲让她等人把话说完再整体回应——
+    "等对方说完"是活人第一礼仪。
+11. **句尾句号是播音腔**：真人聊天不打"。"。人设里一条禁令就能治好语气。
+12. **先看懂别人发的图**：被 @ 后带了图片，就先读图再接内容；回文字还是回图看当时气氛，不为回图而回图。
+13. **看人下菜碟**：认真聊的用力暖，猎奇问题回怼调侃卖萌拒绝——
+    一视同仁的礼貌是客服，有爱憎才是群友。
+14. **主动存在感要有边界**：白天随机冒泡可以，深夜自动闭嘴；
+    冒泡内容她自己定（时段问好/锐评/新梗），系统只负责戳她一下。
+
+## 目录
+
+```
+bridge/     host.js 打完二十连补丁的成品 · patches/ 逐补丁重放脚本（patch.py~patch18.py，19/20 见 docs）
+config/     onebot11_example.json NapCat OneBot 配置样例（含 wsServer，httpClient 已弃用）
+deploy/     napcat-compose.example.yml（ACCOUNT+端口映射） · whale-ws.service（戳一戳守护）
+templates/  AGENTS.md 群友修炼手册 v11（含读空气/戳一戳守则） · QQ-DUTY-LOG 样例
+scripts/    cs · learn_memes · pick_hint · draw · proactive · caption · wsd · poke · whale.ps1（占位符版；auto_memes 已退役存档）
+docs/       bridge-patches.md 补丁全记录 · QQ-DUTY-LOG-live.md 实况值班日志（脱敏）· MEME_NOTES-snapshot.md 冲浪小抄样例
+```
+
+## 感谢
+
+- [NapCat](https://github.com/NapNeko/NapCatQQ) · [dsh-qq-bridge](https://github.com/Yuuyuko-uu/dsh-qq-bridge) · [memecub](https://memecub.com/zh/tag/%E9%B2%B8%E9%B1%BC%E5%A8%98) · [DSH](https://github.com/deepseek-ai) 生态同行（groupmate / NimuQDock 的设计启发了本版人设）
+
+</details>

@@ -1,0 +1,7 @@
+{
+  "name": "whale-native-images",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Isolated native image preview runtime; no model or account access",
+  "dependencies": { "sharp": "0.35.5" }
+}

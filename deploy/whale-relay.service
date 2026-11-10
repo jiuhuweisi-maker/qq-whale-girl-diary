@@ -1,0 +1,16 @@
+[Unit]
+Description=Whale loopback OneBot relay
+After=network.target
+
+[Service]
+Type=simple
+User=root
+Environment=ONEBOT_TOKEN_FILE=/opt/qq-cs/.onebot-http-token
+Environment=WHALE_RELAY_STATE=/var/lib/whale-relay
+ExecStart=/usr/bin/python3 /opt/qq-cs/relay3000.py
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

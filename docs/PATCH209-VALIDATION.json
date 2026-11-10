@@ -1,0 +1,173 @@
+{
+  "date": "2026-11-06",
+  "timezone": "Asia/Shanghai",
+  "overlay": 209,
+  "upstream": "0deb8261afe4c31b3127759ee4de36a1439cf422",
+  "deployed": true,
+  "sourceFiles": 562,
+  "overlayFiles": 88,
+  "changedFiles": 20,
+  "checks": {
+    "language": 71,
+    "runtime": 40,
+    "bridge": 43,
+    "bili": 5,
+    "recall": 30,
+    "compatibleUpdater": 9
+  },
+  "totalChecks": 198,
+  "extraAssertionScripts": [
+    "feed-core",
+    "pet-chat"
+  ],
+  "syntaxChecks": 79,
+  "deployment": {
+    "revision": 209,
+    "sourceFiles": 562,
+    "qqOnline": true,
+    "ws": true,
+    "dshReady": true,
+    "ledgerHealthy": true,
+    "ready": true,
+    "uncertain": 2,
+    "pending": 0,
+    "manifestMatches": true,
+    "loadedMatches": true,
+    "protectedFilesPreserved": true,
+    "panelAvailable": true,
+    "panelDataHealthy": true,
+    "panelNoAnonymousAccess": true,
+    "panelRejectsAgent": true,
+    "languagePreserved": true,
+    "contactPreserved": true,
+    "noInventedWorks": true,
+    "installedOnce": true
+  },
+  "runtime": {
+    "dshActive": true,
+    "scheduler209Loaded": true,
+    "exactlyOneBridge": true,
+    "oldBridgeExited": true,
+    "oneDshReload": true,
+    "privateReceiptConfirmed": true,
+    "noModuleLoadErrors": true
+  },
+  "privateOperatorReceipt": {
+    "ok": true,
+    "testSends": 1,
+    "uncertain": false,
+    "interfaceReadback": true,
+    "exactHashAndReceipt": true,
+    "noGroupSends": true,
+    "noBiliSends": true,
+    "modelCalls": 0,
+    "operatorNotice": true,
+    "relayDurableReceipt": true
+  },
+  "paidModelEvaluations": 0,
+  "qqRestarts": 0,
+  "dshReloadCycles": 1,
+  "realGroupTestSends": 0,
+  "realBiliTestSends": 0,
+  "promptMeasurement": {
+    "method": "Same fixture settings; procedural Chinese characters, excluding unchanged identity/style/tool path and tokenization",
+    "beforeChars": 3806,
+    "afterChars": 1384,
+    "reductionPercent": 64,
+    "extraModelServices": 0
+  },
+  "scope": {
+    "newCommentLedger": "comments/replies only",
+    "semanticWritesPerShanghaiDay": 2,
+    "newScheduledModelJobs": 0,
+    "ordinaryQQDailyCapsChanged": false,
+    "newRuntimeDependencies": 0
+  },
+  "limits": "Character reduction is not an exact token or cost saving estimate. Natural adoption and long-term cost remain unmeasured.",
+  "sourceChanges": [
+    {
+      "file": "integrations/surfcore/live-mirror/plugins/surfcore/lib/scheduler.js",
+      "sha256": "672581be9cb606b28ead0678c9a9940b439d99c9b2fe86babc233383c0b5cbd0"
+    },
+    {
+      "file": "integrations/surfcore/live-mirror/plugins/surfcore/tools/bili.mjs",
+      "sha256": "b909a00ce7d629350a60d712d189bcb030f1920c94f181137587e88c8cd9590a"
+    },
+    {
+      "file": "integrations/surfcore/live-mirror/plugins/surfcore/tools/commands/comment.mjs",
+      "sha256": "940c184971db5a30d1e34b3047910e5fd9eda1e00c5717c2a3f431cb78269594"
+    },
+    {
+      "file": "integrations/surfcore/live-mirror/plugins/surfcore/tools/commands/debrief.mjs",
+      "sha256": "0aa55c38dc2f8c61bcaaee2c29069fe6db32ad13f6d2cd3e5cc970aa24d8169b"
+    },
+    {
+      "file": "integrations/surfcore/live-mirror/plugins/surfcore/tools/verify/comment-exists.mjs",
+      "sha256": "17ac09325f94ba8b3affdb9c97d8d018fcfb9e386003fe51f575b00dde7a1d69"
+    },
+    {
+      "file": "integrations/surfcore/live-mirror/plugins/surfcore/tools/verify/thread.mjs",
+      "sha256": "1e9237388abae6b61f4d6e175e26881f46395e757cb3af378ea5006f1f4443d0"
+    },
+    {
+      "file": "integrations/surfcore/live-mirror/src/bridge.js",
+      "sha256": "06844d774eaf2574eaafd90bdadb937017205fad9afb38b305e8dd6ef490c802"
+    },
+    {
+      "file": "integrations/surfcore/compat/bili-operations.mjs",
+      "sha256": "c6391e3b2026f098c1ce319af650c2db315a1bf79e921f07ffba002808eb0eeb"
+    },
+    {
+      "file": "integrations/surfcore/compat/bili-verification.mjs",
+      "sha256": "33767f1496c4704f78e75bc0e4eefd3ad74d32416b59f3ca4f5b6e2eb2e662e3"
+    },
+    {
+      "file": "integrations/surfcore/compat/bili-wake-economy.mjs",
+      "sha256": "d5b32b6658aaeb24bf01a24dc8f973003702fc4640cd0cfe0e494da80866aa8b"
+    },
+    {
+      "file": "integrations/surfcore/compat/experience-cli.mjs",
+      "sha256": "a2e42f56ff0fe2261a2660df24a71686a25c0765b00f67ef792aefa3c71d3595"
+    },
+    {
+      "file": "integrations/surfcore/compat/experience-workbench.mjs",
+      "sha256": "33b092db573dcbccddd38a2edcf7af65649cd4efff3d9ef81997bf94e101e44a"
+    },
+    {
+      "file": "integrations/surfcore/compat/language-audit.mjs",
+      "sha256": "3aef73d86453d694d62fc451409105b4da3caef05f8ae78ef223daf848ec2c78"
+    },
+    {
+      "file": "integrations/surfcore/compat/language-cli.mjs",
+      "sha256": "2e5485a5f41fab5307d095f0561b0e138fc9fb11e66989998be8dfc5bffc7dfc"
+    },
+    {
+      "file": "integrations/surfcore/compat/language-learning.mjs",
+      "sha256": "d16f346417f2435289d32f951ab7e338f40230c42c9f556e61c9f960dbc3e1d9"
+    },
+    {
+      "file": "integrations/surfcore/compat/language-style.mjs",
+      "sha256": "b229b142458ba24ea6c5a88c77d7e7e7cb50384b2cd491b8b99a8a2d88324988"
+    },
+    {
+      "file": "integrations/surfcore/compat/legacy-reader.mjs",
+      "sha256": "7e230da68800851189ae864548a3af1fa7e0d94989cec51c478e2bb18011319f"
+    },
+    {
+      "file": "integrations/surfcore/compat/local-store.mjs",
+      "sha256": "902704f36ae9353c299607cb437e7bf7d223b1290146877e38990558a03ece7a"
+    },
+    {
+      "file": "integrations/surfcore/compat/runtime.mjs",
+      "sha256": "bbc8db578e8faa2a65489306e4aed9718b14b7349d47e66ae5180c53456e7054"
+    },
+    {
+      "file": "integrations/surfcore/compat/workbench-panel.mjs",
+      "sha256": "6cb99af9f5ddce7791501fb6fec148039c56d1696e9c4d27376426709c18df93"
+    }
+  ],
+  "privacyGate": {
+    "textFiles": 353,
+    "hits": 0
+  }
+}

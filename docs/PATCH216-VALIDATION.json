@@ -1,0 +1,97 @@
+{
+  "patch": 216,
+  "date": "2026-11-07",
+  "topic": "tieba language distillation and whale expression strategies",
+  "sources": {
+    "live": {
+      "access": "user browser with manual verification, public threads only",
+      "bars": 18,
+      "openedThreads": 43,
+      "candidates": 408,
+      "retained": 74,
+      "intervalMs": 2200,
+      "writes": 0,
+      "privateMessages": 0
+    },
+    "datasets": [
+      {"id": "Orphanage/Baidu_Tieba_KangYaBeiGuo", "license": "MIT", "bar": "抗压背锅"},
+      {"id": "Orphanage/Baidu_Tieba_SunXiaochuan", "license": "CC-BY-4.0", "bar": "孙笑川"}
+    ],
+    "blocked": {
+      "directTiebaHttp": 403,
+      "pageTitle": "百度安全验证",
+      "triedFrom": ["local curl", "production server curl", "isolated real Edge profile"],
+      "bypassUsed": false
+    }
+  },
+  "corpus": {
+    "candidates": 104437,
+    "retained": 13754,
+    "threads": 934,
+    "medianChars": 16,
+    "under30CharsRatio": 0.785,
+    "questionRatio": 0.098,
+    "noEndPunctRatio": 0.866,
+    "sceneCounts": {"生活分享": 5737, "游戏": 5503, "搞笑": 1631, "动漫二次元": 340, "吐槽": 291, "安慰别人": 252},
+    "dropReasons": {"duplicate": 27685, "unclassified": 25133, "thread-topic": 18034, "length": 10279, "unsafe": 5313, "meta-or-noise": 2797, "non-chinese": 859, "spam": 503, "privacy-or-promotion": 79}
+  },
+  "strategies": {
+    "name": "whale_tieba_strategies_v1",
+    "version": "v6a662787ba7ee1f2",
+    "categories": 12,
+    "evidence": {"measured": 6, "limited": 3, "personaAnchored": 3},
+    "rawCorpusInPack": false,
+    "examplesAuthored": true,
+    "autoSelectDisabled": ["private"]
+  },
+  "checks": {
+    "newTests": 11,
+    "relatedTests": 47,
+    "relatedPassed": 47,
+    "syntaxChecked": ["tieba-corpus.mjs", "language-strategies.mjs", "language-style.mjs", "language-cli.mjs"],
+    "styleBlockChars": 222,
+    "strategyLineMaxChars": 110,
+    "realGroupMessages": 0,
+    "biliMessages": 0,
+    "paidModelCalls": 0,
+    "newNpmDependencies": 0,
+    "newDaemons": 0
+  },
+  "unchanged": ["persona", "identity", "relationships", "memory", "bilibili style pack", "sending limits", "cost guards"],
+  "limits": [
+    "public datasets skew to gaming and abstract bars",
+    "cute/stubborn/familiar/private have no reliable corpus evidence and are persona-anchored",
+    "no semantic deep distillation and no training",
+    "long-term naturalness requires real-chat observation"
+  ],
+  "deployment": {
+    "status": "live",
+    "at": "2026-11-07T13:46:00+08:00",
+    "revision": 216,
+    "manifestPatch": 216,
+    "manifestFiles": 566,
+    "changedFiles": 5,
+    "diskHashesMatch": true,
+    "loadedHashesMatch": true,
+    "loadedFiles": 8,
+    "bridgeIdentity": true,
+    "bridgeProcesses": 1,
+    "bridgeReloads": 1,
+    "qqRestarts": 0,
+    "dshReloads": 0,
+    "qqOnline": true,
+    "webSocketConnected": true,
+    "dshReady": true,
+    "pendingIncoming": 0,
+    "existingUncertainUnchanged": 2,
+    "services": {"dsh": "active", "whale-relay": "active", "whale-ws": "active"},
+    "runtimeProbe": {
+      "packVersion": "v6a662787ba7ee1f2",
+      "categories": 12,
+      "styleBlockChars": {"生活分享": 221, "游戏": 223, "安慰别人": 199},
+      "strategyLinePresent": true
+    },
+    "testsAfterDeploy": 0,
+    "realSends": 0
+  }
+}

@@ -1,0 +1,29 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {relationshipBlock,configuredBiliRelationships,personAnchor,includesParticipantAccount} from '../compat/relationships.mjs';import {scopeMemoryCard} from '../compat/memory-scope.mjs';
+const data={version:1,people:[{userId:'1002',names:['柱间','静'],groups:['7001'],fact:'画猫猫虫的群友',confirmed:true,source:{kind:'owner-confirmed'}},{userId:'1003',names:['静'],groups:['7002'],fact:'另一个人',confirmed:true,source:{kind:'owner-confirmed'}},{userId:'1004',names:['猜的'],groups:['7001'],confirmed:false,source:{kind:'model'}}]};
+const opts={key:'group:7001',ownerQQ:'1001',allowedGroups:['7001','7002'],disk:{statSync:()=>({size:1000}),readFileSync:()=>JSON.stringify(data)}};
+test('confirmed nickname relationship is always present without recent messages',()=>{const text=relationshipBlock('file',opts);assert(text.includes('柱间 / 静是同一人'));assert(text.includes(personAnchor('1002')));assert(!text.includes('另一个人'));assert(!text.includes('猜的'));});
+test('name collision never merges stable identities across groups',()=>{const text=relationshipBlock('file',{...opts,key:'group:7002'});assert(text.includes(personAnchor('1003')));assert(!text.includes(personAnchor('1002')));});
+test('restarting the reader does not decay relationship facts',()=>{assert.equal(relationshipBlock('file',opts),relationshipBlock('file',{...opts,messages:[{userId:'1002',text:'新名字'}]}));});
+test('unknown group and other private account cannot retrieve relationship file',()=>{for(const key of ['group:7003','private:1002',''])assert.equal(relationshipBlock('file',{...opts,key}),'');assert(relationshipBlock('file',{...opts,key:'private:1001'}).includes(personAnchor('1002')));});
+test('missing or corrupt files do not fabricate a person',()=>{assert.equal(relationshipBlock('file',{...opts,disk:{statSync:()=>({size:1}),readFileSync:()=>'{bad'}}),'');});
+test('Bili operational plan stays saved but is not loaded as QQ experience',()=>{const card={records:[{id:'plan',tags:['finance-learning-plan-122'],scope:'bili'},{id:'public',text:'看过一段视频',scope:'bili'}]};const out=scopeMemoryCard(card,opts);assert.deepEqual(out.records.map(x=>x.id),['public']);assert.equal(card.records.length,2);});
+
+
+test('known member accounts are not output prose; names and fund codes remain valid',()=>{const cfg={ownerQQ:'87654321'};assert(includesParticipantAccount('账号87654321是谁',cfg));assert(!includesParticipantAccount('基金159696，100份',cfg));assert(!includesParticipantAccount('9876543210',cfg));const text=relationshipBlock('file',opts);assert(!text.includes('1002'));});
+test('fresh Bili sessions recall confirmed QQ relationships internally without merging same-name platform identities',()=>{
+ const disk={...opts.disk,readFileSync:p=>p==='cfg'?JSON.stringify({whaleCompat:{relationshipFile:'people'}}):JSON.stringify(data)};
+ const text=configuredBiliRelationships('cfg',{disk});
+ assert(text.includes(personAnchor('1002'))&&text.includes(personAnchor('1003')));
+ assert(text.includes('跨平台对齐表')&&text.includes('非公开素材'));
+ assert(!text.includes('1002')&&!text.includes('1003')&&!text.includes('猜的'));
+ assert.equal(relationshipBlock('file',{...opts,key:'',platform:'bili'}),'');
+ assert.equal(configuredBiliRelationships('cfg',{disk}),text);
+});
+test('more than twelve relationships prioritize the current sender, mentions and known quote author',()=>{
+ const people=Array.from({length:25},(_,i)=>({userId:String(2000+i),names:['同名'+i],groups:['7001'],fact:'确认事实'+i,confirmed:true,source:{kind:'owner-confirmed'}}));
+ const disk={...opts.disk,readFileSync:()=>JSON.stringify({version:1,people})};
+ const text=relationshipBlock('file',{...opts,disk,messages:[{messageId:'q',userId:'2022'},{messageId:'old',userId:'2001'},{messageId:'new',userId:'2024',mentions:[{userId:'2023'}],replyToMessageId:'q'}]});
+ for(const id of ['2024','2023','2022'])assert(text.includes(personAnchor(id)));
+ assert(text.indexOf(personAnchor('2024'))<text.indexOf(personAnchor('2001')));assert(text.includes('13条确认关系'));
+ const found=relationshipBlock('file',{...opts,disk,query:personAnchor('2020')});assert(found.includes('确认事实20'));assert(!found.includes('确认事实21'));
+});

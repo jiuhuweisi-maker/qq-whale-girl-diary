@@ -1,0 +1,34 @@
+[Unit]
+Description=FundPilot isolated paper trading service (NO LIVE ORDERS)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=fundpilot
+Group=fundpilot
+WorkingDirectory=/opt/fundpilot
+Environment=NODE_ENV=production
+Environment=FUNDPILOT_ROOT=/opt/fundpilot
+Environment=FUNDPILOT_DATA=/var/lib/fundpilot
+Environment=FUNDPILOT_TOKEN_FILE=/var/lib/fundpilot/service.token
+ExecStart=/usr/local/bin/node --max-old-space-size=96 /opt/fundpilot/src/server.mjs
+Restart=on-failure
+RestartSec=15
+StateDirectory=fundpilot
+StateDirectoryMode=0700
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/fundpilot
+UMask=0077
+MemoryMax=160M
+CPUQuota=20%
+TasksMax=30
+LimitNOFILE=256
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,20 @@
+simulator/.private/
+simulator/runs/
+simulator/*.local.json
+simulator/transports/
+node_modules/
+.env
+.env.*
+*.local.json
+*.sqlite
+*.sqlite-*
+**/credentials.json
+**/config.json
+**/.dsh/
+**/state/
+__pycache__/
+*.pyc
+/live-backup/
+
+# Windows: ssh UserKnownHostsFile=NUL creates a literal file
+NUL

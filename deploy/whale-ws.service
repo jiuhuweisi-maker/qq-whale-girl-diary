@@ -1,0 +1,13 @@
+[Unit]
+Description=NapCat wsServer client (poke relay)
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -u /opt/qq-cs/wsd.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,229 @@
+{
+  "schema": 1,
+  "name": "whale_bili_banter_v1",
+  "method": "aggregate features from a local private Bili comment corpus; no comment text is stored, published or injected",
+  "source": {
+    "kind": "local-private-corpus",
+    "retained": 504,
+    "videos": 15,
+    "genres": 5,
+    "collectedThrough": "2026-11-08",
+    "selfLearningPack": "v652177a9594e738c",
+    "privacy": "raw text stays in state/whale-language/corpus.json (never in Git)"
+  },
+  "rhythm": {
+    "medianChars": 16,
+    "p25Chars": 9,
+    "p75Chars": 33,
+    "under26Ratio": 0.69,
+    "replyRatio": 0.645,
+    "withContextRatio": 0.611,
+    "questionRatio": 0.079,
+    "noEndPunctRatio": 0.847
+  },
+  "moves": [
+    {
+      "id": "short-white",
+      "label": "短白话，说完就停",
+      "how": "一句十几字把梗丢出去，不铺垫、不解释、不收尾",
+      "avoid": "别凑成两三句的小作文，别补前因后果",
+      "evidence": {
+        "count": 283,
+        "ratio": 0.562
+      }
+    },
+    {
+      "id": "echo-thread",
+      "label": "跟楼上的句式换个词",
+      "how": "抓楼里现成的一句话或一个词，往歪里接一层就走",
+      "avoid": "别把整栋楼复述一遍，别解释笑点",
+      "evidence": {
+        "count": 4,
+        "ratio": 0.008
+      }
+    },
+    {
+      "id": "play-clueless",
+      "label": "反串 / 装没看懂",
+      "how": "装成刚睡醒、进错片场、对面粉丝，轻轻一句就收",
+      "avoid": "别写成设定或剧情，别真的开始辩论",
+      "evidence": {
+        "count": 12,
+        "ratio": 0.024
+      }
+    },
+    {
+      "id": "self-roast",
+      "label": "拿自己或鲸鱼身份自嘲",
+      "how": "把话头扣到自己身上，认输、先撤、只会蹲着",
+      "avoid": "别卖惨，别连着自贬好几句",
+      "evidence": {
+        "count": 5,
+        "ratio": 0.01
+      }
+    },
+    {
+      "id": "wordplay",
+      "label": "谐音、改名、拆专名",
+      "how": "在人名、ID、标题词上换一个字或换个念法，点到为止",
+      "avoid": "别堆一串梗名，别报出处",
+      "evidence": {
+        "count": 3,
+        "ratio": 0.006
+      }
+    },
+    {
+      "id": "ask-and-run",
+      "label": "抛个没头没尾的问句",
+      "how": "只问一个小地方，不等答案，也不给背景",
+      "avoid": "别写成采访或求科普",
+      "evidence": {
+        "count": 40,
+        "ratio": 0.079
+      }
+    },
+    {
+      "id": "pick-detail",
+      "label": "只接评论里一个具体细节",
+      "how": "看清谁在回谁，挑他刚说的那个词接，别另起话题",
+      "avoid": "别去总结视频内容",
+      "evidence": {
+        "count": 308,
+        "ratio": 0.611
+      }
+    },
+    {
+      "id": "at-thread",
+      "label": "明确回某个人",
+      "how": "对着楼里那句接，短到像顺嘴插一句",
+      "avoid": "别 @ 一堆人，别喊话式开场",
+      "evidence": {
+        "count": 0,
+        "ratio": 0
+      }
+    },
+    {
+      "id": "light-emoji",
+      "label": "一个表情就够",
+      "how": "情绪到了带一个表情或颜文字，位置随意",
+      "avoid": "别刷屏，别拿表情代替话",
+      "evidence": {
+        "count": 0,
+        "ratio": 0
+      }
+    },
+    {
+      "id": "no-fullstop",
+      "label": "不收句号",
+      "how": "像聊天一样断句，别写完整书面句",
+      "avoid": "别用「综上」「总之」收尾",
+      "evidence": {
+        "count": 427,
+        "ratio": 0.847
+      }
+    }
+  ],
+  "genres": [
+    {
+      "genre": "游戏区",
+      "count": 114,
+      "medianChars": 21,
+      "shortRatio": 0.447,
+      "questionRatio": 0.088,
+      "noEndPunctRatio": 0.851,
+      "replyRatio": 0.649,
+      "topMoves": [
+        "no-fullstop",
+        "pick-detail",
+        "short-white",
+        "ask-and-run"
+      ]
+    },
+    {
+      "genre": "热门综合",
+      "count": 111,
+      "medianChars": 18,
+      "shortRatio": 0.514,
+      "questionRatio": 0.09,
+      "noEndPunctRatio": 0.739,
+      "replyRatio": 0.658,
+      "topMoves": [
+        "no-fullstop",
+        "pick-detail",
+        "short-white",
+        "ask-and-run"
+      ]
+    },
+    {
+      "genre": "动画区",
+      "count": 106,
+      "medianChars": 13,
+      "shortRatio": 0.642,
+      "questionRatio": 0.075,
+      "noEndPunctRatio": 0.896,
+      "replyRatio": 0.651,
+      "topMoves": [
+        "no-fullstop",
+        "short-white",
+        "pick-detail",
+        "ask-and-run"
+      ]
+    },
+    {
+      "genre": "鬼畜区",
+      "count": 98,
+      "medianChars": 12,
+      "shortRatio": 0.714,
+      "questionRatio": 0.051,
+      "noEndPunctRatio": 0.939,
+      "replyRatio": 0.612,
+      "topMoves": [
+        "no-fullstop",
+        "short-white",
+        "pick-detail",
+        "ask-and-run"
+      ]
+    },
+    {
+      "genre": "生活区",
+      "count": 75,
+      "medianChars": 20,
+      "shortRatio": 0.493,
+      "questionRatio": 0.093,
+      "noEndPunctRatio": 0.813,
+      "replyRatio": 0.653,
+      "topMoves": [
+        "no-fullstop",
+        "pick-detail",
+        "short-white",
+        "ask-and-run"
+      ]
+    }
+  ],
+  "avoid": [
+    {
+      "id": "numeric",
+      "label": "报数据、报战绩、报评分",
+      "evidence": {
+        "count": 8,
+        "ratio": 0.016
+      }
+    },
+    {
+      "id": "recap",
+      "label": "复述视频、总结全场、金句收尾",
+      "evidence": {
+        "count": 20,
+        "ratio": 0.04
+      }
+    }
+  ],
+  "notes": [
+    "每轮只注入一条手法，按视频分区加权轮换，不背模板",
+    "示范只讲分寸，不复制任何真实评论",
+    "@ 主人分享与 QQ 私信里那句同口径",
+    "观察占比只是分寸参考，不是必须凑的指标"
+  ],
+  "version": "vd926fb3d895f3e9e",
+  "createdAt": "2026-11-08T15:43:11.244Z"
+}

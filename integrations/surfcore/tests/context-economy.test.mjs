@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {bootstrapToolContext,backgroundPromptRefresh} from '../compat/context-economy.mjs';
+test('bootstrap reuses already supplied role and carries exact tool recommendations',()=>{const cfg={wait:{defaultMs:30000},wake:{preSleepWaitMs:300000}};const before=JSON.stringify(cfg),text=bootstrapToolContext({roleProvided:true,recommended:cfg});assert(!text.includes('请先调用'));assert(text.includes(JSON.stringify(cfg)));assert.equal(JSON.stringify(cfg),before);});
+test('missing role retains explicit full-context lookup and recommendations may be disabled',()=>{assert(bootstrapToolContext().includes('请先调用 qq_get_prompt'));assert(!bootstrapToolContext({roleProvided:true}).includes('当前工具推荐配置'));});
+test('a stalled favorite refresh cannot stall the prompt caller',async()=>{let began=false,release;const blocked=new Promise(r=>release=r);const task=backgroundPromptRefresh(()=>{began=true;return blocked});let returned=true;await Promise.resolve();assert(returned&&began);release();await task;});
+test('background refresh errors are reported without becoming unhandled rejection',async()=>{let reported;const task=backgroundPromptRefresh(()=>{throw Object.assign(Error('no raw error in report'),{name:'TimeoutError'})},name=>reported=name);await assert.rejects(task);await Promise.resolve();assert.equal(reported,'TimeoutError');});

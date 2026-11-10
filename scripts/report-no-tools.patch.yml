@@ -1,0 +1,4 @@
+- insert:
+    - id: whale-report-no-tools
+      name: /opt/qq-cs/report-no-tools.mjs
+      config: {}
